@@ -1,0 +1,39 @@
+{
+  "name": "signalk-noaa-space-weather",
+  "version": "1.0.0",
+  "description": "SignalK plugin to get current *space* weather and forecast from NOAA SWPC",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "format": "prettier-standard 'src/*.ts'",
+    "init": "tsc --init",
+    "build": "tsc",
+    "buildfoo": "tsx src/index.ts",
+    "watch": "npm run build -- -w",
+    "create-release": "github-create-release --owner mark-brannan --repository signalk-noaa-space-weather",
+    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mark-brannan/signalk-noaa-space-weather.git"
+  },
+  "keywords": [
+    "signalk-node-server-plugin"
+  ],
+  "author": "mark-brannan",
+  "license": "ISC",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@signalk/github-create-release": "^1.2.1",
+    "@types/node": "^22.14.0",
+    "prettier-standard": "^16.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
