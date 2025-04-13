@@ -13,8 +13,9 @@ For more information on impact and risks, see:
 * This USGS story [5 Geomagnetic Storms That Reshaped Society](https://www.usgs.gov/news/featured-story/5-geomagnetic-storms-reshaped-society)
 * The [Carrington Event](https://en.wikipedia.org/wiki/Carrington_Event) on wikipedia
 
-In addition, if you're crusing near the northern (or southern) polar regions then you might just want to get a good view of the Aurora
+It is worth noting that *"[Solar cycles](https://en.wikipedia.org/wiki/Solar_cycle) have an average duration of about 11 years"*, and that periods of increased solar activity (and impact) are fortunately somewhat *predictable*.
 
+In addition, if you're crusing near the northern (or southern) polar regions then you might just want to get a good view of the [Aurora](https://www.spaceweather.gov/communities/aurora-dashboard-experimental)!
 ## What info does the plugin surface?
 
 The plugin currently just surfaces the weekly "outlook advisory" to signalk as a notification; also available at https://www.spaceweather.gov/products/space-weather-advisory-outlook
