@@ -22,7 +22,8 @@
     "url": "git+https://github.com/mark-brannan/signalk-noaa-space-weather.git"
   },
   "keywords": [
-    "signalk-node-server-plugin"
+    "signalk-node-server-plugin",
+    "signalk-category-weather"
   ],
   "author": "mark-brannan",
   "license": "ISC",
