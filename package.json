@@ -1,6 +1,6 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "SignalK plugin to get current *space* weather and forecast from NOAA SWPC",
   "type": "module",
   "exports": {
