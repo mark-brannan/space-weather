@@ -22,7 +22,7 @@ In addition, if you're crusing near the northern (or southern) polar regions the
 
 The plugin currently surfaces:
 
-* The weekly "outlook advisory" to signalk as a notification; also available at <https://www.spaceweather.gov/products/space-weather-advisory-outlook>
+* The weekly ["outlook advisory"](https://www.spaceweather.gov/products/space-weather-advisory-outlook) as a signalk notification
 * The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications with a configurable threshold (default 3, "strong")
 
