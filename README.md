@@ -25,6 +25,7 @@ The plugin currently surfaces:
 * The weekly ["outlook advisory"](https://www.spaceweather.gov/products/space-weather-advisory-outlook) as a signalk notification
 * The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications with a configurable threshold (default 3, "strong")
+* The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -33,8 +34,7 @@ NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar rad
 The intent of this project is to eventally also surface:
 
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) (directly underlies the G scales),
-* The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
-* possibly, dashboard images, maps, and data in the form of a signalk webapp or resources
+* Dashboard images, maps, and data in the form of a signalk webapp or resources
 
 ## References
 

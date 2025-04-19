@@ -1,6 +1,6 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Fetch *space* weather and alerts/advisory from NOAA Space Weather Prediction Service (SWPC)",
   "type": "module",
   "exports": {
