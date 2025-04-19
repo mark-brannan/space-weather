@@ -1,0 +1,22 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2025 Apr 14 0145 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #25-13
+2025 April 13 at 7:43 p.m. MDT (2025 April 14 0143 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For April 7-13
+
+G1 Minor storm levels were observed on 08-09, and 12 April. R1 (Minor) radio blackouts were observed on 08, 11-13 April. 
+
+Outlook For April 14-20
+
+G2 Moderate storm levels are expected on 16 April. G1 Minor storm levels are expected on 17 April. R1 Minor radio blackouts are expected on 14-15 April.
+
