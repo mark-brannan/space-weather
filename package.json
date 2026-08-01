@@ -1,21 +1,31 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Fetch *space* weather and alerts/advisory from NOAA Space Weather Prediction Service (SWPC)",
   "type": "module",
+  "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js",
     "./package.json": "./package.json"
   },
+  "files": [
+    "dist",
+    "docs",
+    "icon.svg",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "format": "prettier-standard 'src/*.ts'",
-    "init": "tsc --init",
+    "format": "prettier-standard 'src/*.ts' 'test/*.ts'",
     "build": "tsc",
-    "buildfoo": "tsx src/index.ts",
     "watch": "npm run build -- -w",
+    "test": "vitest run",
     "create-release": "github-create-release --owner mark-brannan --repository signalk-noaa-space-weather",
-    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
   },
   "repository": {
     "type": "git",
@@ -25,16 +35,22 @@
     "signalk-node-server-plugin",
     "signalk-category-weather"
   ],
+  "signalk": {
+    "displayName": "NOAA Space Weather",
+    "appIcon": "./icon.svg",
+    "screenshots": [
+      "./docs/screenshots/plugin-configuration.png",
+      "./docs/screenshots/data-browser.png",
+      "./docs/screenshots/notifications.png"
+    ]
+  },
   "author": "mark-brannan",
   "license": "ISC",
-  "dependencies": {
-    "node-fetch": "^3.3.2"
-  },
   "devDependencies": {
     "@signalk/github-create-release": "^1.2.1",
     "@types/node": "^22.14.0",
     "prettier-standard": "^16.4.1",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }
