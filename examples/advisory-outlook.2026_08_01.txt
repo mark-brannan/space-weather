@@ -1,0 +1,27 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2026 Jul 27 0100 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #26-29
+2026 July 26 at 6:58 p.m. MDT (2026 July 27 0058 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For July 20-26
+
+R1 (Minor) solar x-ray events were observed on 20-22 and 26 Jul.
+G1 (Minor) solar geomagnetic events were observed on 23 Jul.
+
+No other significant solar events were observed.
+
+Outlook For July 27-August 2
+
+A chance for R1 (Minor) and a slight chance for R2-R3 (Moderate-Strong) solar x-ray events are likely on 27 Jul - 02 Aug.
+
+No other significant solar events are expected.
+
