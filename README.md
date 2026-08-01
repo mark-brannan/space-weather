@@ -26,15 +26,34 @@ The plugin currently surfaces:
 * The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications with a configurable threshold (default 3, "strong")
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
+* The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, plus a forecast summary under `environment.noaa.swpc.kp.forecast`: the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval (Kp 5 / G1 or above) begins
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
+### Why the Kp forecast is the useful one
+
+The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA's `noaa-scales.json` gives one G value per forecast *day*; the planetary K-index forecast gives a value every three hours out to three days. It is the feed that tells you **when**, which is the part you can actually plan a passage around.
+
+### Alarm zones
+
+Every scale and Kp path carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
+
+Zones also cause the server to raise notifications on your behalf, so the default mapping is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle are roughly:
+
+| Level | Days per cycle | Share of all days |
+| ----- | -------------- | ----------------- |
+| 1 (Minor)    | 900–950 | ~23% |
+| 2 (Moderate) | 300–360 | ~8%  |
+| 3 (Strong)   | 130–140 | ~3%  |
+| 4 (Severe)   | 8–60    | ~1%  |
+| 5 (Extreme)  | ~4      | ~0.1% |
+
+Alerting on a level 1 would mean an interruption every four or five days, forever. So by default levels 1–2 are `normal`, level 3 is `alert` **with no visual or sound method** (it shows in the UI but does not interrupt), level 4 is `warn` (visual), and level 5 is `alarm` (visual and sound). Set `zoneAlertThreshold` to move that pivot.
+
 ### Planned
 
-The intent of this project is to eventally also surface:
-
-* The [Kp index](https://en.wikipedia.org/wiki/K-index) (directly underlies the G scales),
 * Dashboard images, maps, and data in the form of a signalk webapp or resources
+* Aurora visibility at the vessel's own position, from NOAA's OVATION model
 
 ## References
 
@@ -66,3 +85,40 @@ Note that the outlook advisory is not available as json, so the plugin is doing 
 ### Other resources
 
 * <http://www.spaceweather.org/ISES/code/fmt/exam.html>
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Plugin configuration](docs/screenshots/plugin-configuration.png) | ![Data browser](docs/screenshots/data-browser.png) |
+| Plugin configuration | The published paths in the data browser |
+
+![Notifications](docs/screenshots/notifications.png)
+
+## Development
+
+```shell
+npm install
+npm run build
+npm test
+```
+
+The tests run entirely against the captured NOAA payloads in `examples/` and
+make no network requests, so they work offline and in a sandbox. If you add a
+parser, add a captured payload alongside it rather than reaching for the live
+service — NOAA has changed the shape of these products more than once, and the
+committed captures are what makes that visible.
+
+To try a change against a real server, install Signal K somewhere separate,
+point it at its own config directory, and symlink this checkout into it:
+
+```shell
+mkdir -p ~/signalk-dev/server ~/signalk-dev/config/node_modules
+cd ~/signalk-dev/server && npm install signalk-server
+ln -s /path/to/signalk-noaa-space-weather ~/signalk-dev/config/node_modules/signalk-noaa-space-weather
+SIGNALK_NODE_CONFIG_DIR=~/signalk-dev/config ./node_modules/.bin/signalk-server
+```
+
+The server loads the plugin from `dist/`, so run `npm run build` (or
+`npm run watch`) and restart the server to pick up a change. Using a separate
+config directory keeps the experiment away from a real boat's configuration.
