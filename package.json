@@ -20,12 +20,12 @@
     "node": ">=18"
   },
   "scripts": {
-    "format": "prettier-standard 'src/*.ts' 'test/*.ts'",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "build": "tsc",
     "watch": "npm run build -- -w",
     "test": "vitest run",
-    "create-release": "github-create-release --owner mark-brannan --repository signalk-noaa-space-weather",
-    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prepublishOnly": "npm run build && npm test"
   },
   "repository": {
     "type": "git",
@@ -47,9 +47,8 @@
   "author": "mark-brannan",
   "license": "ISC",
   "devDependencies": {
-    "@signalk/github-create-release": "^1.2.1",
     "@types/node": "^22.14.0",
-    "prettier-standard": "^16.4.1",
+    "prettier": "^3.4.2",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

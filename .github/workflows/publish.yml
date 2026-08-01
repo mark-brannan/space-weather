@@ -1,0 +1,50 @@
+name: Publish
+
+# Publishes to npm using OIDC trusted publishing: npm verifies this workflow's
+# short-lived, workflow-scoped identity, so there is no npm token to store,
+# rotate, or leak. Provenance attestations are generated automatically.
+#
+# Prerequisite, done once on npmjs.com: package settings -> Trusted publishers
+# -> GitHub Actions, with repository mark-brannan/signalk-noaa-space-weather
+# and workflow file `publish.yml`. Until that exists this workflow will fail
+# authentication, which is the correct failure mode.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required: this is what mints the OIDC token
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing requires npm >= 11.5.1, newer than what ships with
+      # Node 22.
+      - run: npm install -g npm@latest
+
+      - name: Refuse to publish a tag that disagrees with package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "tag v$TAG does not match package.json version $PKG" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+      # No NODE_AUTH_TOKEN. Authentication is the OIDC identity above.
+      - run: npm publish
