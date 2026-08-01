@@ -82,7 +82,8 @@ exist specifically to pin this.
 
 ## Conventions
 
-No semicolons, two-space indent, single quotes (`prettier-standard`). Comments
+No semicolons, two-space indent, single quotes — run `npm run format`
+(prettier, configured in `.prettierrc`); `npm run format:check` verifies. Comments
 explain *why*, not what. Tests assert behaviour — values, states, paths, unit
 conversions, boundaries — never display strings.
 
