@@ -1,0 +1,143 @@
+import { describe, expect, it, vi } from 'vitest'
+import { settingsFrom } from '../src/config'
+import { kp } from '../src/products/kp'
+import { scales } from '../src/products/scales'
+import { solarWind } from '../src/products/solarWind'
+import { fixture, fixtureJson } from './fixtures'
+
+/**
+ * The point of the products/ split: a product can be exercised with a fake
+ * client and a fake publisher, with no server, no timers and no network. Each
+ * of these drives the real refresh path over a captured payload and asserts on
+ * what would reach Signal K.
+ */
+function harness(responses: Record<string, any>) {
+  const published: { values: any[]; timestamp: string }[] = []
+  const metas: any[] = []
+  const errors: string[] = []
+
+  const publisher = {
+    meta: (m: any[]) => metas.push(...m),
+    values: (values: any[], timestamp: string) =>
+      published.push({ values, timestamp }),
+    value(path: string, value: any, timestamp: string) {
+      this.values([{ path, value }], timestamp)
+    },
+    selfPath: () => undefined,
+    status: () => {},
+    fail: () => {},
+    error: (m: string, ...a: any[]) => errors.push(`${m} ${a.join(' ')}`),
+    debug: () => {}
+  }
+
+  const client = {
+    json: async (subPath: string) => {
+      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
+      return responses[subPath]
+    },
+    text: async (subPath: string) => {
+      if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
+      return responses[subPath]
+    }
+  }
+
+  const flat = () => published.flatMap((p) => p.values)
+  return {
+    publisher,
+    client,
+    metas,
+    errors,
+    published,
+    ctx: {
+      client,
+      publisher,
+      settings: settingsFrom({}),
+      stopped: () => false
+    },
+    valueAt: (path: string) => flat().find((v) => v.path === path)?.value,
+    paths: () => flat().map((v) => v.path)
+  }
+}
+
+describe('scales product', () => {
+  it('publishes observed levels and forecast probabilities from a captured payload', async () => {
+    const h = harness({
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json')
+    })
+    await scales.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.scales.observations.latest.G')).toBe(0)
+    expect(
+      h.valueAt('environment.noaa.swpc.scales.forecast.1day.S.probability')
+    ).toBeCloseTo(0.75, 10)
+    expect(h.paths()).toContain(
+      'environment.noaa.swpc.scales.forecast.3day.R.majorProbability'
+    )
+  })
+
+  it('describes both observation ranges separately', () => {
+    const paths = scales.metadata!(settingsFrom({})).map((m) => m.path)
+    expect(paths).toContain(
+      'environment.noaa.swpc.scales.observations.latest.G'
+    )
+    expect(paths).toContain(
+      'environment.noaa.swpc.scales.observations.24_hours_maximums.G'
+    )
+    expect(paths.length).toBe(new Set(paths).size)
+  })
+
+  it('reports a missing range instead of throwing', async () => {
+    const h = harness({ '/products/noaa-scales.json': {} })
+    await scales.refresh(h.ctx as any)
+    expect(h.errors.length).toBeGreaterThan(0)
+  })
+})
+
+describe('kp product', () => {
+  it('publishes the forecast summary', async () => {
+    const h = harness({
+      '/products/noaa-planetary-k-index-forecast.json': fixtureJson(
+        'noaa-planetary-k-index-forecast.2026_08_01.json'
+      )
+    })
+    await kp.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.paths()).toEqual(
+      expect.arrayContaining([
+        'environment.noaa.swpc.kp.observed',
+        'environment.noaa.swpc.kp.forecast.max24h',
+        'environment.noaa.swpc.kp.forecast.nextStormTime'
+      ])
+    )
+  })
+})
+
+describe('solar wind product', () => {
+  it('publishes SI values from the current NOAA payload shape', async () => {
+    const h = harness({
+      '/products/summary/solar-wind-speed.json': fixtureJson(
+        'solar-wind-speed.2026_08_01.json'
+      ),
+      '/products/summary/solar-wind-mag-field.json': fixtureJson(
+        'solar-wind-mag-field.2026_08_01.json'
+      )
+    })
+    await solarWind.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.solar_wind.speed')).toBe(287000)
+    expect(h.valueAt('environment.noaa.swpc.solar_wind.Bt')).toBeCloseTo(4e-9, 20)
+  })
+
+  it('publishes nothing at all rather than NaN when the payload is unusable', async () => {
+    const h = harness({
+      '/products/summary/solar-wind-speed.json': [],
+      '/products/summary/solar-wind-mag-field.json': []
+    })
+    await solarWind.refresh(h.ctx as any)
+    expect(h.published).toEqual([])
+    expect(h.errors.length).toBe(1)
+  })
+})
