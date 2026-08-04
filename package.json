@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "public",
     "docs",
     "icon.svg",
     "README.md",
@@ -33,12 +34,14 @@
   },
   "keywords": [
     "signalk-node-server-plugin",
-    "signalk-category-weather"
+    "signalk-category-weather",
+    "signalk-webapp"
   ],
   "signalk": {
     "displayName": "NOAA Space Weather",
     "appIcon": "./icon.svg",
     "screenshots": [
+      "./docs/screenshots/webapp.png",
       "./docs/screenshots/plugin-configuration.png",
       "./docs/screenshots/data-browser.png",
       "./docs/screenshots/notifications.png"
