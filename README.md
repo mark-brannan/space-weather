@@ -53,7 +53,8 @@ Alerting on a level 1 would mean an interruption every four or five days, foreve
 
 ### Planned
 
-* Dashboard images, maps, and data in the form of a signalk webapp or resources
+* Aurora and storm activity overlaid on a chart or map, either in the webapp above or as a Signal K resource other webapps can draw on
+* Links out to NOAA's own explainers for the scales, measurements, and dashboards, directly from the webapp
 
 ## References
 
@@ -85,6 +86,12 @@ Note that the outlook advisory is not available as json, so the plugin is doing 
 ### Other resources
 
 * <http://www.spaceweather.org/ISES/code/fmt/exam.html>
+
+## Webapp
+
+The plugin ships a companion webapp — no configuration needed, it reads whatever the plugin has already published. Open it from the Signal K admin **Webapps** menu, or at `/signalk-noaa-space-weather/` on your server.
+
+![The companion webapp](docs/screenshots/webapp.png)
 
 ## Screenshots
 
