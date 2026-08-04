@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  auroraProbabilityAt,
   parseAdvisoryOutlook,
   parseAlert,
+  parseAuroraPayload,
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
@@ -11,6 +13,7 @@ import {
 } from '../src/parse'
 import {
   ADVISORY_FIXTURES,
+  AURORA_FIXTURES,
   ALERT_FIXTURES,
   KP_FORECAST_FIXTURES,
   SCALES_FIXTURES,
@@ -74,6 +77,12 @@ describe('parsing is entirely offline', () => {
       fixtureJson('solar-wind-speed.2026_08_01.json'),
       fixtureJson('solar-wind-mag-field.2026_08_01.json')
     )
+
+    for (const name of AURORA_FIXTURES) {
+      const forecast = parseAuroraPayload(fixtureJson(name))
+      expect(forecast).not.toBeNull()
+      expect(auroraProbabilityAt(forecast, 65, -147)).not.toBeNull()
+    }
     zonesForScale('G')
     zonesForKp()
 

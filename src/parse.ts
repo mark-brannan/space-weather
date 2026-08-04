@@ -548,3 +548,132 @@ function firstString(record: any, keys: string[]): string | null {
   }
   return null
 }
+
+// ---------------------------------------------------------------------------
+// Aurora (NOAA OVATION model)
+// https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
+// ---------------------------------------------------------------------------
+
+/** Longitudes 0..359 and latitudes -90..90 inclusive: a 360 x 181 grid. */
+const AURORA_LAT_STEPS = 181
+const AURORA_LON_STEPS = 360
+
+export interface AuroraForecast {
+  observationTime: string | null
+  forecastTime: string | null
+  coordinates: number[][]
+}
+
+export function parseAuroraPayload(json: any): AuroraForecast | null {
+  if (!json || !Array.isArray(json.coordinates) || json.coordinates.length === 0) {
+    return null
+  }
+  return {
+    observationTime: asIsoString(json['Observation Time']),
+    forecastTime: asIsoString(json['Forecast Time']),
+    coordinates: json.coordinates
+  }
+}
+
+function asIsoString(raw: any): string | null {
+  if (typeof raw !== 'string' || raw === '') return null
+  const parsed = new Date(raw)
+  return isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+/**
+ * Read one grid cell.
+ *
+ * NOAA documents the array as longitude-major with latitude ascending from
+ * -90, which makes the offset computable and the lookup O(1) over 65,160
+ * entries. The layout is verified per read rather than trusted: if the entry
+ * at the computed offset is not the cell we asked for, fall back to a scan.
+ * NOAA has changed payload shapes on this plugin twice, and a silently wrong
+ * index would be far worse than a slow one.
+ */
+function auroraCell(
+  coordinates: number[][],
+  lon: number,
+  lat: number
+): number | null {
+  const index = lon * AURORA_LAT_STEPS + (lat + 90)
+  const entry = coordinates[index]
+  if (Array.isArray(entry) && entry[0] === lon && entry[1] === lat) {
+    return Number.isFinite(entry[2]) ? entry[2] : null
+  }
+  for (const candidate of coordinates) {
+    if (
+      Array.isArray(candidate) &&
+      candidate[0] === lon &&
+      candidate[1] === lat
+    ) {
+      return Number.isFinite(candidate[2]) ? candidate[2] : null
+    }
+  }
+  return null
+}
+
+/**
+ * Aurora probability at a position, as a 0-1 ratio.
+ *
+ * Bilinear interpolation across the four surrounding cells rather than
+ * nearest-neighbour: the grid is a coarse 1 degree — about 60 nautical miles
+ * of latitude — and the auroral oval's edge is exactly where a boat cares
+ * about the answer. Nearest-neighbour would make the value jump by whole
+ * percent steps as the vessel moves, which reads as instrument noise.
+ *
+ * Longitude wraps at the 0/360 seam; latitude clamps at the poles.
+ * Returns null rather than NaN for any input it cannot resolve.
+ */
+export function auroraProbabilityAt(
+  forecast: AuroraForecast | null,
+  latitude: number,
+  longitude: number
+): number | null {
+  if (!forecast || !Array.isArray(forecast.coordinates)) return null
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+  const lat = Math.min(90, Math.max(-90, latitude))
+  // Signal K longitude is -180..180; the grid is 0..359.
+  const lon = ((longitude % AURORA_LON_STEPS) + AURORA_LON_STEPS) % AURORA_LON_STEPS
+
+  const lat0 = Math.floor(lat)
+  const lat1 = Math.min(lat0 + 1, 90)
+  const lon0 = Math.floor(lon) % AURORA_LON_STEPS
+  const lon1 = (lon0 + 1) % AURORA_LON_STEPS
+  const fy = lat - lat0
+  const fx = lon - Math.floor(lon)
+
+  const corners = [
+    auroraCell(forecast.coordinates, lon0, lat0),
+    auroraCell(forecast.coordinates, lon1, lat0),
+    auroraCell(forecast.coordinates, lon0, lat1),
+    auroraCell(forecast.coordinates, lon1, lat1)
+  ]
+  if (corners.some((value) => value === null)) return null
+  const [v00, v10, v01, v11] = corners as number[]
+
+  const lower = v00 + (v10 - v00) * fx
+  const upper = v01 + (v11 - v01) * fx
+  const percent = lower + (upper - lower) * fy
+
+  return Math.min(100, Math.max(0, percent)) / 100
+}
+
+/**
+ * Zones for aurora probability (a 0-1 ratio).
+ *
+ * Aurora is an opportunity, not a hazard, so no band is allowed to reach
+ * `alarm` and the product never attaches a sound method. The top band is
+ * `warn` purely so a dashboard can make it stand out.
+ */
+export function zonesForAurora(): Zone[] {
+  return [
+    { lower: 0, upper: 0.1, state: NotificationStates.NOMINAL, message: 'Aurora unlikely' },
+    { lower: 0.1, upper: 0.3, state: NotificationStates.NORMAL, message: 'Aurora possible' },
+    { lower: 0.3, upper: 0.5, state: NotificationStates.ALERT, message: 'Aurora likely' },
+    // No `upper`: probability tops out at 1, and the server's matcher is
+    // exclusive on upper, so the top band must be open-ended.
+    { lower: 0.5, state: NotificationStates.WARN, message: 'Aurora very likely' }
+  ]
+}
