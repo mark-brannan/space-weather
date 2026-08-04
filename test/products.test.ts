@@ -108,9 +108,19 @@ describe('kp product', () => {
       expect.arrayContaining([
         'environment.noaa.swpc.kp.observed',
         'environment.noaa.swpc.kp.forecast.max24h',
-        'environment.noaa.swpc.kp.forecast.nextStormTime'
+        'environment.noaa.swpc.kp.forecast.nextStormTime',
+        'environment.noaa.swpc.kp.forecast.series'
       ])
     )
+
+    const series = h.valueAt('environment.noaa.swpc.kp.forecast.series')
+    expect(Array.isArray(series)).toBe(true)
+    expect(series.length).toBeGreaterThan(0)
+    for (const point of series) {
+      expect(typeof point.time).toBe('string')
+      expect(Number.isFinite(point.kp)).toBe(true)
+      expect(typeof point.forecast).toBe('boolean')
+    }
   })
 })
 

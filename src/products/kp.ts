@@ -99,6 +99,17 @@ export const kp: Product = {
           displayName: 'Next forecast storm Kp',
           description: 'Planetary K-index at the next forecast storm onset'
         }
+      },
+      {
+        path: `${KP_BASE}.forecast.series`,
+        value: {
+          displayName: 'Kp timeline',
+          description:
+            '3-hourly planetary K-index from 24 hours in the past to 72 hours' +
+            ' ahead, as an array of {time, kp, forecast}. Not a scalar path --' +
+            ' intended for drawing a timeline rather than a gauge.',
+          timeout: 60 * 60 * 6
+        }
       }
     ]
   },
@@ -131,7 +142,8 @@ export const kp: Product = {
         { path: `${KP_BASE}.forecast.max72h`, value: summary.max72h },
         { path: `${KP_BASE}.forecast.maxNoaaScale`, value: summary.maxNoaaScale },
         { path: `${KP_BASE}.forecast.nextStormTime`, value: summary.nextStormTime },
-        { path: `${KP_BASE}.forecast.nextStormKp`, value: summary.nextStormKp }
+        { path: `${KP_BASE}.forecast.nextStormKp`, value: summary.nextStormKp },
+        { path: `${KP_BASE}.forecast.series`, value: summary.series }
       ],
       summary.observedTime ?? new Date().toISOString()
     )

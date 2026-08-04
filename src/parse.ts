@@ -356,6 +356,13 @@ export function percentToRatio(raw: any): number | null {
   return isNaN(parsed) ? null : parsed / 100
 }
 
+export interface KpSeriesPoint {
+  time: string
+  kp: number
+  /** True once `time` is after the `now` the summary was computed against. */
+  forecast: boolean
+}
+
 export interface KpSummary {
   observed: number | null
   observedTime: string | null
@@ -364,6 +371,14 @@ export interface KpSummary {
   maxNoaaScale: number | null
   nextStormTime: string | null
   nextStormKp: number | null
+  /**
+   * The 3-hourly points from 24h in the past to 72h ahead, for drawing a
+   * timeline. The full feed already has to be parsed to compute the summary
+   * above -- this is that same data, not a second fetch -- bounded to the
+   * window the summary fields already describe rather than sending the whole
+   * ~7-day feed.
+   */
+  series: KpSeriesPoint[]
 }
 
 /**
@@ -385,7 +400,8 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
     max72h: null,
     maxNoaaScale: null,
     nextStormTime: null,
-    nextStormKp: null
+    nextStormKp: null,
+    series: []
   }
   const rows = kpRows(json)
 
@@ -406,6 +422,16 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
   const max72h = maxKp(within(72))
   const nextStorm = future.find((row) => row.kp >= KP_FOR_G1) ?? null
 
+  const seriesStart = nowMs - 24 * 3600 * 1000
+  const seriesEnd = nowMs + 72 * 3600 * 1000
+  const series: KpSeriesPoint[] = rows
+    .filter((row) => row.at.getTime() >= seriesStart && row.at.getTime() <= seriesEnd)
+    .map((row) => ({
+      time: row.at.toISOString(),
+      kp: row.kp,
+      forecast: row.at.getTime() > nowMs
+    }))
+
   return {
     observed: latest ? latest.kp : null,
     observedTime: latest ? latest.at.toISOString() : null,
@@ -413,7 +439,8 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
     max72h,
     maxNoaaScale: max72h === null ? null : gScaleForKp(max72h),
     nextStormTime: nextStorm ? nextStorm.at.toISOString() : null,
-    nextStormKp: nextStorm ? nextStorm.kp : null
+    nextStormKp: nextStorm ? nextStorm.kp : null,
+    series
   }
 }
 
