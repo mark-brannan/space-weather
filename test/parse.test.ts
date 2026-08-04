@@ -317,6 +317,45 @@ describe('parseKpForecast', () => {
     expect(summary.nextStormKp).toBeCloseTo(5.67, 5)
   })
 
+  it('bounds the series to 24h in the past through 72h ahead', () => {
+    const summary = parseKpForecast(
+      fixtureJson(fixtureName),
+      new Date('2026-08-01T07:00:00Z')
+    )
+    expect(summary.series.length).toBe(30)
+    // First point is the oldest still within the 24h lookback, not the
+    // fixture's full ~7-day history.
+    expect(summary.series[0]).toEqual({
+      time: '2026-07-31T09:00:00.000Z',
+      kp: 1.67,
+      forecast: false
+    })
+    expect(summary.series[summary.series.length - 1].forecast).toBe(true)
+    expect(summary.series.filter((p) => p.forecast).length).toBe(22)
+    expect(summary.series.filter((p) => !p.forecast).length).toBe(8)
+  })
+
+  it('sorts the series and never produces NaN', () => {
+    for (const name of KP_FORECAST_FIXTURES) {
+      const summary = parseKpForecast(fixtureJson(name))
+      for (let i = 0; i < summary.series.length; i++) {
+        expect(Number.isFinite(summary.series[i].kp), name).toBe(true)
+        if (i > 0) {
+          expect(
+            new Date(summary.series[i].time).getTime(),
+            name
+          ).toBeGreaterThanOrEqual(new Date(summary.series[i - 1].time).getTime())
+        }
+      }
+    }
+  })
+
+  it('returns an empty series rather than throwing on malformed input', () => {
+    for (const input of [null, undefined, {}, 'nope', []]) {
+      expect(parseKpForecast(input as any).series).toEqual([])
+    }
+  })
+
   it('narrows the windows as the reference moment moves earlier', () => {
     const summary = parseKpForecast(
       fixtureJson(fixtureName),

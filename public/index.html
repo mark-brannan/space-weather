@@ -170,6 +170,15 @@
   .kp-bar .lbl { font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
   .kp-threshold { border-top: 1px dashed var(--sev-4); position: relative; margin: 2px 0 10px; opacity: 0.6; }
   .kp-threshold span { position: absolute; right: 0; top: -8px; font-size: 0.6rem; color: var(--sev-4); background: var(--panel); padding-left: 6px; }
+  #kpChart { display: block; width: 100%; height: 132px; }
+  .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
+  .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
+  .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
+  .kp-summary b { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 400; }
+
+  .learn-more { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.72rem; }
+  .learn-more a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dotted var(--grid); }
+  .learn-more a:hover { color: var(--amber); border-bottom-color: var(--amber); }
 
   .footstrip {
     margin-top: 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px;
@@ -255,11 +264,21 @@
 
     <div class="tile span-12">
       <span class="label">Planetary K-Index</span>
-      <h2>Observed &amp; Forecast Peaks</h2>
+      <h2>24h Observed &middot; 72h Forecast</h2>
       <div id="kpBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
+  </div>
+
+  <div class="learn-more">
+    <span class="label" style="margin-right:2px">Learn more</span>
+    <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
+    <a href="https://www.swpc.noaa.gov/products/planetary-k-index" target="_blank" rel="noopener">Planetary K-index</a>
+    <a href="https://www.spaceweather.gov/communities/aurora-dashboard-experimental" target="_blank" rel="noopener">Aurora dashboard</a>
+    <a href="https://www.spaceweather.gov/communities/radio-communications" target="_blank" rel="noopener">Radio &amp; HF impacts</a>
+    <a href="https://www.spaceweather.gov/communities/global-positioning-system-gps-community-dashboard" target="_blank" rel="noopener">GPS/GNSS impacts</a>
+    <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
   </div>
 
   <div class="footstrip">
@@ -449,36 +468,151 @@
       <div class="readout-row"><span class="n">IMF orientation (Bz)</span><span class="v" style="color:${bzColor}">${bz !== null ? (bz * 1e9).toFixed(1) : '–'}<span class="u">nT</span></span></div>`;
   }
 
+  function drawKpTimeline(canvas, series) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || 900, cssH = 132;
+    canvas.width = cssW * dpr; canvas.height = cssH * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const styles = getComputedStyle(document.documentElement);
+    const gridColor = styles.getPropertyValue('--grid').trim();
+    const dimColor = styles.getPropertyValue('--text-dim').trim();
+    const amber = styles.getPropertyValue('--amber').trim();
+    const sev5 = styles.getPropertyValue('--sev-5').trim();
+    const sev4 = styles.getPropertyValue('--sev-4').trim();
+
+    const padL = 26, padR = 10, padT = 10, padB = 8;
+    const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
+    const maxKp = 9;
+    const n = series.length;
+    const x = (i) => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
+    const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
+    const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
+    const nowI = nowIndex < 0 ? n - 1 : nowIndex;
+
+    [0, 3, 5, 7, 9].forEach((v) => {
+      ctx.beginPath();
+      ctx.moveTo(padL, y(v));
+      ctx.lineTo(cssW - padR, y(v));
+      ctx.strokeStyle = v === 5 ? sev4 : gridColor;
+      ctx.globalAlpha = v === 5 ? 0.55 : 0.5;
+      ctx.lineWidth = v === 5 ? 1.25 : 1;
+      ctx.setLineDash(v === 5 ? [4, 3] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = dimColor;
+      ctx.font = "10px 'Space Mono', monospace";
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(v), 4, y(v));
+    });
+
+    if (n === 0) return;
+
+    if (nowI < n - 1) {
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      grad.addColorStop(0, amber + '55');
+      grad.addColorStop(1, amber + '00');
+      ctx.beginPath();
+      ctx.moveTo(x(nowI), y(0));
+      for (let i = nowI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
+      ctx.lineTo(x(n - 1), y(0));
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    for (let i = 0; i <= nowI; i++) {
+      const px = x(i), py = y(series[i].kp);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = dimColor;
+    ctx.lineWidth = 1.75;
+    ctx.stroke();
+
+    if (nowI < n - 1) {
+      ctx.beginPath();
+      for (let i = nowI; i < n; i++) {
+        const px = x(i), py = y(series[i].kp);
+        i === nowI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = amber;
+      ctx.lineWidth = 2.25;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x(nowI), padT);
+    ctx.lineTo(x(nowI), padT + plotH);
+    ctx.strokeStyle = dimColor;
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    let peakI = 0;
+    for (let i = 1; i < n; i++) if (series[i].kp > series[peakI].kp) peakI = i;
+    ctx.beginPath();
+    ctx.arc(x(peakI), y(series[peakI].kp), 4, 0, Math.PI * 2);
+    ctx.fillStyle = series[peakI].kp >= 5 ? sev5 : amber;
+    ctx.fill();
+  }
+
   function renderKp(kp) {
     const body = document.getElementById('kpBody');
     const observed = leafValue(kp?.observed);
     const max24h = leafValue(kp?.['forecast.max24h']);
     const max72h = leafValue(kp?.['forecast.max72h']);
+    const series = leafValue(kp?.['forecast.series']);
     if (observed === null && max24h === null && max72h === null) {
       body.innerHTML = '<div class="empty-state">No Kp forecast yet.</div>';
       return;
     }
-    const bars = [
-      ['Observed', observed],
-      ['24h Peak', max24h],
-      ['72h Peak', max72h]
-    ];
-    const maxKp = 9;
-    body.innerHTML = `
-      <div class="kp-threshold"><span>Kp 5 · storm threshold</span></div>
-      <div class="kp-bars">
-        ${bars.map(([label, v]) => {
-          const h = v === null ? 2 : Math.max(4, (v / maxKp) * 88);
-          const color = v === null ? 'var(--grid)' : v >= 5 ? 'var(--sev-4)' : 'var(--amber)';
-          return `<div class="kp-bar">
-            <span class="n">${v === null ? '–' : v.toFixed(1)}</span>
-            <div class="stem" style="height:${h}px;background:${color}"></div>
-            <span class="lbl">${label}</span>
-          </div>`;
-        }).join('')}
-      </div>`;
+    if (Array.isArray(series) && series.length > 0) {
+      body.innerHTML = `
+        <div class="timeline-wrap"><canvas id="kpChart"></canvas></div>
+        <div class="timeline-legend">
+          <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
+          <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
+          <span><span class="sw" style="background:var(--sev-4)"></span>Storm threshold (Kp 5)</span>
+        </div>
+        <div class="kp-summary">
+          <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
+          <span>24h peak <b>${max24h !== null ? max24h.toFixed(1) : '–'}</b></span>
+          <span>72h peak <b>${max72h !== null ? max72h.toFixed(1) : '–'}</b></span>
+        </div>`;
+      const canvas = document.getElementById('kpChart');
+      drawKpTimeline(canvas, series);
+      canvas._series = series;
+    } else {
+      // The series path may lag one cycle behind the summary fields on a
+      // fresh install; fall back to the peak comparison rather than nothing.
+      const bars = [['Observed', observed], ['24h Peak', max24h], ['72h Peak', max72h]];
+      const maxKp = 9;
+      body.innerHTML = `
+        <div class="kp-threshold"><span>Kp 5 · storm threshold</span></div>
+        <div class="kp-bars">
+          ${bars.map(([label, v]) => {
+            const h = v === null ? 2 : Math.max(4, (v / maxKp) * 88);
+            const color = v === null ? 'var(--grid)' : v >= 5 ? 'var(--sev-4)' : 'var(--amber)';
+            return `<div class="kp-bar">
+              <span class="n">${v === null ? '–' : v.toFixed(1)}</span>
+              <div class="stem" style="height:${h}px;background:${color}"></div>
+              <span class="lbl">${label}</span>
+            </div>`;
+          }).join('')}
+        </div>`;
+    }
     document.getElementById('tsKp').textContent = fmtTime(leafTime(kp?.observed));
   }
+
+  window.addEventListener('resize', () => {
+    const canvas = document.getElementById('kpChart');
+    if (canvas && canvas._series) drawKpTimeline(canvas, canvas._series);
+  });
 
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
@@ -501,7 +635,8 @@
       'forecast.max72h': kpRaw.forecast?.max72h,
       'forecast.maxNoaaScale': kpRaw.forecast?.maxNoaaScale,
       'forecast.nextStormTime': kpRaw.forecast?.nextStormTime,
-      'forecast.nextStormKp': kpRaw.forecast?.nextStormKp
+      'forecast.nextStormKp': kpRaw.forecast?.nextStormKp,
+      'forecast.series': kpRaw.forecast?.series
     } : null;
 
     renderHero(scalesLatest, kp);
