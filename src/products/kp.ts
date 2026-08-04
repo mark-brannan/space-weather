@@ -19,7 +19,7 @@ import { Product } from './types.js'
 
 export const kp: Product = {
   name: 'Planetary K-index Forecast',
-  schedule: 'observations',
+  intervalMinutes: (settings) => settings.observationsInterval,
 
   metadata(settings: Settings): Meta[] {
     const methods = zoneMethods(

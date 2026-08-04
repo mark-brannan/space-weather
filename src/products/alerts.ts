@@ -7,7 +7,7 @@ import { Product } from './types.js'
 
 export const alerts: Product = {
   name: 'Alerts, Watches, and Warnings',
-  schedule: 'notifications',
+  intervalMinutes: (settings) => settings.notificationsInterval,
   enabled: (settings) => settings.sendAlertsWatchesWarnings,
 
   async refresh({ client, publisher, settings, stopped }) {

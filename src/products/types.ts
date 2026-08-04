@@ -16,11 +16,21 @@ export interface ProductContext {
  */
 export interface Product {
   name: string
-  /** Which interval this product is polled on. */
-  schedule: 'observations' | 'notifications'
+  /**
+   * How often to poll, in minutes. A function of settings rather than a fixed
+   * enum of schedules, because a product with an unusual payload can justify
+   * its own cadence — the aurora grid is ~900 KB and gets a slower one.
+   */
+  intervalMinutes: (settings: Settings) => number
   /** Products the user can switch off. Defaults to always on. */
   enabled?: (settings: Settings) => boolean
   /** Static metadata, published once per start. */
   metadata?: (settings: Settings) => Meta[]
-  refresh: (ctx: ProductContext) => Promise<void>
+  /**
+   * Returning 'not-ready' means a precondition is missing rather than the
+   * fetch having failed — the vessel has no position fix yet, say. The caller
+   * retries shortly instead of waiting out a whole interval, which on an
+   * hourly product would mean an hour of silence after boot.
+   */
+  refresh: (ctx: ProductContext) => Promise<void | 'not-ready'>
 }

@@ -27,6 +27,7 @@ The plugin currently surfaces:
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications with a configurable threshold (default 3, "strong")
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, plus a forecast summary under `environment.noaa.swpc.kp.forecast`: the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval (Kp 5 / G1 or above) begins
+* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is roughly 900 KB per fetch
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -53,7 +54,6 @@ Alerting on a level 1 would mean an interruption every four or five days, foreve
 ### Planned
 
 * Dashboard images, maps, and data in the form of a signalk webapp or resources
-* Aurora visibility at the vessel's own position, from NOAA's OVATION model
 
 ## References
 

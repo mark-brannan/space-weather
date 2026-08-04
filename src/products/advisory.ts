@@ -9,7 +9,7 @@ const ID_PREFIX = 'space_weather_advisory_outlook'
 
 export const advisory: Product = {
   name: 'Advisory Outlook',
-  schedule: 'notifications',
+  intervalMinutes: (settings) => settings.notificationsInterval,
   enabled: (settings) => settings.sendAdvisoryOutlook,
 
   metadata(): Meta[] {

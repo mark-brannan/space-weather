@@ -9,7 +9,7 @@ import { Product } from './types.js'
 
 export const solarWind: Product = {
   name: 'Solar Wind Summary',
-  schedule: 'observations',
+  intervalMinutes: (settings) => settings.observationsInterval,
 
   metadata(): Meta[] {
     return [

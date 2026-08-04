@@ -9,6 +9,7 @@
 export const SCALES_BASE = 'environment.noaa.swpc.scales.'
 export const KP_BASE = 'environment.noaa.swpc.kp'
 export const SOLAR_WIND_BASE = 'environment.noaa.swpc.solar_wind'
+export const AURORA_BASE = 'environment.noaa.swpc.aurora'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 

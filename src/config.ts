@@ -4,6 +4,8 @@ import { NoaaScaleValues } from './parse.js'
 export interface Settings {
   sendAdvisoryOutlook: boolean
   sendAlertsWatchesWarnings: boolean
+  auroraEnabled: boolean
+  auroraInterval: number
   notificationVisual: boolean
   notificationSound: boolean
   minScaleAlert: number
@@ -55,6 +57,24 @@ export const schema = {
         ' quarter of all days, level 3 about monthly, level 5 four times per solar cycle.',
       default: NoaaScaleValues.STRONG
     },
+    auroraEnabled: {
+      type: 'boolean',
+      title: 'Publish aurora visibility at the vessel position',
+      description:
+        "Requires a position. Off by default because NOAA's aurora grid is" +
+        ' roughly 900 KB per fetch, which is significant on a metered' +
+        ' satellite link.',
+      default: false
+    },
+    auroraInterval: {
+      type: 'number',
+      title: 'Aurora fetch interval',
+      description:
+        'in minutes. Kept separate from the observations interval because of' +
+        ' the payload size; NOAA regenerates this product about every 30' +
+        ' minutes, so there is little value in going below that.',
+      default: 60
+    },
     observationsInterval: {
       type: 'number',
       title: 'Interval for observations and forecasts',
@@ -85,6 +105,8 @@ export function settingsFrom(props: any): Settings {
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     sendAlertsWatchesWarnings: p.sendAlertsWatchesWarnings === true,
+    auroraEnabled: p.auroraEnabled === true,
+    auroraInterval: minutes(p.auroraInterval, 60),
     // An explicitly absent notificationVisual has always meant "both methods".
     notificationVisual:
       typeof p.notificationVisual === 'undefined' ? true : !!p.notificationVisual,

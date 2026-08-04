@@ -20,7 +20,7 @@ const PROBABILITY_META = { units: 'ratio', timeout: 60 * 60 * 4 }
 
 export const scales: Product = {
   name: 'Scales',
-  schedule: 'observations',
+  intervalMinutes: (settings) => settings.observationsInterval,
 
   metadata(settings: Settings): Meta[] {
     const methods = zoneMethods(
