@@ -57,11 +57,11 @@ Alerting on a level 1 would mean an interruption every four or five days, foreve
 
 All settings are optional and have working defaults; the ones worth knowing about:
 
-* `zoneAlertThreshold` (default 3, "strong") — lowest scale value that raises an alarm zone on the observed/forecast paths. See [Alarm zones](#alarm-zones) above for why 3.
-* `minScaleAlert` (default 3) — lowest scale value that raises a notification, separately from the zone above.
+* `zoneAlertThreshold` (default 3, "strong") — lowest scale value this plugin treats as worth your attention. Governs both the alarm zone on the observed/forecast paths and NOAA alert/watch/warning notifications. See [Alarm zones](#alarm-zones) above for why 3.
 * `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the NOAA payload is ~900 KB; needs a vessel position.
 * `sendAlertsWatchesWarnings` (default off) — individual NOAA alert/watch/warning products as notifications, distinct from the weekly outlook advisory (on by default).
-* `observationsInterval` / `notificationsInterval` / `auroraInterval` — poll intervals in minutes, 60 by default.
+* `observationsInterval` / `notificationsInterval` — poll intervals in minutes, 60 by default.
+* `auroraInterval` — separate poll interval for the ~900 KB aurora payload, 120 minutes by default.
 
 ## References
 
