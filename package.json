@@ -3,6 +3,8 @@
   "version": "0.5.1",
   "description": "Fetch *space* weather and alerts/advisory from NOAA Space Weather Prediction Service (SWPC)",
   "type": "module",
+  "displayName": "NOAA Space Weather",
+  "appIcon": "/signalk-noaa-space-weather/icon.svg",
   "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js",
