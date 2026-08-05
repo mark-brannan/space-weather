@@ -1,7 +1,5 @@
 # signalk-noaa-space-weather
 
-A SignalK plugin to get *space* weather observations, forecasts, and alerts from the NOAA Space Weather Prediction Center.
-
 ## Why should I care about space weather?
 
 **Q:** *Why would I, a mere **sailor**, care about "space weather"*?
@@ -54,7 +52,16 @@ Alerting on a level 1 would mean an interruption every four or five days, foreve
 ### Planned
 
 * Aurora and storm activity overlaid on a chart or map, either in the webapp above or as a Signal K resource other webapps can draw on
-* Links out to NOAA's own explainers for the scales, measurements, and dashboards, directly from the webapp
+
+## Configuration
+
+All settings are optional and have working defaults; the ones worth knowing about:
+
+* `zoneAlertThreshold` (default 3, "strong") — lowest scale value that raises an alarm zone on the observed/forecast paths. See [Alarm zones](#alarm-zones) above for why 3.
+* `minScaleAlert` (default 3) — lowest scale value that raises a notification, separately from the zone above.
+* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the NOAA payload is ~900 KB; needs a vessel position.
+* `sendAlertsWatchesWarnings` (default off) — individual NOAA alert/watch/warning products as notifications, distinct from the weekly outlook advisory (on by default).
+* `observationsInterval` / `notificationsInterval` / `auroraInterval` — poll intervals in minutes, 60 by default.
 
 ## References
 

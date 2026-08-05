@@ -1,7 +1,7 @@
 {
   "name": "signalk-noaa-space-weather",
   "version": "0.6.0",
-  "description": "Fetch *space* weather and alerts/advisory from NOAA Space Weather Prediction Service (SWPC)",
+  "description": "Find out about geomagnetic storms, radio blackouts, aurora visibility, and more using data from the NOAA Space Weather Prediction Center (SWPC). Includes a webapp for visualization.",
   "type": "module",
   "displayName": "NOAA Space Weather",
   "appIcon": "/signalk-noaa-space-weather/icon.svg",
