@@ -25,7 +25,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #52e6b8; --aurora-b: #b98cf0;
-    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0a83e; --sev-4: #e2703a; --sev-5: #e2483f;
+    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     --font-display: 'Oswald', 'Arial Narrow', sans-serif;
     --font-mono: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -36,7 +36,7 @@
       --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
       --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
       --aurora-a: #0e9e78; --aurora-b: #7c4fc9;
-      --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a97615; --sev-4: #b3501f; --sev-5: #b3312a;
+      --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
       --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
       color-scheme: light;
     }
@@ -45,7 +45,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #52e6b8; --aurora-b: #b98cf0;
-    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0a83e; --sev-4: #e2703a; --sev-5: #e2483f;
+    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     color-scheme: dark;
   }
@@ -53,7 +53,7 @@
     --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
     --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
     --aurora-a: #0e9e78; --aurora-b: #7c4fc9;
-    --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a97615; --sev-4: #b3501f; --sev-5: #b3312a;
+    --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
     --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
     color-scheme: light;
   }
@@ -129,13 +129,19 @@
     text-transform: uppercase; color: var(--text-dim); text-shadow: none; margin-top: 4px;
   }
 
-  .gauge-row { display: flex; align-items: center; gap: 16px; }
+  .gauge-row { display: flex; align-items: center; gap: 14px; }
   .gauge .track { fill: none; stroke: var(--grid); stroke-width: 8; }
   .gauge .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.6s ease; }
   .gauge .val { font-family: var(--font-mono); font-weight: 700; font-size: 1.4rem; fill: var(--text); text-anchor: middle; font-variant-numeric: tabular-nums; }
-  .scale-meta { display: flex; flex-direction: column; gap: 6px; }
-  .scale-meta .name { font-size: 0.82rem; }
+  .scale-meta { display: flex; flex-direction: column; gap: 3px; }
+  .scale-meta .name { font-size: 0.86rem; font-weight: 500; }
   .scale-meta .desc { font-size: 0.72rem; color: var(--text-dim); }
+  .letter-badge {
+    font-family: var(--font-display); font-weight: 700; font-size: 2.35rem; line-height: 1;
+    width: 40px; text-align: center; color: var(--letter-color, var(--text-dim));
+    text-shadow: 0 0 18px color-mix(in srgb, var(--letter-color, transparent) 45%, transparent);
+    transition: color 0.3s, text-shadow 0.3s;
+  }
 
   .aurora-tile {
     background:
@@ -220,28 +226,31 @@
       <h2>Latest Observed</h2>
       <div id="scalesBody">
         <div class="gauge-row" style="margin-bottom:14px;">
+          <div class="letter-badge" id="letterG">G</div>
           <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
             <circle class="track" cx="32" cy="32" r="26"/>
             <circle class="fill" id="gaugeG" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
             <text class="val" id="gaugeGVal" x="32" y="37">&ndash;</text>
           </svg></div>
-          <div class="scale-meta"><span class="chip sev-0" id="chipG">G &middot; Geomagnetic</span><span class="desc" id="descG">&ndash;</span></div>
+          <div class="scale-meta"><span class="name">Geomagnetic Storm</span><span class="desc" id="descG">&ndash;</span></div>
         </div>
         <div class="gauge-row" style="margin-bottom:14px;">
+          <div class="letter-badge" id="letterS">S</div>
           <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
             <circle class="track" cx="32" cy="32" r="26"/>
             <circle class="fill" id="gaugeS" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
             <text class="val" id="gaugeSVal" x="32" y="37">&ndash;</text>
           </svg></div>
-          <div class="scale-meta"><span class="chip sev-0" id="chipS">S &middot; Radiation</span><span class="desc" id="descS">&ndash;</span></div>
+          <div class="scale-meta"><span class="name">Solar Radiation Storm</span><span class="desc" id="descS">&ndash;</span></div>
         </div>
         <div class="gauge-row">
+          <div class="letter-badge" id="letterR">R</div>
           <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
             <circle class="track" cx="32" cy="32" r="26"/>
             <circle class="fill" id="gaugeR" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
             <text class="val" id="gaugeRVal" x="32" y="37">&ndash;</text>
           </svg></div>
-          <div class="scale-meta"><span class="chip sev-0" id="chipR">R &middot; Blackout</span><span class="desc" id="descR">&ndash;</span></div>
+          <div class="scale-meta"><span class="name">Radio Blackout</span><span class="desc" id="descR">&ndash;</span></div>
         </div>
       </div>
     </div>
@@ -319,6 +328,12 @@
     circleEl.setAttribute('stroke-dashoffset', String(CIRC * (1 - frac)));
     valEl.textContent = level === null || level === undefined ? '–' : String(level);
   }
+  function setLetter(el, level) {
+    const cls = sevClass(level) || 'sev-0';
+    el.style.setProperty('--letter-color', `var(--${cls})`);
+  }
+  // Only the hero's single summary badge keeps the pill shape; the per-scale
+  // rows use the letter badge instead (see setLetter).
   function setChip(chipEl, level, label) {
     const cls = sevClass(level) || 'sev-0';
     chipEl.className = 'chip ' + cls;
@@ -414,9 +429,9 @@
     setGauge(document.getElementById('gaugeG'), document.getElementById('gaugeGVal'), leafValue(scales?.G));
     setGauge(document.getElementById('gaugeS'), document.getElementById('gaugeSVal'), leafValue(scales?.S));
     setGauge(document.getElementById('gaugeR'), document.getElementById('gaugeRVal'), leafValue(scales?.R));
-    setChip(document.getElementById('chipG'), leafValue(scales?.G), `G · Geomagnetic`);
-    setChip(document.getElementById('chipS'), leafValue(scales?.S), `S · Radiation`);
-    setChip(document.getElementById('chipR'), leafValue(scales?.R), `R · Blackout`);
+    setLetter(document.getElementById('letterG'), leafValue(scales?.G));
+    setLetter(document.getElementById('letterS'), leafValue(scales?.S));
+    setLetter(document.getElementById('letterR'), leafValue(scales?.R));
     document.getElementById('descG').textContent = sevWord(leafValue(scales?.G)) + ' — latest observed';
     document.getElementById('descS').textContent = sevWord(leafValue(scales?.S)) + ' — latest observed';
     document.getElementById('descR').textContent = sevWord(leafValue(scales?.R)) + ' — latest observed';

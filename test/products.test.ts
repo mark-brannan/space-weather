@@ -96,12 +96,20 @@ describe('scales product', () => {
 
 describe('kp product', () => {
   it('publishes the forecast summary', async () => {
+    // The product always windows the series against the real clock (correct
+    // in production), but the fixture is a fixed snapshot -- so this test
+    // must pin the clock into the fixture's own window, or it silently
+    // starts failing as real time drifts away from 2026-08-01.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-01T07:00:00Z'))
+
     const h = harness({
       '/products/noaa-planetary-k-index-forecast.json': fixtureJson(
         'noaa-planetary-k-index-forecast.2026_08_01.json'
       )
     })
     await kp.refresh(h.ctx as any)
+    vi.useRealTimers()
 
     expect(h.errors).toEqual([])
     expect(h.paths()).toEqual(
