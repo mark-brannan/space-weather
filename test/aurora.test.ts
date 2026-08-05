@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
 import {
   auroraProbabilityAt,
@@ -149,10 +152,19 @@ describe('zonesForAurora', () => {
 })
 
 describe('aurora product', () => {
+  const dataDirs: string[] = []
+  afterEach(() => {
+    for (const dir of dataDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+  })
+
   function harness(position: any, response?: any) {
     const published: any[] = []
     const errors: string[] = []
     const fetched: string[] = []
+    // A real temp directory rather than a stub: this exercises the actual
+    // write-then-rename cache path, not just that dataDirPath() gets called.
+    const dataDir = mkdtempSync(join(tmpdir(), 'aurora-cache-'))
+    dataDirs.push(dataDir)
     const publisher = {
       meta: () => {},
       values: (values: any[]) => published.push(...values),
@@ -164,7 +176,8 @@ describe('aurora product', () => {
       status: () => {},
       fail: () => {},
       error: (m: string) => errors.push(m),
-      debug: () => {}
+      debug: () => {},
+      dataDirPath: () => dataDir
     }
     const client = {
       json: async (subPath: string) => {
@@ -177,6 +190,7 @@ describe('aurora product', () => {
       published,
       errors,
       fetched,
+      dataDir,
       ctx: {
         client,
         publisher,
@@ -234,6 +248,28 @@ describe('aurora product', () => {
     await aurora.refresh(h.ctx as any)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
+  })
+
+  it('caches the raw grid to disk for the webapp route to read back', async () => {
+    const raw = fixtureJson(REAL)
+    const h = harness({ latitude: 70, longitude: 20 }, raw)
+    await aurora.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    const cached = JSON.parse(readFileSync(join(h.dataDir, 'aurora-grid.json'), 'utf8'))
+    expect(typeof cached.fetchedAt).toBe('string')
+    expect(cached.grid).toEqual(raw)
+  })
+
+  it('does not fail the refresh if the cache write fails', async () => {
+    // A read-only-directory-style failure: dataDirPath() throws.
+    const h = harness({ latitude: 70, longitude: 20 }, fixtureJson(REAL))
+    ;(h.ctx.publisher as any).dataDirPath = () => {
+      throw new Error('disk full')
+    }
+    await aurora.refresh(h.ctx as any)
+    expect(h.valueAt('environment.noaa.swpc.aurora.probability')).not.toBeNull()
+    expect(h.errors.some((e) => e.includes('Failed to cache'))).toBe(true)
   })
 
   it('is off unless switched on', () => {
