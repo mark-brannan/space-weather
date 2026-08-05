@@ -186,6 +186,29 @@
   .learn-more a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dotted var(--grid); }
   .learn-more a:hover { color: var(--amber); border-bottom-color: var(--amber); }
 
+  .aurora-map-tile .map-header {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .btn-outline {
+    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.72rem; font-weight: 600; color: var(--text); background: transparent;
+    border: 1px solid var(--grid); border-radius: 4px; padding: 7px 14px; cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-outline:hover { border-color: var(--amber); color: var(--amber); }
+  .btn-outline:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .map-body { margin-top: 14px; }
+  #auroraMapCanvas { display: block; width: 100%; height: 320px; border-radius: 4px; }
+  .map-footer {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+    gap: 10px; margin-top: 10px; font-size: 0.72rem; color: var(--text-dim);
+  }
+  .map-legend { display: flex; align-items: center; gap: 8px; }
+  .map-legend .bar {
+    width: 90px; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, var(--aurora-a), var(--aurora-b));
+  }
+
   .footstrip {
     margin-top: 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px;
     font-size: 0.68rem; color: var(--text-dim); border-top: 1px solid var(--grid); padding-top: 10px;
@@ -267,6 +290,19 @@
       <span class="label">Solar Wind</span>
       <h2>Live Readouts</h2>
       <div id="windBody">
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
+    <div class="tile span-12 aurora-map-tile">
+      <div class="map-header">
+        <div>
+          <span class="label">Aurora &middot; OVATION</span>
+          <h2>Nearby Extent</h2>
+        </div>
+        <button type="button" id="mapToggle" class="btn-outline">Show map</button>
+      </div>
+      <div id="mapBody" class="map-body" hidden>
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
@@ -629,6 +665,172 @@
     if (canvas && canvas._series) drawKpTimeline(canvas, canvas._series);
   });
 
+  // --- Aurora map --------------------------------------------------------
+  // A deliberately separate fetch from the plugin's own aurora product: this
+  // pulls the ~900 KB OVATION grid directly from NOAA in the browser, purely
+  // on request (the "Show map" toggle), never automatically. The plugin
+  // already fetches this grid server-side just to compute the probability at
+  // the vessel's own position and discards the rest; duplicating that fetch
+  // here rather than piping the full grid through Signal K keeps the server
+  // from having to hold or republish a 900 KB blob it has no other reason to
+  // carry, at the cost of a second NOAA request when someone opens the map.
+  // On a boat where the tablet has no path to the internet independent of
+  // the Signal K server (some satellite setups), this fetch will simply
+  // fail; that's the known limit of this approach and is called out in the
+  // error state below rather than hidden.
+  let lastPosition = null
+  let mapState = 'idle' // idle | loading | ready | error | no-position
+
+  function lonScaleFactor(centerLat) {
+    // Longitude degrees compress toward the poles; scale the window's
+    // longitude span by cos(latitude) so the map isn't badly distorted at
+    // high latitude, which is exactly where aurora viewing matters most.
+    return Math.max(0.15, Math.cos((centerLat * Math.PI) / 180))
+  }
+
+  async function fetchAuroraGrid() {
+    const res = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', {
+      headers: { Accept: 'application/json' }
+    })
+    if (!res.ok) throw new Error(`NOAA responded ${res.status}`)
+    return res.json()
+  }
+
+  function drawAuroraMap(canvas, grid, position) {
+    const dpr = window.devicePixelRatio || 1
+    const cssW = canvas.clientWidth || 800, cssH = 320
+    canvas.width = cssW * dpr
+    canvas.height = cssH * dpr
+    const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
+
+    const styles = getComputedStyle(document.documentElement)
+    const auroraA = styles.getPropertyValue('--aurora-a').trim()
+    const auroraB = styles.getPropertyValue('--aurora-b').trim()
+    const grid_ = styles.getPropertyValue('--grid').trim()
+    const text = styles.getPropertyValue('--text').trim()
+    const rgbA = hexToRgb(auroraA), rgbB = hexToRgb(auroraB)
+
+    ctx.fillStyle = grid_
+    ctx.fillRect(0, 0, cssW, cssH)
+
+    // Window: +-25 deg latitude, longitude scaled by lonScaleFactor so the
+    // physical width stays roughly comparable at any latitude.
+    const latSpan = 25
+    const lonSpan = 40 / lonScaleFactor(position.latitude)
+    const latMin = Math.max(-90, position.latitude - latSpan)
+    const latMax = Math.min(90, position.latitude + latSpan)
+    // Longitudes normalised to 0..359 to match the grid; the window itself
+    // may still wrap past 360, handled per-point below.
+    const lonCenter = ((position.longitude % 360) + 360) % 360
+
+    const x = (lon) => {
+      // Shortest signed distance from the window centre, so a point just the
+      // other side of the 0/360 seam still maps to a sane pixel.
+      let d = lon - lonCenter
+      if (d > 180) d -= 360
+      if (d < -180) d += 360
+      return cssW / 2 + (d / lonSpan) * (cssW / 2)
+    }
+    const y = (lat) => cssH / 2 - ((lat - position.latitude) / latSpan) * (cssH / 2)
+
+    const cellW = Math.max(1, cssW / (2 * lonSpan))
+    const cellH = Math.max(1, cssH / (2 * latSpan))
+
+    for (const point of grid.coordinates) {
+      const lon = point[0], lat = point[1], pct = point[2]
+      if (lat < latMin || lat > latMax) continue
+      let d = lon - lonCenter
+      if (d > 180) d -= 360
+      if (d < -180) d += 360
+      if (Math.abs(d) > lonSpan) continue
+      if (!(pct > 0)) continue
+
+      const t = Math.min(1, pct / 30) // saturate the gradient by 30%, not 100%: the interesting range is low
+      const r = Math.round(rgbA[0] + (rgbB[0] - rgbA[0]) * t)
+      const g = Math.round(rgbA[1] + (rgbB[1] - rgbA[1]) * t)
+      const b = Math.round(rgbA[2] + (rgbB[2] - rgbA[2]) * t)
+      ctx.fillStyle = `rgba(${r},${g},${b},${0.25 + 0.65 * t})`
+      ctx.fillRect(x(lon) - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
+    }
+
+    // Vessel marker.
+    const px = x(position.longitude), py = y(position.latitude)
+    ctx.beginPath()
+    ctx.arc(px, py, 5, 0, Math.PI * 2)
+    ctx.fillStyle = text
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(px, py, 9, 0, Math.PI * 2)
+    ctx.strokeStyle = text
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '')
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+  }
+
+  async function loadAuroraMap() {
+    const body = document.getElementById('mapBody')
+    if (!lastPosition) {
+      mapState = 'no-position'
+      body.innerHTML = `<div class="empty-state">No vessel position available yet, so there is nothing to center the map on.</div>`
+      return
+    }
+    mapState = 'loading'
+    body.innerHTML = `<div class="empty-state">Fetching the aurora grid from NOAA (about 900 KB)&hellip;</div>`
+    try {
+      const grid = await fetchAuroraGrid()
+      mapState = 'ready'
+      body.innerHTML = `
+        <canvas id="auroraMapCanvas"></canvas>
+        <div class="map-footer">
+          <div class="map-legend"><span class="bar"></span>Aurora probability, low &rarr; high</div>
+          <div>
+            <span>Observed <b>${fmtTime(grid['Observation Time'])}</b></span>
+            &nbsp;&middot;&nbsp;
+            <button type="button" id="mapRefresh" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Refresh</button>
+          </div>
+        </div>`
+      const canvas = document.getElementById('auroraMapCanvas')
+      canvas._grid = grid
+      canvas._position = lastPosition
+      drawAuroraMap(canvas, grid, lastPosition)
+      document.getElementById('mapRefresh').addEventListener('click', loadAuroraMap)
+    } catch (err) {
+      mapState = 'error'
+      body.innerHTML = `
+        <div class="empty-state">Could not reach NOAA from this browser (${String(err.message || err)}).
+        This map is fetched directly by your device rather than through the Signal K server, so it needs
+        its own path to the internet. <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
+      document.getElementById('mapRetry').addEventListener('click', loadAuroraMap)
+    }
+  }
+
+  document.getElementById('mapToggle').addEventListener('click', () => {
+    const body = document.getElementById('mapBody')
+    const btn = document.getElementById('mapToggle')
+    const showing = !body.hidden
+    if (showing) {
+      body.hidden = true
+      btn.textContent = 'Show map'
+      return
+    }
+    body.hidden = false
+    btn.textContent = 'Hide map'
+    if (mapState === 'idle' || mapState === 'no-position') loadAuroraMap()
+  })
+
+  window.addEventListener('resize', () => {
+    if (mapState !== 'ready') return
+    const canvas = document.getElementById('auroraMapCanvas')
+    if (canvas && canvas._grid) drawAuroraMap(canvas, canvas._grid, canvas._position)
+  })
+
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
@@ -664,6 +866,7 @@
     document.getElementById('vesselPos').textContent = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'No position';
+    lastPosition = pos;
     const vesselName = leafValue(name);
     document.getElementById('vesselName').textContent = vesselName || 'Unnamed vessel';
   }
