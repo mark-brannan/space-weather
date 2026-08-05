@@ -13,6 +13,16 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+  # Lets auto-version.yml publish the tag it just created without
+  # duplicating these steps -- see that workflow for why a tag push can't
+  # just trigger this one directly (auto-version has to react to a merge,
+  # and its own bump commit lands via a PR merge, not a tag push).
+  workflow_call:
+    inputs:
+      tag:
+        description: 'The vX.Y.Z tag to publish (defaults to the ref that triggered this run)'
+        required: false
+        type: string
 
 permissions:
   contents: write # write, not read: this workflow also creates the GitHub Release below
@@ -23,6 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v7
         with:
@@ -35,10 +47,10 @@ jobs:
 
       - name: Refuse to publish a tag that disagrees with package.json
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           PKG=$(node -p "require('./package.json').version")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "tag v$TAG does not match package.json version $PKG" >&2
+          if [ "${TAG#v}" != "$PKG" ]; then
+            echo "tag $TAG does not match package.json version $PKG" >&2
             exit 1
           fi
 
@@ -58,13 +70,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
           awk -v h="## [$VERSION]" '
             index($0, h) == 1 { found=1; next }
             found && index($0, "## [") == 1 { exit }
             found { print }
           ' CHANGELOG.md > /tmp/release-notes.md
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$TAG" \
+            --title "$TAG" \
             --notes-file /tmp/release-notes.md \
             --latest
