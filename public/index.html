@@ -226,6 +226,14 @@
     }
     @keyframes sweep { to { transform: rotate(360deg); } }
   }
+  .auth-banner {
+    display: none; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 14px; padding: 12px 16px; border-radius: 6px;
+    border: 1px solid var(--sev-4); background: color-mix(in srgb, var(--sev-4) 14%, transparent);
+    font-size: 0.82rem;
+  }
+  .auth-banner.show { display: flex; }
+  .auth-banner a { color: var(--sev-4); font-weight: 600; text-decoration: underline; }
 </style>
 
 <div class="shell">
@@ -234,6 +242,11 @@
     <div class="field"><span class="label">Vessel</span><span class="val" id="vesselName">—</span></div>
     <div class="field"><span class="label">Position</span><span class="val" id="vesselPos">—</span></div>
     <div class="field"><span class="label">Local</span><span class="val" id="clock">—</span></div>
+  </div>
+
+  <div class="auth-banner" id="authBanner">
+    <span>Not logged in to this Signal K server, so nothing below can load &mdash; a disabled product and "not authorized" look identical otherwise.</span>
+    <a href="/admin/#/login">Log in</a>
   </div>
 
   <div class="grid">
@@ -383,10 +396,21 @@
     chipEl.textContent = label;
   }
 
+  // Thrown by getJson on 401/403 so refresh() can tell "you're not logged
+  // in" apart from "nothing published yet" (both used to render as the same
+  // blank/zero UI, which is indistinguishable from a broken plugin).
+  class AuthRequiredError extends Error {}
+
   async function getJson(path) {
+    let res;
     try {
-      const res = await fetch(path, { cache: 'no-store' });
-      if (!res.ok) return null;
+      res = await fetch(path, { cache: 'no-store' });
+    } catch {
+      return null; // offline / DNS / etc. -- not an auth problem
+    }
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(path);
+    if (!res.ok) return null;
+    try {
       return await res.json();
     } catch {
       return null;
@@ -394,8 +418,11 @@
   }
   // A Signal K leaf looks like {value, timestamp, $source, meta}. Absent
   // paths (a disabled product, or before the first fetch cycle) 404 at the
-  // parent level, so callers must handle `null` throughout.
-  const leafValue = (node) => (node && 'value' in node ? node.value : null);
+  // parent level, so callers must handle `null` throughout. Not every path
+  // is a leaf, though -- vessel name is a bare string at its own path, so
+  // `'value' in node` (node being a string) would throw.
+  const leafValue = (node) =>
+    node && typeof node === 'object' && 'value' in node ? node.value : node ?? null;
   const leafTime = (node) => (node && node.timestamp) || null;
 
   function fmtTime(iso) {
@@ -695,6 +722,7 @@
 
   async function fetchAuroraCache() {
     const res = await fetch(AURORA_GRID_URL, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(AURORA_GRID_URL)
     const body = await res.json().catch(() => null)
     if (res.status === 404) {
       const err = new Error((body && body.error) || 'No aurora data cached yet.')
@@ -814,9 +842,14 @@
       document.getElementById('mapRefresh').addEventListener('click', () => handleAuroraRefreshClick(document.getElementById('mapRefresh')))
     } catch (err) {
       mapState = 'error'
+      if (err instanceof AuthRequiredError) {
+        document.getElementById('authBanner').classList.add('show')
+      }
       const message = err && err.notCached
         ? String(err.message)
-        : `Could not load the aurora data from the server (${String((err && err.message) || err)}).`
+        : err instanceof AuthRequiredError
+          ? 'Not logged in to this Signal K server.'
+          : `Could not load the aurora data from the server (${String((err && err.message) || err)}).`
       body.innerHTML = `
         <div class="empty-state">${message}
         <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
@@ -832,6 +865,7 @@
 
   async function forceAuroraRefresh() {
     const res = await fetch(AURORA_REFRESH_URL, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(AURORA_REFRESH_URL)
     const body = await res.json().catch(() => null)
     if (!res.ok) {
       const err = new Error((body && body.error) || `Server responded ${res.status}`)
@@ -850,7 +884,12 @@
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
       if (mapState === 'ready' || mapState === 'error') await loadAuroraMap() // re-reads the fresh cache, if the map has been opened
     } catch (err) {
-      button.textContent = (err && err.status === 429) ? 'Too soon' : 'Refresh failed'
+      if (err instanceof AuthRequiredError) {
+        document.getElementById('authBanner').classList.add('show')
+        button.textContent = 'Not logged in'
+      } else {
+        button.textContent = (err && err.status === 429) ? 'Too soon' : 'Refresh failed'
+      }
       button.disabled = false
       setTimeout(() => { button.textContent = original }, 3000)
       return
@@ -886,14 +925,26 @@
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    const [scalesLatest, kpRaw, wind, aurora, position, name] = await Promise.all([
-      getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
-      getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
-      getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
-      getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
-      getJson('/signalk/v1/api/vessels/self/navigation/position'),
-      getJson('/signalk/v1/api/vessels/self/name')
-    ]);
+    let scalesLatest, kpRaw, wind, aurora, position, name;
+    try {
+      [scalesLatest, kpRaw, wind, aurora, position, name] = await Promise.all([
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
+        getJson('/signalk/v1/api/vessels/self/navigation/position'),
+        getJson('/signalk/v1/api/vessels/self/name')
+      ]);
+    } catch (err) {
+      // Every getJson call above hits this same server, so one 401 means
+      // they all would -- no need to know which. Leaving the rest of the
+      // tiles at whatever they last showed (not blanking them) makes this
+      // read as "stale, go log in" rather than "the plugin stopped working".
+      document.getElementById('authBanner').classList.toggle('show', err instanceof AuthRequiredError);
+      if (err instanceof AuthRequiredError) return;
+      throw err;
+    }
+    document.getElementById('authBanner').classList.remove('show');
 
     // The Kp product's dotted sub-paths (forecast.max24h etc.) arrive as a
     // nested object from this endpoint; flatten what's needed with the same

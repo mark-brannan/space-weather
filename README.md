@@ -96,7 +96,7 @@ Note that the outlook advisory is not available as json, so the plugin is doing 
 
 ## Webapp
 
-The plugin ships a companion webapp — no configuration needed, it reads whatever the plugin has already published. Open it from the Signal K admin **Webapps** menu, or at `/signalk-noaa-space-weather/` on your server.
+The plugin ships a companion webapp — no configuration needed, it reads whatever the plugin has already published. Open it from the Signal K admin **Webapps** menu, or at `/signalk-noaa-space-weather/` on your server. If your server has `allow_readonly` off (data reads require login), the webapp shows a banner and a login link rather than a silently blank page.
 
 ![The companion webapp](docs/screenshots/webapp.png)
 
