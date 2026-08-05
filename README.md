@@ -100,7 +100,7 @@ The plugin ships a companion webapp — no configuration needed, it reads whatev
 
 ![The companion webapp](docs/screenshots/webapp.png)
 
-The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it.
+The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a **Refresh** button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
 
 ![The aurora map](docs/screenshots/aurora-map.png)
 

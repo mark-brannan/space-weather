@@ -186,9 +186,11 @@
   .learn-more a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dotted var(--grid); }
   .learn-more a:hover { color: var(--amber); border-bottom-color: var(--amber); }
 
-  .aurora-map-tile .map-header {
+  .map-header {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
+  .btn-outline:disabled { opacity: 0.5; cursor: default; }
+  .btn-outline:disabled:hover { border-color: var(--grid); color: var(--text); }
   .btn-outline {
     font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em;
     font-size: 0.72rem; font-weight: 600; color: var(--text); background: transparent;
@@ -279,8 +281,13 @@
     </div>
 
     <div class="tile span-4 aurora-tile">
-      <span class="label">Aurora &middot; OVATION</span>
-      <h2>At Your Position</h2>
+      <div class="map-header">
+        <div>
+          <span class="label">Aurora &middot; OVATION</span>
+          <h2>At Your Position</h2>
+        </div>
+        <button type="button" id="auroraRefresh" class="btn-outline">Refresh</button>
+      </div>
       <div id="auroraBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
@@ -804,7 +811,7 @@
       canvas._grid = entry.grid
       canvas._position = lastPosition
       drawAuroraMap(canvas, entry.grid, lastPosition)
-      document.getElementById('mapRefresh').addEventListener('click', loadAuroraMap)
+      document.getElementById('mapRefresh').addEventListener('click', () => handleAuroraRefreshClick(document.getElementById('mapRefresh')))
     } catch (err) {
       mapState = 'error'
       const message = err && err.notCached
@@ -816,6 +823,45 @@
       document.getElementById('mapRetry').addEventListener('click', loadAuroraMap)
     }
   }
+
+  // Manual "refresh now": forces the plugin to fetch NOAA off its schedule,
+  // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
+  // by both the ring tile's own button and the map's, since a fresh fetch
+  // updates the same underlying data both read.
+  const AURORA_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-refresh'
+
+  async function forceAuroraRefresh() {
+    const res = await fetch(AURORA_REFRESH_URL, { headers: { Accept: 'application/json' } })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      const err = new Error((body && body.error) || `Server responded ${res.status}`)
+      err.status = res.status
+      throw err
+    }
+    return body
+  }
+
+  async function handleAuroraRefreshClick(button) {
+    const original = button.textContent
+    button.disabled = true
+    button.textContent = 'Refreshing…'
+    try {
+      await forceAuroraRefresh()
+      await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
+      if (mapState === 'ready' || mapState === 'error') await loadAuroraMap() // re-reads the fresh cache, if the map has been opened
+    } catch (err) {
+      button.textContent = (err && err.status === 429) ? 'Too soon' : 'Refresh failed'
+      button.disabled = false
+      setTimeout(() => { button.textContent = original }, 3000)
+      return
+    }
+    button.textContent = original
+    button.disabled = false
+  }
+
+  document.getElementById('auroraRefresh').addEventListener('click', () =>
+    handleAuroraRefreshClick(document.getElementById('auroraRefresh'))
+  )
 
   document.getElementById('mapToggle').addEventListener('click', () => {
     const body = document.getElementById('mapBody')
