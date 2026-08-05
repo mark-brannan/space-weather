@@ -13,16 +13,16 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-  # Lets auto-version.yml publish the tag it just created without
-  # duplicating these steps -- see that workflow for why a tag push can't
-  # just trigger this one directly (auto-version has to react to a merge,
-  # and its own bump commit lands via a PR merge, not a tag push).
-  workflow_call:
-    inputs:
-      tag:
-        description: 'The vX.Y.Z tag to publish (defaults to the ref that triggered this run)'
-        required: false
-        type: string
+  # auto-version.yml triggers this via `gh workflow run publish.yml --ref
+  # <tag>` (workflow_dispatch, not workflow_call) after it tags a merge that
+  # needed publishing. workflow_call was tried first and doesn't work here:
+  # npm's OIDC trusted-publisher check rejects the token minted for a
+  # reusable-workflow-call job -- confirmed the hard way, npm error E404,
+  # "you do not have permission to access it" -- even though the exact same
+  # steps succeed under a direct push or workflow_dispatch trigger of this
+  # same file. workflow_dispatch matches how the trusted publisher on
+  # npmjs.com is actually configured (this file, this repo), so that's the
+  # path both a human and auto-version.yml use to publish out of band.
 
 permissions:
   contents: write # write, not read: this workflow also creates the GitHub Release below
@@ -33,8 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v7
         with:
@@ -47,7 +45,7 @@ jobs:
 
       - name: Refuse to publish a tag that disagrees with package.json
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
+          TAG="${GITHUB_REF_NAME}"
           PKG=$(node -p "require('./package.json').version")
           if [ "${TAG#v}" != "$PKG" ]; then
             echo "tag $TAG does not match package.json version $PKG" >&2
@@ -70,7 +68,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
+          TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           awk -v h="## [$VERSION]" '
             index($0, h) == 1 { found=1; next }
