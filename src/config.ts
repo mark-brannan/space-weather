@@ -8,7 +8,6 @@ export interface Settings {
   auroraInterval: number
   notificationVisual: boolean
   notificationSound: boolean
-  minScaleAlert: number
   zoneAlertThreshold: number
   observationsInterval: number
   notificationsInterval: number
@@ -39,22 +38,17 @@ export const schema = {
       title: 'Notification Method Sound',
       default: true
     },
-    minScaleAlert: {
-      type: 'number',
-      title:
-        'Minimum NOAA "scale" value to trigger "alert" notifications (will use state="normal" below this)',
-      description: '1-5 (minor, moderate, strong, severe, extreme)',
-      default: NoaaScaleValues.STRONG
-    },
     zoneAlertThreshold: {
       type: 'number',
-      title:
-        'Lowest NOAA "scale" value that raises an alarm zone on observed and forecast values',
+      title: 'Lowest NOAA "scale" value this plugin treats as worth your attention',
       description:
-        '1-5. Levels below this are "normal". This level is "alert" (no popup or sound),' +
-        ' one above is "warn" (visual), and higher is "alarm" (visual and sound).' +
-        ' The default of 3 reflects NOAA event frequencies: level 1 occurs on roughly a' +
-        ' quarter of all days, level 3 about monthly, level 5 four times per solar cycle.',
+        '1-5. Governs both the alarm zone on observed/forecast scale and Kp values,' +
+        ' and the state of NOAA alert/watch/warning notifications (was two separate' +
+        ' settings before 0.8.0; one number now drives both). Levels below this are' +
+        ' "normal". This level is "alert" (no popup or sound), one above is "warn"' +
+        ' (visual), and higher is "alarm" (visual and sound). The default of 3' +
+        ' reflects NOAA event frequencies: level 1 occurs on roughly a quarter of all' +
+        ' days, level 3 about monthly, level 5 four times per solar cycle.',
       default: NoaaScaleValues.STRONG
     },
     auroraEnabled: {
@@ -71,9 +65,11 @@ export const schema = {
       title: 'Aurora fetch interval',
       description:
         'in minutes. Kept separate from the observations interval because of' +
-        ' the payload size; NOAA regenerates this product about every 30' +
-        ' minutes, so there is little value in going below that.',
-      default: 60
+        ' the payload size (~900 KB). Defaults longer than the other intervals' +
+        ' on purpose: aurora is a glance-at-it feature, not a value that needs' +
+        ' to track in real time, so there is little reason to spend the bandwidth' +
+        ' more than a couple of times an hour.',
+      default: 120
     },
     observationsInterval: {
       type: 'number',
@@ -106,14 +102,22 @@ export function settingsFrom(props: any): Settings {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     sendAlertsWatchesWarnings: p.sendAlertsWatchesWarnings === true,
     auroraEnabled: p.auroraEnabled === true,
-    auroraInterval: minutes(p.auroraInterval, 60),
+    auroraInterval: minutes(p.auroraInterval, 120),
     // An explicitly absent notificationVisual has always meant "both methods".
     notificationVisual:
       typeof p.notificationVisual === 'undefined' ? true : !!p.notificationVisual,
     notificationSound:
       typeof p.notificationVisual === 'undefined' ? true : !!p.notificationSound,
-    minScaleAlert: scaleValue(p.minScaleAlert, NoaaScaleValues.STRONG),
-    zoneAlertThreshold: scaleValue(p.zoneAlertThreshold, NoaaScaleValues.STRONG),
+    // Before 0.8.0 this was two separate settings (minScaleAlert and
+    // zoneAlertThreshold) that happened to share the same default and the
+    // same purpose -- "how bad before this plugin makes noise about it" --
+    // and had no reason to ever be set differently. `minScaleAlert` is
+    // accepted here only so an old saved config that customised it isn't
+    // silently ignored; it no longer appears in the schema.
+    zoneAlertThreshold: scaleValue(
+      p.zoneAlertThreshold ?? p.minScaleAlert,
+      NoaaScaleValues.STRONG
+    ),
     observationsInterval: minutes(p.observationsInterval, 60),
     notificationsInterval: minutes(p.notificationsInterval, 60)
   }

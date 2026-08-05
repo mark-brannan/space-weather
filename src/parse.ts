@@ -61,8 +61,7 @@ export interface ValueUpdate {
  * NOAA's own frequency table makes the default of 3 the sensible pivot: over an
  * 11-year cycle (~4015 days) G1 occurs on ~900 days and R1 on ~950 -- roughly a
  * quarter of all days -- while level 3 occurs on ~130-140 days (about monthly)
- * and level 5 on ~4. Alerting below 3 would be noise. 3 also matches the
- * long-standing `minScaleAlert` default for alert notifications.
+ * and level 5 on ~4. Alerting below 3 would be noise.
  */
 export function stateForScaleValue(
   value: number,
@@ -232,7 +231,7 @@ export interface ParsedAlert {
  */
 export function parseAlert(
   alert: any,
-  minScaleAlert: number = NoaaScaleValues.STRONG
+  alertThreshold: number = NoaaScaleValues.STRONG
 ): ParsedAlert | null {
   if (!alert || typeof alert.message !== 'string') return null
 
@@ -280,7 +279,7 @@ export function parseAlert(
     scaleText,
     scaleValue,
     state:
-      scaleValue !== null && scaleValue >= minScaleAlert
+      scaleValue !== null && scaleValue >= alertThreshold
         ? NotificationStates.ALERT
         : NotificationStates.NORMAL,
     issued

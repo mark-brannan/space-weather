@@ -26,7 +26,7 @@ export const alerts: Product = {
     let skipped = 0
 
     for (const alert of json) {
-      const parsed = parseAlert(alert, settings.minScaleAlert)
+      const parsed = parseAlert(alert, settings.zoneAlertThreshold)
       if (!parsed) {
         skipped++
         continue
