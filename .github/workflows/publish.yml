@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # write, not read: this workflow also creates the GitHub Release below
   id-token: write # required: this is what mints the OIDC token
 
 jobs:
@@ -48,3 +48,23 @@ jobs:
 
       # No NODE_AUTH_TOKEN. Authentication is the OIDC identity above.
       - run: npm publish
+
+      # A pushed tag is only a git ref -- it does not create a GitHub
+      # Release on its own, which is why the Releases page sat on v0.2.0 for
+      # eleven versions before this step existed. CHANGELOG.md already has
+      # one section per version, so pull this tag's section out as the
+      # release notes rather than keeping a second copy of them.
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v h="## [$VERSION]" '
+            index($0, h) == 1 { found=1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > /tmp/release-notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/release-notes.md \
+            --latest
