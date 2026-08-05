@@ -100,7 +100,7 @@ The plugin ships a companion webapp — no configuration needed, it reads whatev
 
 ![The companion webapp](docs/screenshots/webapp.png)
 
-The Aurora tile has a **Show map** button that fetches NOAA's OVATION grid directly from your browser and draws the probability near your position. This is a separate fetch from the plugin's own aurora feature, only made when you click it, and it needs its own path to the internet — if your browser has no route to NOAA independent of the Signal K server, it'll say so rather than fail silently.
+The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it.
 
 ![The aurora map](docs/screenshots/aurora-map.png)
 

@@ -666,18 +666,16 @@
   });
 
   // --- Aurora map --------------------------------------------------------
-  // A deliberately separate fetch from the plugin's own aurora product: this
-  // pulls the ~900 KB OVATION grid directly from NOAA in the browser, purely
-  // on request (the "Show map" toggle), never automatically. The plugin
-  // already fetches this grid server-side just to compute the probability at
-  // the vessel's own position and discards the rest; duplicating that fetch
-  // here rather than piping the full grid through Signal K keeps the server
-  // from having to hold or republish a 900 KB blob it has no other reason to
-  // carry, at the cost of a second NOAA request when someone opens the map.
-  // On a boat where the tablet has no path to the internet independent of
-  // the Signal K server (some satellite setups), this fetch will simply
-  // fail; that's the known limit of this approach and is called out in the
-  // error state below rather than hidden.
+  // The plugin's own aurora product already fetches the ~900 KB OVATION grid
+  // server-side, on its own interval, to compute the probability at the
+  // vessel's position -- and caches that same fetch to disk. This reads it
+  // back over the plugin's own route (GET /aurora-grid) rather than
+  // fetching NOAA a second time from the browser: one fetch serves both the
+  // probability value and this map, and the browser only ever talks to the
+  // Signal K server it already loaded the page from, same as every other
+  // request in this file. Purely on request (the "Show map" toggle), never
+  // automatically, so opening the map never forces an off-cycle NOAA fetch.
+  const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error | no-position
 
@@ -688,12 +686,16 @@
     return Math.max(0.15, Math.cos((centerLat * Math.PI) / 180))
   }
 
-  async function fetchAuroraGrid() {
-    const res = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', {
-      headers: { Accept: 'application/json' }
-    })
-    if (!res.ok) throw new Error(`NOAA responded ${res.status}`)
-    return res.json()
+  async function fetchAuroraCache() {
+    const res = await fetch(AURORA_GRID_URL, { headers: { Accept: 'application/json' } })
+    const body = await res.json().catch(() => null)
+    if (res.status === 404) {
+      const err = new Error((body && body.error) || 'No aurora data cached yet.')
+      err.notCached = true
+      throw err
+    }
+    if (!res.ok) throw new Error(`Server responded ${res.status}`)
+    return body // { fetchedAt, grid }
   }
 
   function drawAuroraMap(canvas, grid, position) {
@@ -782,31 +784,35 @@
       return
     }
     mapState = 'loading'
-    body.innerHTML = `<div class="empty-state">Fetching the aurora grid from NOAA (about 900 KB)&hellip;</div>`
+    body.innerHTML = `<div class="empty-state">Loading the cached aurora grid&hellip;</div>`
     try {
-      const grid = await fetchAuroraGrid()
+      const entry = await fetchAuroraCache()
       mapState = 'ready'
       body.innerHTML = `
         <canvas id="auroraMapCanvas"></canvas>
         <div class="map-footer">
           <div class="map-legend"><span class="bar"></span>Aurora probability, low &rarr; high</div>
           <div>
-            <span>Observed <b>${fmtTime(grid['Observation Time'])}</b></span>
+            <span>Observed <b>${fmtTime(entry.grid['Observation Time'])}</b></span>
+            &nbsp;&middot;&nbsp;
+            <span>Cached <b>${fmtTime(entry.fetchedAt)}</b></span>
             &nbsp;&middot;&nbsp;
             <button type="button" id="mapRefresh" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Refresh</button>
           </div>
         </div>`
       const canvas = document.getElementById('auroraMapCanvas')
-      canvas._grid = grid
+      canvas._grid = entry.grid
       canvas._position = lastPosition
-      drawAuroraMap(canvas, grid, lastPosition)
+      drawAuroraMap(canvas, entry.grid, lastPosition)
       document.getElementById('mapRefresh').addEventListener('click', loadAuroraMap)
     } catch (err) {
       mapState = 'error'
+      const message = err && err.notCached
+        ? String(err.message)
+        : `Could not load the aurora data from the server (${String((err && err.message) || err)}).`
       body.innerHTML = `
-        <div class="empty-state">Could not reach NOAA from this browser (${String(err.message || err)}).
-        This map is fetched directly by your device rather than through the Signal K server, so it needs
-        its own path to the internet. <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
+        <div class="empty-state">${message}
+        <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
       document.getElementById('mapRetry').addEventListener('click', loadAuroraMap)
     }
   }

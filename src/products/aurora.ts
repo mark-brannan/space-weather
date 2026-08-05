@@ -12,6 +12,7 @@ import {
   parseAuroraPayload,
   zonesForAurora
 } from '../parse.js'
+import { writeAuroraCache } from '../noaa/auroraCache.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 
@@ -115,6 +116,16 @@ export const aurora: Product = {
     if (!forecast) {
       publisher.error('Aurora payload contained no usable grid')
       return
+    }
+
+    // Cache the raw grid so the webapp's map can read it back over this
+    // plugin's own HTTP route instead of fetching NOAA a second time. Best
+    // effort: a disk write failing here should not stop the probability
+    // value below from publishing.
+    try {
+      writeAuroraCache(publisher.dataDirPath(), json)
+    } catch (err) {
+      publisher.error(`Failed to cache the aurora grid: ${err}`)
     }
 
     const probability = auroraProbabilityAt(

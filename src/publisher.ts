@@ -20,6 +20,15 @@ export interface Publisher {
   fail(message: string): void
   error(message: string, ...args: any[]): void
   debug(message: string, ...args: any[]): void
+  /**
+   * The directory this plugin may persist its own files in (created on first
+   * call if needed). The server's own docs say this is only callable from
+   * start() onward, never from the plugin constructor -- every call site here
+   * is inside a product's refresh() or a router handler, both of which only
+   * ever run after start(), so that constraint holds by construction rather
+   * than by discipline.
+   */
+  dataDirPath(): string
 }
 
 export function createPublisher(app: any, pluginId: string): Publisher {
@@ -39,6 +48,7 @@ export function createPublisher(app: any, pluginId: string): Publisher {
     status: (message) => app.setPluginStatus(message),
     fail: (message) => app.setPluginError(message),
     error: (message, ...args) => app.error(message, ...args),
-    debug: (message, ...args) => app.debug(message, ...args)
+    debug: (message, ...args) => app.debug(message, ...args),
+    dataDirPath: () => app.getDataDirPath()
   }
 }
