@@ -909,7 +909,7 @@
     try {
       await forceAuroraRefresh()
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      if (mapState === 'ready' || mapState === 'error') await loadAuroraMap() // re-reads the fresh cache, if the map has been opened
+      if (mapState !== 'idle') await loadAuroraMap() // re-reads the fresh cache for any state but idle (never opened)
     } catch (err) {
       if (err instanceof AuthRequiredError) {
         document.getElementById('authBanner').classList.add('show')
@@ -997,7 +997,10 @@
     document.getElementById('vesselPos').textContent = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'No position';
-    lastPosition = pos;
+    // A single failed/empty poll (e.g. the position source hasn't published
+    // yet right after a server restart) must not erase a good position the
+    // map is already centered on -- only overwrite it with an actual value.
+    if (pos) lastPosition = pos;
     const vesselName = leafValue(name);
     document.getElementById('vesselName').textContent = vesselName || 'Unnamed vessel';
   }
