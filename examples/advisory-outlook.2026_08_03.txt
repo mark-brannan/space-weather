@@ -1,0 +1,31 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2026 Aug 03 0425 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #26-30
+2026 August 2 at 10:24 p.m. MDT (2026 August 3 0424 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For July 27-August 2
+
+An isolated G2 (Moderate) geomagnetic storming synoptic period was observed on 02 Aug (1500-1800 UTC). 
+
+Two R1 (Minor) radio blackouts were observed during the week at 27.0243 UTC and 30/1700 UTC.
+
+Two S1 (Minor) solar radiation events were observed with peaks at 30/2055 UTC and 31/1600 UTC.
+
+
+Outlook For August 3-9
+
+G1 (Minor) storms are expected on 03 Aug  (due to a CME persistent and waning disturbances) and likely on 19 Aug (due to a recurrent high speed stream). 
+
+There is a chance for R1-R2 (Minor-Moderate) radio blackouts on 03-09 Aug due to the flaring potential of the current and returning regions. 
+
+No NOAA solar radiation events are expected on 03-09 Aug. 
+
