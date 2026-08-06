@@ -497,7 +497,7 @@
     }
   }
 
-  function renderScales(scales) {
+  function renderScales(scales, xrayFlare) {
     setGauge(document.getElementById('gaugeG'), document.getElementById('gaugeGVal'), leafValue(scales?.G));
     setGauge(document.getElementById('gaugeS'), document.getElementById('gaugeSVal'), leafValue(scales?.S));
     setGauge(document.getElementById('gaugeR'), document.getElementById('gaugeRVal'), leafValue(scales?.R));
@@ -506,7 +506,12 @@
     setLetter(document.getElementById('letterR'), leafValue(scales?.R));
     document.getElementById('descG').textContent = sevWord(leafValue(scales?.G)) + ' — latest observed';
     document.getElementById('descS').textContent = sevWord(leafValue(scales?.S)) + ' — latest observed';
-    document.getElementById('descR').textContent = sevWord(leafValue(scales?.R)) + ' — latest observed';
+    // Flare class is the same underlying measurement R buckets into 0-5, at
+    // the letter+number resolution HF operators actually use -- append it to
+    // R's own description rather than giving it a separate gauge.
+    const flareClass = leafValue(xrayFlare?.class);
+    document.getElementById('descR').textContent = sevWord(leafValue(scales?.R)) + ' — latest observed'
+      + (flareClass ? ` · ${flareClass}` : '');
     document.getElementById('tsScales').textContent = fmtTime(leafTime(scales?.G) || leafTime(scales?.time));
   }
 
@@ -947,15 +952,16 @@
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, kpRaw, wind, aurora, position, name;
+    let scalesLatest, kpRaw, wind, aurora, position, name, xrayFlare;
     try {
-      [scalesLatest, kpRaw, wind, aurora, position, name] = await Promise.all([
+      [scalesLatest, kpRaw, wind, aurora, position, name, xrayFlare] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
-        getJson('/signalk/v1/api/vessels/self/name')
+        getJson('/signalk/v1/api/vessels/self/name'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare')
       ]);
     } catch (err) {
       // Every getJson call above hits this same server, so one 401 means
@@ -982,7 +988,7 @@
     } : null;
 
     renderHero(scalesLatest, kp);
-    renderScales(scalesLatest);
+    renderScales(scalesLatest, xrayFlare);
     renderAurora(aurora);
     renderWind(wind);
     renderKp(kp);

@@ -356,6 +356,29 @@ export function percentToRatio(raw: any): number | null {
   return isNaN(parsed) ? null : parsed / 100
 }
 
+export interface XrayFlare {
+  flareClass: string
+  time: string
+}
+
+/**
+ * GOES X-ray flare classification ("B3.3", "M2.1", "X1.4") for the most
+ * recent event. A single-element array is the documented shape; tolerate an
+ * empty one (no event ever recorded) rather than throwing.
+ */
+export function parseXrayFlare(json: any): XrayFlare | null {
+  const entry = Array.isArray(json) ? json[0] : null
+  if (
+    !entry ||
+    typeof entry.current_class !== 'string' ||
+    !entry.current_class
+  ) {
+    return null
+  }
+  if (typeof entry.time_tag !== 'string' || !entry.time_tag) return null
+  return { flareClass: entry.current_class, time: entry.time_tag }
+}
+
 export interface KpSeriesPoint {
   time: string
   kp: number

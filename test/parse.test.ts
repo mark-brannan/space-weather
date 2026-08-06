@@ -7,6 +7,7 @@ import {
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
+  parseXrayFlare,
   percentToRatio,
   transformJsonScaleRange
 } from '../src/parse'
@@ -302,6 +303,31 @@ describe('percentToRatio', () => {
     const actual = percentToRatio(input)
     if (expected === null) expect(actual).toBeNull()
     else expect(actual).toBeCloseTo(expected as number, 10)
+  })
+})
+
+describe('parseXrayFlare', () => {
+  it('reads the current flare class from a captured payload', () => {
+    const flare = parseXrayFlare(
+      fixtureJson('xray-flares-latest.2026_08_06.json')
+    )
+    expect(flare).toEqual({ flareClass: 'B3.3', time: '2026-08-06T03:46:00Z' })
+  })
+
+  it('returns null rather than throwing on unusable input', () => {
+    for (const input of [null, undefined, {}, [], [{}], 'nope']) {
+      expect(parseXrayFlare(input as any)).toBeNull()
+    }
+  })
+
+  it('returns null when current_class is present but empty', () => {
+    expect(
+      parseXrayFlare([{ current_class: '', time_tag: '2026-08-06T03:46:00Z' }])
+    ).toBeNull()
+  })
+
+  it('returns null when time_tag is missing', () => {
+    expect(parseXrayFlare([{ current_class: 'M2.1' }])).toBeNull()
   })
 })
 

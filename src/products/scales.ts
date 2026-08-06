@@ -4,11 +4,13 @@ import {
   NOAA_SCALE_RANGES,
   SCALES_BASE,
   SCALE_DESCRIPTIONS,
-  SCALE_LETTERS
+  SCALE_LETTERS,
+  XRAY_FLARE_BASE
 } from '../paths.js'
 import {
   NoaaScaleValues,
   ValueUpdate,
+  parseXrayFlare,
   transformJsonScaleRange,
   zoneMethods,
   zonesForScale
@@ -82,11 +84,42 @@ export const scales: Product = {
         }
       }
     }
+    metas.push({
+      path: `${XRAY_FLARE_BASE}.class`,
+      value: {
+        displayName: 'X-ray flare class',
+        description:
+          'GOES X-ray classification of the most recent flare (e.g. "M2.1")' +
+          ' -- the same measurement the R scale buckets into 0-5, at the' +
+          ' resolution HF operators actually use.',
+        timeout: 60 * 60 * 4
+      }
+    })
     return metas
   },
 
   async refresh({ client, publisher, stopped }) {
     const json = await client.json('/products/noaa-scales.json', 'Scales')
+    if (stopped()) return
+
+    // Best-effort: a failure here must never block the primary scales
+    // publish below, and NOAA has no JSON form of this beyond the
+    // single-event array already handled by parseXrayFlare.
+    try {
+      const flareJson = await client.json(
+        '/json/goes/primary/xray-flares-latest.json',
+        'X-ray flare class'
+      )
+      const flare = parseXrayFlare(flareJson)
+      if (flare) {
+        publisher.values(
+          [{ path: `${XRAY_FLARE_BASE}.class`, value: flare.flareClass }],
+          flare.time
+        )
+      }
+    } catch (err) {
+      publisher.error(`Failed to fetch X-ray flare class: ${err}`)
+    }
     if (stopped()) return
 
     const values: ValueUpdate[] = []

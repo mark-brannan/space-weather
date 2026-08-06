@@ -10,6 +10,11 @@ export const SCALES_BASE = 'environment.noaa.swpc.scales.'
 export const KP_BASE = 'environment.noaa.swpc.kp'
 export const SOLAR_WIND_BASE = 'environment.noaa.swpc.solar_wind'
 export const AURORA_BASE = 'environment.noaa.swpc.aurora'
+// Same underlying GOES X-ray measurement the R scale buckets into 0-5, at
+// the letter+number resolution (e.g. "M2.1") operators actually use. Not
+// under SCALES_BASE: it isn't bucketed by observation range like G/S/R are,
+// it's a single "most recent event" reading.
+export const XRAY_FLARE_BASE = 'environment.noaa.swpc.xray_flare'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 

@@ -59,10 +59,13 @@ function harness(responses: Record<string, any>) {
   }
 }
 
+const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+
 describe('scales product', () => {
   it('publishes observed levels and forecast probabilities from a captured payload', async () => {
     const h = harness({
-      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json')
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
     })
     await scales.refresh(h.ctx as any)
 
@@ -90,9 +93,37 @@ describe('scales product', () => {
   })
 
   it('reports a missing range instead of throwing', async () => {
-    const h = harness({ '/products/noaa-scales.json': {} })
+    const h = harness({
+      '/products/noaa-scales.json': {},
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+    })
     await scales.refresh(h.ctx as any)
     expect(h.errors.length).toBeGreaterThan(0)
+  })
+
+  it('publishes the X-ray flare class from a captured payload', async () => {
+    const h = harness({
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+    })
+    await scales.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBe('B3.3')
+  })
+
+  it('still publishes scales even if the flare-class fetch fails', async () => {
+    const h = harness({
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json')
+      // FLARE_ENDPOINT deliberately unstubbed -- the client throws
+    })
+    await scales.refresh(h.ctx as any)
+
+    expect(
+      h.valueAt('environment.noaa.swpc.scales.observations.latest.G')
+    ).toBe(0)
+    expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBeUndefined()
+    expect(h.errors.some((e) => e.includes('flare'))).toBe(true)
   })
 })
 
