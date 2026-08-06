@@ -144,6 +144,16 @@ Without sample data, `bin/signalk-server` starts with an empty config and no
 position source. Run `npm run watch` in `~/signalk-server` for continuous
 rebuild if you're also changing the server itself, not just this plugin.
 
+For driving the vessel to a specific place (or moving it) on demand instead
+of replaying a fixed log, `~/.signalk-dev/scripts/set-value.mjs` sends a
+delta straight over the server's own WS stream — no plugin, no PUT-handler
+registration, works for any path:
+
+```shell
+node ~/.signalk-dev/scripts/set-value.mjs navigation.position '{"latitude":69.65,"longitude":18.96}'
+node ~/.signalk-dev/scripts/set-value.mjs --sweep 69.65,18.96 60.1,24.9 --seconds 60
+```
+
 This plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
 watch`, in this repo) and restart the server to pick up a change. It's a
 single shared server instance, not one per session — port 3000 is Grafana
