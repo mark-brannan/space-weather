@@ -4,6 +4,7 @@ import {
   getAlertLevel,
   parseAdvisoryOutlook,
   parseAlert,
+  parseF107,
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
@@ -328,6 +329,55 @@ describe('parseXrayFlare', () => {
 
   it('returns null when time_tag is missing', () => {
     expect(parseXrayFlare([{ current_class: 'M2.1' }])).toBeNull()
+  })
+})
+
+describe('parseF107', () => {
+  it('reads the latest Noon reading from a captured payload', () => {
+    const flux = parseF107(fixtureJson('f107_cm_flux.2026_08_06.json'))
+    expect(flux).toEqual({ flux: 108, time: '2026-08-05T20:00:00' })
+  })
+
+  it('ignores Morning and Afternoon readings even if newer', () => {
+    const flux = parseF107([
+      {
+        reporting_schedule: 'Morning',
+        flux: 999,
+        time_tag: '2026-08-07T17:00:00'
+      },
+      { reporting_schedule: 'Noon', flux: 108, time_tag: '2026-08-05T20:00:00' }
+    ])
+    expect(flux).toEqual({ flux: 108, time: '2026-08-05T20:00:00' })
+  })
+
+  it('picks the newest Noon entry regardless of array order', () => {
+    const flux = parseF107([
+      {
+        reporting_schedule: 'Noon',
+        flux: 100,
+        time_tag: '2026-07-01T20:00:00'
+      },
+      { reporting_schedule: 'Noon', flux: 108, time_tag: '2026-08-05T20:00:00' }
+    ])
+    expect(flux).toEqual({ flux: 108, time: '2026-08-05T20:00:00' })
+  })
+
+  it('returns null rather than throwing on unusable input', () => {
+    for (const input of [null, undefined, {}, [], [{}], 'nope']) {
+      expect(parseF107(input as any)).toBeNull()
+    }
+  })
+
+  it('returns null when no Noon entry is present', () => {
+    expect(
+      parseF107([
+        {
+          reporting_schedule: 'Morning',
+          flux: 101,
+          time_tag: '2026-08-06T17:00:00'
+        }
+      ])
+    ).toBeNull()
   })
 })
 

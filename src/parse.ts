@@ -379,6 +379,33 @@ export function parseXrayFlare(json: any): XrayFlare | null {
   return { flareClass: entry.current_class, time: entry.time_tag }
 }
 
+export interface F107Flux {
+  flux: number
+  time: string
+}
+
+/**
+ * https://services.swpc.noaa.gov/json/f107_cm_flux.json
+ *
+ * Three readings a day (Morning/Noon/Afternoon); only "Noon" is the
+ * traditionally-quoted daily figure (it's also the only one carrying a
+ * ninety-day mean, which this doesn't currently surface). Doesn't trust the
+ * array's own order for "latest" -- picks the Noon entry with the newest
+ * time_tag instead, the same defensive stance aurora's grid lookup takes.
+ */
+export function parseF107(json: any): F107Flux | null {
+  if (!Array.isArray(json)) return null
+  let latest: F107Flux | null = null
+  for (const entry of json) {
+    if (entry?.reporting_schedule !== 'Noon') continue
+    const flux = Number(entry.flux)
+    const time = entry.time_tag
+    if (!Number.isFinite(flux) || typeof time !== 'string' || !time) continue
+    if (!latest || time > latest.time) latest = { flux, time }
+  }
+  return latest
+}
+
 export interface KpSeriesPoint {
   time: string
   kp: number

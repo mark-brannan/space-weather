@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
+import { f107 } from '../src/products/f107'
 import { kp } from '../src/products/kp'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
@@ -191,6 +192,31 @@ describe('solar wind product', () => {
       '/products/summary/solar-wind-mag-field.json': []
     })
     await solarWind.refresh(h.ctx as any)
+    expect(h.published).toEqual([])
+    expect(h.errors.length).toBe(1)
+  })
+})
+
+describe('f107 product', () => {
+  it('publishes the latest Noon reading from a captured payload', async () => {
+    const h = harness({
+      '/json/f107_cm_flux.json': fixtureJson('f107_cm_flux.2026_08_06.json')
+    })
+    await f107.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.f107')).toBe(108)
+  })
+
+  it('has a hard-coded interval, not one driven by settings', () => {
+    expect(
+      f107.intervalMinutes(settingsFrom({ observationsInterval: 5 }))
+    ).toBe(240)
+  })
+
+  it('publishes nothing rather than an error-free silent gap when no Noon entry exists', async () => {
+    const h = harness({ '/json/f107_cm_flux.json': [] })
+    await f107.refresh(h.ctx as any)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })

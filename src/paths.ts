@@ -17,6 +17,9 @@ export const AURORA_BASE = 'environment.noaa.swpc.aurora'
 export const XRAY_FLARE_BASE = 'environment.noaa.swpc.xray_flare'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
+// A single "most recent Noon reading" value, not bucketed by observation
+// range like the scales -- there is only ever one current number.
+export const F107_BASE = 'environment.noaa.swpc.f107'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]
