@@ -177,6 +177,10 @@
   .kp-threshold { border-top: 1px dashed var(--sev-4); position: relative; margin: 2px 0 10px; opacity: 0.6; }
   .kp-threshold span { position: absolute; right: 0; top: -8px; font-size: 0.6rem; color: var(--sev-4); background: var(--panel); padding-left: 6px; }
   #kpChart { display: block; width: 100%; height: 132px; }
+  .outlook-table { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 2px 10px; font-size: 0.82rem; }
+  .outlook-table .oh { font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); padding-bottom: 6px; border-bottom: 1px solid var(--grid); }
+  .outlook-table .ol { color: var(--text-dim); align-self: center; }
+  .outlook-table .ov { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: center; padding: 5px 0; }
   .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
   .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
@@ -260,6 +264,14 @@
       <div class="countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
     </div>
 
+    <div class="tile span-12">
+      <span class="label">Planetary K-Index</span>
+      <h2>24h Observed &middot; 72h Forecast</h2>
+      <div id="kpBody">
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
     <div class="tile span-4">
       <span class="label">Storm Scales</span>
       <h2>Latest Observed</h2>
@@ -315,6 +327,14 @@
       </div>
     </div>
 
+    <div class="tile span-12">
+      <span class="label">NOAA SWPC &middot; Scales</span>
+      <h2>3-Day Outlook</h2>
+      <div id="outlookBody">
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
     <div class="tile span-12 aurora-map-tile">
       <div class="map-header">
         <div>
@@ -325,14 +345,6 @@
         <button type="button" id="mapToggle" class="btn-outline">Show map</button>
       </div>
       <div id="mapBody" class="map-body" hidden>
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-12">
-      <span class="label">Planetary K-Index</span>
-      <h2>24h Observed &middot; 72h Forecast</h2>
-      <div id="kpBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
@@ -661,6 +673,45 @@
     ctx.fill();
   }
 
+  function renderOutlook(forecast) {
+    const body = document.getElementById('outlookBody');
+    const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
+    if (!days.some((d) => d)) {
+      body.innerHTML = '<div class="empty-state">No 3-day forecast yet.</div>';
+      return;
+    }
+    const pct = (leaf) => {
+      const v = leafValue(leaf);
+      return v === null ? '&ndash;' : `${Math.round(v * 100)}%`;
+    };
+    const gCell = (leaf) => {
+      const v = leafValue(leaf);
+      if (v === null) return '<span class="ov">&ndash;</span>';
+      const cls = sevClass(v) || 'sev-0';
+      return `<span class="ov ${cls}">G${v}</span>`;
+    };
+    const dayLabel = (d, i) => {
+      const t = leafTime(d?.time);
+      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${i + 1}`;
+    };
+    body.innerHTML = `
+      <div class="outlook-table">
+        <span class="oh"></span>
+        ${days.map((d, i) => `<span class="oh">${dayLabel(d, i)}</span>`).join('')}
+        <span class="ol">R1&ndash;R2</span>
+        ${days.map((d) => `<span class="ov">${pct(d?.R?.minorProbability)}</span>`).join('')}
+        <span class="ol">R3&ndash;R5</span>
+        ${days.map((d) => `<span class="ov">${pct(d?.R?.majorProbability)}</span>`).join('')}
+        <span class="ol">S1 or greater</span>
+        ${days.map((d) => `<span class="ov">${pct(d?.S?.probability)}</span>`).join('')}
+        <span class="ol">G (predicted)</span>
+        ${days.map((d) => gCell(d?.G)).join('')}
+      </div>
+      <div class="empty-state" style="margin-top:10px;padding:0;background:none;font-size:0.68rem;">
+        R and S are NOAA's predicted probability of reaching that level; G is NOAA's single predicted level, not a probability.
+      </div>`;
+  }
+
   function renderKp(kp) {
     const body = document.getElementById('kpBody');
     const observed = leafValue(kp?.observed);
@@ -952,10 +1003,11 @@
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, kpRaw, wind, aurora, position, name, xrayFlare;
+    let scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare;
     try {
-      [scalesLatest, kpRaw, wind, aurora, position, name, xrayFlare] = await Promise.all([
+      [scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
@@ -989,6 +1041,7 @@
 
     renderHero(scalesLatest, kp);
     renderScales(scalesLatest, xrayFlare);
+    renderOutlook(scalesForecast);
     renderAurora(aurora);
     renderWind(wind);
     renderKp(kp);
