@@ -101,25 +101,41 @@ currently published, not this checkout's uncommitted changes. Don't
 restart, reconfigure, or write through it without checking who else might
 be using it first.
 
-To run this checkout's own uncommitted changes against a live server:
-clone the actual [SignalK/signalk-server
-repo](https://github.com/SignalK/signalk-server) to `~/signalk-server`
-(`npm install && npm link`, once), and use `~/.signalk-dev` as the shared
-scratch config directory (`SIGNALK_NODE_CONFIG_DIR`) plugins get linked
-into — never a real boat's `~/.signalk`. `npm link` each plugin checkout
-once from its own directory, then `npm link <package-name>` from inside
-`~/.signalk-dev` to wire it in. Run with:
+To run this checkout's own uncommitted changes against a live server, follow
+signalk-server's own [CONTRIBUTING.md — Running the development
+server](https://github.com/SignalK/signalk-server/blob/master/CONTRIBUTING.md#running-the-development-server),
+written for server development but equally the right setup for plugin work:
 
 ```shell
-cd ~/signalk-server && SIGNALK_NODE_CONFIG_DIR=~/.signalk-dev PORT=3100 bin/signalk-server
+git clone https://github.com/SignalK/signalk-server ~/signalk-server
+cd ~/signalk-server && npm install && npm run build:all
 ```
 
-The plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
-watch`) and restart the server to pick up a change. This is a single shared
-instance — port 3000 is Grafana, 3001 and 3005 are other Docker containers,
-all already in use on this machine — so check nothing else is running
-against `~/.signalk-dev`/port 3100 before starting it, the same way you'd
-check before touching a shared branch.
+Wire this plugin in with `npm link` (once from this repo's own directory,
+then `npm link signalk-noaa-space-weather` from inside `~/.signalk-dev` —
+never a real boat's `~/.signalk`), then run with a synthetic moving
+position instead of an empty config, since aurora (and most of what this
+plugin does) needs `navigation.position` to exist:
+
+```shell
+cd ~/signalk-server && SIGNALK_NODE_CONFIG_DIR=~/.signalk-dev PORT=3100 bin/nmea-from-file
+```
+
+`bin/nmea-from-file` plays back a real NMEA 0183 log (`samples/plaka.log`,
+throttled) as the vessel "Volare," publishing a genuinely moving position —
+`SIGNALK_NODE_CONFIG_DIR` outranks the sample settings file in signalk-server's
+own config-directory resolution, so the linked plugin and the sample data
+both take effect together. `bin/n2k-from-file` is the NMEA 2000 equivalent.
+Without sample data, `bin/signalk-server` starts with an empty config and no
+position source. Run `npm run watch` in `~/signalk-server` for continuous
+rebuild if you're also changing the server itself, not just this plugin.
+
+This plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
+watch`, in this repo) and restart the server to pick up a change. It's a
+single shared server instance, not one per session — port 3000 is Grafana
+and 3001 is another Docker container, both already in use on this machine,
+so check nothing else is running against `~/.signalk-dev`/port 3100 before
+starting it, the same way you'd check before touching a shared branch.
 
 If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
