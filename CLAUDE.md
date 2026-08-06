@@ -101,21 +101,35 @@ currently published, not this checkout's uncommitted changes. Don't
 restart, reconfigure, or write through it without checking who else might
 be using it first.
 
-To run this checkout's own uncommitted changes against a live server, follow
-signalk-server's own [CONTRIBUTING.md — Running the development
-server](https://github.com/SignalK/signalk-server/blob/master/CONTRIBUTING.md#running-the-development-server),
-written for server development but equally the right setup for plugin work:
+`~/signalk-server` and `~/.signalk-dev` already exist on this machine and
+are meant to stay — **check for them before doing anything else here, don't
+re-clone or rebuild from scratch.** `~/signalk-server` is a persistent clone
+of the real [SignalK/signalk-server
+repo](https://github.com/SignalK/signalk-server), built once
+(`npm install && npm run build:all`, per its own
+[CONTRIBUTING.md](https://github.com/SignalK/signalk-server/blob/master/CONTRIBUTING.md#running-the-development-server)).
+`~/.signalk-dev` is the shared scratch config directory
+(`SIGNALK_NODE_CONFIG_DIR`) with `signalk-fixed-position`, `signalk-datetime`,
+`signalk-derived-data`, `@meri-imperiumi/signalk-autostate`, and
+`signalk-set-gps-timezone` already installed and configured (mirrored from
+symphony's own working config) — never a real boat's `~/.signalk`. If
+either is genuinely missing (check first — `ls ~/signalk-server/dist
+~/.signalk-dev` — don't assume from a failed command), set up
+`~/signalk-server` per its own CONTRIBUTING.md
+(`git clone https://github.com/SignalK/signalk-server ~/signalk-server &&
+cd ~/signalk-server && npm install && npm run build:all`) and
+`~/.signalk-dev` as a plain directory with its own `package.json`; otherwise
+`git pull` and rebuild only when picking up upstream signalk-server changes,
+never a fresh clone.
 
-```shell
-git clone https://github.com/SignalK/signalk-server ~/signalk-server
-cd ~/signalk-server && npm install && npm run build:all
-```
-
-Wire this plugin in with `npm link` (once from this repo's own directory,
-then `npm link signalk-noaa-space-weather` from inside `~/.signalk-dev` —
-never a real boat's `~/.signalk`), then run with a synthetic moving
-position instead of an empty config, since aurora (and most of what this
-plugin does) needs `navigation.position` to exist:
+Wire a plugin in with `npm link` (once from the plugin's own repo directory,
+then `npm link <package-name>` from inside `~/.signalk-dev`), then run with a
+synthetic moving position instead of an empty config, since aurora (and most
+of what this plugin does) needs `navigation.position` to exist. Note
+`signalk-fixed-position` is already enabled in `~/.signalk-dev` and will
+contend with the sample data below over `navigation.position` — left as-is
+on purpose, since two sources racing on one path is exactly the kind of
+thing signalk-lint should be catching, not something to route around here:
 
 ```shell
 cd ~/signalk-server && SIGNALK_NODE_CONFIG_DIR=~/.signalk-dev PORT=3100 bin/nmea-from-file
@@ -136,6 +150,11 @@ single shared server instance, not one per session — port 3000 is Grafana
 and 3001 is another Docker container, both already in use on this machine,
 so check nothing else is running against `~/.signalk-dev`/port 3100 before
 starting it, the same way you'd check before touching a shared branch.
+Coordinate with a lock file: before starting the dev server or doing
+anything live against `:3001`, check for and create
+`~/.signalk-dev/locks/dev-server.lock` or `docker-3001.lock` (one line: who,
+when, why) — remove it when done, and treat someone else's lock file as a
+hard stop, not a suggestion.
 
 If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
