@@ -24,7 +24,7 @@
   :root {
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
-    --aurora-a: #52e6b8; --aurora-b: #b98cf0;
+    --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     --font-display: 'Oswald', 'Arial Narrow', sans-serif;
@@ -35,7 +35,7 @@
     :root {
       --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
       --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
-      --aurora-a: #0e9e78; --aurora-b: #7c4fc9;
+      --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
       --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
       --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
       color-scheme: light;
@@ -44,7 +44,7 @@
   :root[data-theme="dark"] {
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
-    --aurora-a: #52e6b8; --aurora-b: #b98cf0;
+    --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     color-scheme: dark;
@@ -52,7 +52,7 @@
   :root[data-theme="light"] {
     --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
     --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
-    --aurora-a: #0e9e78; --aurora-b: #7c4fc9;
+    --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
     --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
     --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
     color-scheme: light;
@@ -154,7 +154,7 @@
   .aurora-ring .pct { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .aurora-ring .pct .n {
     font-family: var(--font-mono); font-weight: 700; font-size: 1.6rem;
-    background: linear-gradient(135deg, var(--aurora-a), var(--aurora-b));
+    background: linear-gradient(135deg, var(--aurora-a), var(--aurora-b), var(--aurora-c), var(--aurora-d));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .aurora-ring .pct .u { font-family: var(--font-display); font-size: 0.56rem; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; }
@@ -189,6 +189,7 @@
   .map-header {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
+  .map-extent { display: block; font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
   .btn-outline:disabled { opacity: 0.5; cursor: default; }
   .btn-outline:disabled:hover { border-color: var(--grid); color: var(--text); }
   .btn-outline {
@@ -208,7 +209,7 @@
   .map-legend { display: flex; align-items: center; gap: 8px; }
   .map-legend .bar {
     width: 90px; height: 8px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--aurora-a), var(--aurora-b));
+    background: linear-gradient(90deg, var(--aurora-a), var(--aurora-b), var(--aurora-c), var(--aurora-d));
   }
 
   .footstrip {
@@ -318,7 +319,8 @@
       <div class="map-header">
         <div>
           <span class="label">Aurora &middot; OVATION</span>
-          <h2>Nearby Extent</h2>
+          <h2>Regional Aurora</h2>
+          <span class="map-extent">&plusmn;25&deg; latitude around the vessel</span>
         </div>
         <button type="button" id="mapToggle" class="btn-outline">Show map</button>
       </div>
@@ -527,7 +529,8 @@
             stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)}"
             stroke-dashoffset="${(dash * (1 - p)).toFixed(1)}" transform="rotate(-90 64 64)"/>
           <defs><linearGradient id="auroraGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="var(--aurora-a)"/><stop offset="100%" stop-color="var(--aurora-b)"/>
+            <stop offset="0%" stop-color="var(--aurora-a)"/><stop offset="33%" stop-color="var(--aurora-b)"/>
+            <stop offset="66%" stop-color="var(--aurora-c)"/><stop offset="100%" stop-color="var(--aurora-d)"/>
           </linearGradient></defs>
         </svg>
         <div class="pct"><span class="n">${pct}%</span><span class="u">Probability</span></div>
@@ -567,6 +570,8 @@
     const amber = styles.getPropertyValue('--amber').trim();
     const sev5 = styles.getPropertyValue('--sev-5').trim();
     const sev4 = styles.getPropertyValue('--sev-4').trim();
+    const sev3 = styles.getPropertyValue('--sev-3').trim();
+    const sev1 = styles.getPropertyValue('--sev-1').trim();
 
     const padL = 26, padR = 10, padT = 10, padB = 8;
     const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
@@ -577,21 +582,26 @@
     const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
     const nowI = nowIndex < 0 ? n - 1 : nowIndex;
 
-    [0, 3, 5, 7, 9].forEach((v) => {
+    // Kp 5-9 are NOAA's G1-G5 storm thresholds; each gets its own dotted,
+    // severity-colored line so the chart reads as "here's where G2 starts"
+    // rather than flagging only the single G1 line as before.
+    const gScaleColor = { 5: sev1, 6: sev3, 7: sev3, 8: sev4, 9: sev5 };
+    [0, 3, 5, 6, 7, 8, 9].forEach((v) => {
+      const gLevel = gScaleColor[v] ? v - 4 : null;
       ctx.beginPath();
       ctx.moveTo(padL, y(v));
       ctx.lineTo(cssW - padR, y(v));
-      ctx.strokeStyle = v === 5 ? sev4 : gridColor;
-      ctx.globalAlpha = v === 5 ? 0.55 : 0.5;
-      ctx.lineWidth = v === 5 ? 1.25 : 1;
-      ctx.setLineDash(v === 5 ? [4, 3] : []);
+      ctx.strokeStyle = gScaleColor[v] || gridColor;
+      ctx.globalAlpha = gScaleColor[v] ? 0.55 : 0.5;
+      ctx.lineWidth = gScaleColor[v] ? 1.25 : 1;
+      ctx.setLineDash(gScaleColor[v] ? [4, 3] : []);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = dimColor;
+      ctx.fillStyle = gScaleColor[v] || dimColor;
       ctx.font = "10px 'Space Mono', monospace";
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(v), 4, y(v));
+      ctx.fillText(gLevel ? `G${gLevel}` : String(v), 4, y(v));
     });
 
     if (n === 0) return;
@@ -662,7 +672,7 @@
         <div class="timeline-legend">
           <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
-          <span><span class="sw" style="background:var(--sev-4)"></span>Storm threshold (Kp 5)</span>
+          <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds (G1&ndash;G5, Kp 5&ndash;9)</span>
         </div>
         <div class="kp-summary">
           <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
@@ -678,7 +688,7 @@
       const bars = [['Observed', observed], ['24h Peak', max24h], ['72h Peak', max72h]];
       const maxKp = 9;
       body.innerHTML = `
-        <div class="kp-threshold"><span>Kp 5 · storm threshold</span></div>
+        <div class="kp-threshold"><span>Kp 5 · G1 storm threshold</span></div>
         <div class="kp-bars">
           ${bars.map(([label, v]) => {
             const h = v === null ? 2 : Math.max(4, (v / maxKp) * 88);
@@ -742,11 +752,11 @@
     ctx.scale(dpr, dpr)
 
     const styles = getComputedStyle(document.documentElement)
-    const auroraA = styles.getPropertyValue('--aurora-a').trim()
-    const auroraB = styles.getPropertyValue('--aurora-b').trim()
+    const auroraStops = ['--aurora-a', '--aurora-b', '--aurora-c', '--aurora-d'].map((v) =>
+      hexToRgb(styles.getPropertyValue(v).trim())
+    )
     const grid_ = styles.getPropertyValue('--grid').trim()
     const text = styles.getPropertyValue('--text').trim()
-    const rgbA = hexToRgb(auroraA), rgbB = hexToRgb(auroraB)
 
     ctx.fillStyle = grid_
     ctx.fillRect(0, 0, cssW, cssH)
@@ -784,9 +794,7 @@
       if (!(pct > 0)) continue
 
       const t = Math.min(1, pct / 30) // saturate the gradient by 30%, not 100%: the interesting range is low
-      const r = Math.round(rgbA[0] + (rgbB[0] - rgbA[0]) * t)
-      const g = Math.round(rgbA[1] + (rgbB[1] - rgbA[1]) * t)
-      const b = Math.round(rgbA[2] + (rgbB[2] - rgbA[2]) * t)
+      const [r, g, b] = auroraRampColor(auroraStops, t)
       ctx.fillStyle = `rgba(${r},${g},${b},${0.25 + 0.65 * t})`
       ctx.fillRect(x(lon) - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
     }
@@ -809,6 +817,20 @@
   function hexToRgb(hex) {
     const h = hex.replace('#', '')
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+  }
+
+  // NOAA's own aurora forecast uses a green -> yellow -> orange -> red
+  // intensity ramp (not a two-hue blend), so this walks the same 4-stop
+  // --aurora-a..d ramp used by the CSS gradients, at an arbitrary t in [0,1].
+  function auroraRampColor(stops, t) {
+    const seg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)))
+    const localT = t * (stops.length - 1) - seg
+    const a = stops[seg], b = stops[seg + 1]
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * localT),
+      Math.round(a[1] + (b[1] - a[1]) * localT),
+      Math.round(a[2] + (b[2] - a[2]) * localT)
+    ]
   }
 
   async function loadAuroraMap() {
