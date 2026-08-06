@@ -221,6 +221,7 @@
     font-size: 0.68rem; color: var(--text-dim); border-top: 1px solid var(--grid); padding-top: 10px;
   }
   .footstrip .v { color: var(--text); font-variant-numeric: tabular-nums; }
+  .footstrip .v.stale { color: var(--sev-4); font-weight: 600; }
   a { color: var(--amber); }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -445,6 +446,24 @@
     if (isNaN(d.getTime())) return '–';
     return d.toISOString().slice(11, 16) + ' UTC';
   }
+  // A value can sit at whatever it last was published as indefinitely --
+  // Signal K doesn't clear a path just because a plugin stopped updating it
+  // -- so "the gauge shows a normal-looking number" is not proof the plugin
+  // is still running. Generous on purpose (well above the 60min interval
+  // default) so a legitimately longer custom interval doesn't false-positive;
+  // still catches "this has been frozen for hours," which a silent parse
+  // failure or a broken NOAA endpoint would otherwise hide completely.
+  const STALE_MS = 3 * 60 * 60 * 1000;
+  function isStale(iso) {
+    if (!iso) return false;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return false;
+    return Date.now() - d.getTime() > STALE_MS;
+  }
+  function setTimestamp(el, iso) {
+    el.textContent = fmtTime(iso) + (isStale(iso) ? ' (stale)' : '');
+    el.classList.toggle('stale', isStale(iso));
+  }
   function fmtClock() {
     return new Date().toLocaleString(undefined, {
       month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
@@ -474,10 +493,21 @@
     const headline = document.getElementById('heroHeadline');
     const sub = document.getElementById('heroSub');
 
+    // A gauge showing a normal-looking number is not proof the plugin is
+    // still updating -- Signal K leaves a value exactly where it was last
+    // published. Flag that distinctly from genuinely-quiet, so "nothing's
+    // happening" and "this stopped updating hours ago" don't look identical.
+    const scalesTime = leafTime(scales?.G) || leafTime(scales?.time);
+    const stale = worst >= 0 && isStale(scalesTime);
+
     if (worst < 0) {
       chip.className = 'chip sev-0'; chip.textContent = 'No Data';
       headline.textContent = 'Waiting for the first observation cycle.';
       sub.textContent = '';
+    } else if (stale) {
+      chip.className = 'chip sev-4'; chip.textContent = 'Stale Data';
+      headline.textContent = `Last update was ${fmtTime(scalesTime)}.`;
+      sub.textContent = 'This could be genuinely quiet weather, or the plugin may have stopped updating -- check the server log.';
     } else if (worst <= 2) {
       chip.className = 'chip sev-1'; chip.textContent = 'Quiet';
       headline.textContent = 'Space weather is quiet.';
@@ -520,11 +550,16 @@
     document.getElementById('descS').textContent = sevWord(leafValue(scales?.S)) + ' — latest observed';
     // Flare class is the same underlying measurement R buckets into 0-5, at
     // the letter+number resolution HF operators actually use -- append it to
-    // R's own description rather than giving it a separate gauge.
+    // R's own description rather than giving it a separate gauge. Colored by
+    // the current R level rather than a separate letter-tier mapping: R's
+    // own bucketing (M4.9 vs M5.0 crossing R1/R2, say) is the authoritative
+    // one, and a second hand-picked threshold table would just risk drifting
+    // out of sync with it.
     const flareClass = leafValue(xrayFlare?.class);
-    document.getElementById('descR').textContent = sevWord(leafValue(scales?.R)) + ' — latest observed'
-      + (flareClass ? ` · ${flareClass}` : '');
-    document.getElementById('tsScales').textContent = fmtTime(leafTime(scales?.G) || leafTime(scales?.time));
+    const flareCls = sevClass(leafValue(scales?.R)) || 'sev-0';
+    document.getElementById('descR').innerHTML = sevWord(leafValue(scales?.R)) + ' — latest observed'
+      + (flareClass ? `<br>Solar Flare Class: <span class="${flareCls}">${flareClass}</span>` : '');
+    setTimestamp(document.getElementById('tsScales'), leafTime(scales?.G) || leafTime(scales?.time));
   }
 
   function renderAurora(aurora) {
@@ -556,7 +591,7 @@
         <span>Observed <b>${fmtTime(leafValue(aurora?.observationTime))}</b></span>
         <span>Forecast <b>${fmtTime(leafValue(aurora?.forecastTime))}</b></span>
       </div>`;
-    document.getElementById('tsAurora').textContent = fmtTime(leafTime(aurora?.probability));
+    setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
   }
 
   function renderWind(wind) {
@@ -728,7 +763,7 @@
         <div class="timeline-legend">
           <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
-          <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds (G1&ndash;G5, Kp 5&ndash;9)</span>
+          <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds</span>
         </div>
         <div class="kp-summary">
           <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
@@ -757,7 +792,7 @@
           }).join('')}
         </div>`;
     }
-    document.getElementById('tsKp').textContent = fmtTime(leafTime(kp?.observed));
+    setTimestamp(document.getElementById('tsKp'), leafTime(kp?.observed));
   }
 
   window.addEventListener('resize', () => {
