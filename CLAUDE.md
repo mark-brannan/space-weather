@@ -116,3 +116,12 @@ somewhere the server doesn't look; symlink it into
 
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
 push. No npm token should ever live on a developer machine.
+
+Version bumps are automatic in two layers, so a real release never depends on
+remembering: `.husky/pre-commit` auto-patch-bumps `package.json` at commit
+time if nothing on the branch has already given it an explicit bump (compared
+against the latest git tag, not the immediate parent commit). `.github/workflows/auto-version.yml`
+then tags and publishes whatever version lands on `main`, whether that came
+from the hook or from an explicit `npm version minor`/`major` before
+committing. Bump explicitly yourself for anything more than the smallest
+change; let the hook cover the rest.
