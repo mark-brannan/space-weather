@@ -18,7 +18,8 @@ export const solarWind: Product = {
         value: {
           displayName: 'Solar Wind Speed',
           shortName: 'SWS',
-          description: 'The solar wind speed; typical values are around 400 km/s',
+          description:
+            'The solar wind speed; typical values are around 400 km/s',
           units: 'm/s',
           timeout: 60 * 60
         }
@@ -51,7 +52,10 @@ export const solarWind: Product = {
 
   async refresh({ client, publisher, stopped }) {
     const [speedJson, magJson] = await Promise.all([
-      client.json('/products/summary/solar-wind-speed.json', 'Solar Wind Speed'),
+      client.json(
+        '/products/summary/solar-wind-speed.json',
+        'Solar Wind Speed'
+      ),
       client.json(
         '/products/summary/solar-wind-mag-field.json',
         'Solar Wind Magnetic Field'

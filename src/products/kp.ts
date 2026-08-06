@@ -54,7 +54,8 @@ export const kp: Product = {
           ...methods,
           zones,
           displayName: 'Max forecast Kp (24h)',
-          description: 'Highest planetary K-index forecast within the next 24 hours'
+          description:
+            'Highest planetary K-index forecast within the next 24 hours'
         }
       },
       {
@@ -64,7 +65,8 @@ export const kp: Product = {
           ...methods,
           zones,
           displayName: 'Max forecast Kp (72h)',
-          description: 'Highest planetary K-index forecast within the next 72 hours'
+          description:
+            'Highest planetary K-index forecast within the next 72 hours'
         }
       },
       {
@@ -140,8 +142,14 @@ export const kp: Product = {
         { path: `${KP_BASE}.observed`, value: summary.observed },
         { path: `${KP_BASE}.forecast.max24h`, value: summary.max24h },
         { path: `${KP_BASE}.forecast.max72h`, value: summary.max72h },
-        { path: `${KP_BASE}.forecast.maxNoaaScale`, value: summary.maxNoaaScale },
-        { path: `${KP_BASE}.forecast.nextStormTime`, value: summary.nextStormTime },
+        {
+          path: `${KP_BASE}.forecast.maxNoaaScale`,
+          value: summary.maxNoaaScale
+        },
+        {
+          path: `${KP_BASE}.forecast.nextStormTime`,
+          value: summary.nextStormTime
+        },
         { path: `${KP_BASE}.forecast.nextStormKp`, value: summary.nextStormKp },
         { path: `${KP_BASE}.forecast.series`, value: summary.series }
       ],

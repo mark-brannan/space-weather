@@ -40,7 +40,8 @@ export const schema = {
     },
     zoneAlertThreshold: {
       type: 'number',
-      title: 'Lowest NOAA "scale" value this plugin treats as worth your attention',
+      title:
+        'Lowest NOAA "scale" value this plugin treats as worth your attention',
       description:
         '1-5. Governs both the alarm zone on observed/forecast scale and Kp values,' +
         ' and the state of NOAA alert/watch/warning notifications (was two separate' +
@@ -88,7 +89,9 @@ export const schema = {
 
 function scaleValue(raw: any, fallback: number): number {
   const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 5 ? parsed : fallback
+  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 5
+    ? parsed
+    : fallback
 }
 
 function minutes(raw: any, fallback: number): number {
@@ -105,9 +108,13 @@ export function settingsFrom(props: any): Settings {
     auroraInterval: minutes(p.auroraInterval, 120),
     // An explicitly absent notificationVisual has always meant "both methods".
     notificationVisual:
-      typeof p.notificationVisual === 'undefined' ? true : !!p.notificationVisual,
+      typeof p.notificationVisual === 'undefined'
+        ? true
+        : !!p.notificationVisual,
     notificationSound:
-      typeof p.notificationVisual === 'undefined' ? true : !!p.notificationSound,
+      typeof p.notificationVisual === 'undefined'
+        ? true
+        : !!p.notificationSound,
     // Before 0.8.0 this was two separate settings (minScaleAlert and
     // zoneAlertThreshold) that happened to share the same default and the
     // same purpose -- "how bad before this plugin makes noise about it" --

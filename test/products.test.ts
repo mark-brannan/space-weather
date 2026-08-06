@@ -67,7 +67,9 @@ describe('scales product', () => {
     await scales.refresh(h.ctx as any)
 
     expect(h.errors).toEqual([])
-    expect(h.valueAt('environment.noaa.swpc.scales.observations.latest.G')).toBe(0)
+    expect(
+      h.valueAt('environment.noaa.swpc.scales.observations.latest.G')
+    ).toBe(0)
     expect(
       h.valueAt('environment.noaa.swpc.scales.forecast.1day.S.probability')
     ).toBeCloseTo(0.75, 10)
@@ -146,7 +148,10 @@ describe('solar wind product', () => {
 
     expect(h.errors).toEqual([])
     expect(h.valueAt('environment.noaa.swpc.solar_wind.speed')).toBe(287000)
-    expect(h.valueAt('environment.noaa.swpc.solar_wind.Bt')).toBeCloseTo(4e-9, 20)
+    expect(h.valueAt('environment.noaa.swpc.solar_wind.Bt')).toBeCloseTo(
+      4e-9,
+      20
+    )
   })
 
   it('publishes nothing at all rather than NaN when the payload is unusable', async () => {

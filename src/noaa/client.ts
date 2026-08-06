@@ -73,8 +73,7 @@ export function createClient(publisher: Publisher): Client {
   }
 
   return {
-    json: (subPath, productName) =>
-      get(subPath, productName, (r) => r.json()),
+    json: (subPath, productName) => get(subPath, productName, (r) => r.json()),
     text: (subPath, productName) => get(subPath, productName, (r) => r.text())
   }
 }

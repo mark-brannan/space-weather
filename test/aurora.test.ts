@@ -60,7 +60,9 @@ describe('auroraProbabilityAt', () => {
 
   it('interpolates between cells rather than snapping to one', () => {
     // A ramp in latitude: halfway between lat 60 (=10) and lat 61 (=20).
-    const forecast = grid((_lon, lat) => (lat === 60 ? 10 : lat === 61 ? 20 : 0))
+    const forecast = grid((_lon, lat) =>
+      lat === 60 ? 10 : lat === 61 ? 20 : 0
+    )
     expect(auroraProbabilityAt(forecast, 60.5, 0)).toBeCloseTo(0.15, 10)
     expect(auroraProbabilityAt(forecast, 60.25, 0)).toBeCloseTo(0.125, 10)
   })
@@ -84,7 +86,9 @@ describe('auroraProbabilityAt', () => {
   })
 
   it('clamps at the poles instead of running off the grid', () => {
-    const forecast = grid((_lon, lat) => (lat === 90 ? 40 : lat === -90 ? 30 : 0))
+    const forecast = grid((_lon, lat) =>
+      lat === 90 ? 40 : lat === -90 ? 30 : 0
+    )
     expect(auroraProbabilityAt(forecast, 90, 0)).toBeCloseTo(0.4, 10)
     expect(auroraProbabilityAt(forecast, 95, 0)).toBeCloseTo(0.4, 10)
     expect(auroraProbabilityAt(forecast, -90, 0)).toBeCloseTo(0.3, 10)
@@ -154,7 +158,8 @@ describe('zonesForAurora', () => {
 describe('aurora product', () => {
   const dataDirs: string[] = []
   afterEach(() => {
-    for (const dir of dataDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+    for (const dir of dataDirs.splice(0))
+      rmSync(dir, { recursive: true, force: true })
   })
 
   function harness(position: any, response?: any) {
@@ -197,8 +202,7 @@ describe('aurora product', () => {
         settings: settingsFrom({ auroraEnabled: true }),
         stopped: () => false
       },
-      valueAt: (path: string) =>
-        published.find((v) => v.path === path)?.value
+      valueAt: (path: string) => published.find((v) => v.path === path)?.value
     }
   }
 
@@ -236,7 +240,11 @@ describe('aurora product', () => {
   })
 
   it('ignores a position that is not usable', async () => {
-    for (const bad of [{}, { latitude: 'x', longitude: 2 }, { latitude: null }]) {
+    for (const bad of [
+      {},
+      { latitude: 'x', longitude: 2 },
+      { latitude: null }
+    ]) {
       const h = harness(bad, fixtureJson(REAL))
       await aurora.refresh(h.ctx as any)
       expect(h.fetched).toEqual([])
@@ -256,7 +264,9 @@ describe('aurora product', () => {
     await aurora.refresh(h.ctx as any)
 
     expect(h.errors).toEqual([])
-    const cached = JSON.parse(readFileSync(join(h.dataDir, 'aurora-grid.json'), 'utf8'))
+    const cached = JSON.parse(
+      readFileSync(join(h.dataDir, 'aurora-grid.json'), 'utf8')
+    )
     expect(typeof cached.fetchedAt).toBe('string')
     expect(cached.grid).toEqual(raw)
   })

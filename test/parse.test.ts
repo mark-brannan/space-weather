@@ -167,7 +167,10 @@ describe('parseAlert', () => {
     expect(parseAlert({})).toBeNull()
     expect(parseAlert({ message: 'no serial number here' })).toBeNull()
     expect(
-      parseAlert({ message: 'Serial Number: 1\nSpace Weather Message Code: ALTEF3', issue_datetime: 'nonsense' })
+      parseAlert({
+        message: 'Serial Number: 1\nSpace Weather Message Code: ALTEF3',
+        issue_datetime: 'nonsense'
+      })
     ).toBeNull()
   })
 })
@@ -233,7 +236,9 @@ describe('transformJsonScaleRange', () => {
         )) {
           if (!update.path.includes('robability')) continue
           if (update.value === null) continue
-          expect(update.value, `${name} ${update.path}`).toBeGreaterThanOrEqual(0)
+          expect(update.value, `${name} ${update.path}`).toBeGreaterThanOrEqual(
+            0
+          )
           expect(update.value, `${name} ${update.path}`).toBeLessThanOrEqual(1)
         }
       }
@@ -344,7 +349,9 @@ describe('parseKpForecast', () => {
           expect(
             new Date(summary.series[i].time).getTime(),
             name
-          ).toBeGreaterThanOrEqual(new Date(summary.series[i - 1].time).getTime())
+          ).toBeGreaterThanOrEqual(
+            new Date(summary.series[i - 1].time).getTime()
+          )
         }
       }
     }
@@ -370,7 +377,9 @@ describe('parseKpForecast', () => {
     // timestamps and as a list of records with ISO-style ones. The captured
     // payloads cover both, and a summary from either must be usable.
     const table = fixtureJson('noaa-planetary-k-index-forecast.2025_04_10.json')
-    const records = fixtureJson('noaa-planetary-k-index-forecast.2026_08_01.json')
+    const records = fixtureJson(
+      'noaa-planetary-k-index-forecast.2026_08_01.json'
+    )
     expect(Array.isArray(table[0])).toBe(true)
     expect(Array.isArray(records[0])).toBe(false)
 
@@ -379,7 +388,10 @@ describe('parseKpForecast', () => {
     expect(fromTable.observedTime).toBe('2025-04-03T00:00:00.000Z')
     expect(fromTable.max72h).toBeCloseTo(5.67, 5)
 
-    const fromRecords = parseKpForecast(records, new Date('2026-07-25T00:00:00Z'))
+    const fromRecords = parseKpForecast(
+      records,
+      new Date('2026-07-25T00:00:00Z')
+    )
     expect(fromRecords.observed).toBeCloseTo(1, 5)
     expect(fromRecords.observedTime).toBe('2026-07-25T00:00:00.000Z')
   })

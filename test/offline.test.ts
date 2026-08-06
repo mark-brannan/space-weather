@@ -63,8 +63,11 @@ describe('parsing is entirely offline', () => {
       const scales = fixtureJson(name)
       for (const index of ['-1', '0', '1', '2', '3']) {
         expect(
-          transformJsonScaleRange(scales[index], 'base', index === '-1' || index === '0')
-            .length
+          transformJsonScaleRange(
+            scales[index],
+            'base',
+            index === '-1' || index === '0'
+          ).length
         ).toBeGreaterThan(0)
       }
     }
@@ -91,8 +94,8 @@ describe('parsing is entirely offline', () => {
 
   it('fails loudly if anything does reach for the network', () => {
     // Proves the guard itself works rather than silently passing.
-    expect(() => (globalThis.fetch as any)('https://services.swpc.noaa.gov')).toThrow(
-      /network access attempted/
-    )
+    expect(() =>
+      (globalThis.fetch as any)('https://services.swpc.noaa.gov')
+    ).toThrow(/network access attempted/)
   })
 })

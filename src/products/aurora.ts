@@ -82,7 +82,8 @@ export const aurora: Product = {
         path: `${AURORA_BASE}.observationTime`,
         value: {
           displayName: 'Aurora observation time',
-          description: 'Time of the observation the OVATION forecast is based on',
+          description:
+            'Time of the observation the OVATION forecast is based on',
           timeout: 60 * 60 * 2
         }
       },
@@ -151,7 +152,10 @@ export const aurora: Product = {
     publisher.values(
       [
         { path: `${AURORA_BASE}.probability`, value: probability },
-        { path: `${AURORA_BASE}.observationTime`, value: forecast.observationTime },
+        {
+          path: `${AURORA_BASE}.observationTime`,
+          value: forecast.observationTime
+        },
         { path: `${AURORA_BASE}.forecastTime`, value: forecast.forecastTime }
       ],
       forecast.forecastTime ?? new Date().toISOString()

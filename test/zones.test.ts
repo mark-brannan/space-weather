@@ -54,7 +54,10 @@ describe('zonesForScale', () => {
         const matches = zones.filter(
           (_: any, index: number) => matchZone(zones, value) === index
         )
-        expect(matchZone(zones, value), `${letter}${value}`).toBeGreaterThanOrEqual(0)
+        expect(
+          matchZone(zones, value),
+          `${letter}${value}`
+        ).toBeGreaterThanOrEqual(0)
         expect(matches.length).toBe(1)
       }
     }

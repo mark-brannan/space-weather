@@ -16,7 +16,8 @@ describe('zoneAlertThreshold / minScaleAlert merge (0.8.0)', () => {
 
   it('prefers zoneAlertThreshold when both are present', () => {
     expect(
-      settingsFrom({ zoneAlertThreshold: 4, minScaleAlert: 2 }).zoneAlertThreshold
+      settingsFrom({ zoneAlertThreshold: 4, minScaleAlert: 2 })
+        .zoneAlertThreshold
     ).toBe(4)
   })
 
@@ -29,6 +30,8 @@ describe('auroraInterval default', () => {
   it('defaults to 120 minutes, longer than the other poll intervals', () => {
     const settings = settingsFrom({})
     expect(settings.auroraInterval).toBe(120)
-    expect(settings.auroraInterval).toBeGreaterThan(settings.observationsInterval)
+    expect(settings.auroraInterval).toBeGreaterThan(
+      settings.observationsInterval
+    )
   })
 })

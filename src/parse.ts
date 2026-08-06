@@ -40,7 +40,8 @@ export const MAX_NOAA_SCALE = 5
 // G is defined directly in terms of Kp: G1 = Kp5 ... G5 = Kp9.
 export const KP_FOR_G1 = 5
 
-export type AlarmState = (typeof NotificationStates)[keyof typeof NotificationStates]
+export type AlarmState =
+  (typeof NotificationStates)[keyof typeof NotificationStates]
 
 export interface Zone {
   lower?: number
@@ -424,7 +425,9 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
   const seriesStart = nowMs - 24 * 3600 * 1000
   const seriesEnd = nowMs + 72 * 3600 * 1000
   const series: KpSeriesPoint[] = rows
-    .filter((row) => row.at.getTime() >= seriesStart && row.at.getTime() <= seriesEnd)
+    .filter(
+      (row) => row.at.getTime() >= seriesStart && row.at.getTime() <= seriesEnd
+    )
     .map((row) => ({
       time: row.at.toISOString(),
       kp: row.kp,
@@ -570,7 +573,8 @@ function firstNumber(record: any, keys: string[]): number | null {
 function firstString(record: any, keys: string[]): string | null {
   if (!record) return null
   for (const key of keys) {
-    if (typeof record[key] === 'string' && record[key] !== '') return record[key]
+    if (typeof record[key] === 'string' && record[key] !== '')
+      return record[key]
   }
   return null
 }
@@ -591,7 +595,11 @@ export interface AuroraForecast {
 }
 
 export function parseAuroraPayload(json: any): AuroraForecast | null {
-  if (!json || !Array.isArray(json.coordinates) || json.coordinates.length === 0) {
+  if (
+    !json ||
+    !Array.isArray(json.coordinates) ||
+    json.coordinates.length === 0
+  ) {
     return null
   }
   return {
@@ -661,7 +669,8 @@ export function auroraProbabilityAt(
 
   const lat = Math.min(90, Math.max(-90, latitude))
   // Signal K longitude is -180..180; the grid is 0..359.
-  const lon = ((longitude % AURORA_LON_STEPS) + AURORA_LON_STEPS) % AURORA_LON_STEPS
+  const lon =
+    ((longitude % AURORA_LON_STEPS) + AURORA_LON_STEPS) % AURORA_LON_STEPS
 
   const lat0 = Math.floor(lat)
   const lat1 = Math.min(lat0 + 1, 90)
@@ -695,11 +704,30 @@ export function auroraProbabilityAt(
  */
 export function zonesForAurora(): Zone[] {
   return [
-    { lower: 0, upper: 0.1, state: NotificationStates.NOMINAL, message: 'Aurora unlikely' },
-    { lower: 0.1, upper: 0.3, state: NotificationStates.NORMAL, message: 'Aurora possible' },
-    { lower: 0.3, upper: 0.5, state: NotificationStates.ALERT, message: 'Aurora likely' },
+    {
+      lower: 0,
+      upper: 0.1,
+      state: NotificationStates.NOMINAL,
+      message: 'Aurora unlikely'
+    },
+    {
+      lower: 0.1,
+      upper: 0.3,
+      state: NotificationStates.NORMAL,
+      message: 'Aurora possible'
+    },
+    {
+      lower: 0.3,
+      upper: 0.5,
+      state: NotificationStates.ALERT,
+      message: 'Aurora likely'
+    },
     // No `upper`: probability tops out at 1, and the server's matcher is
     // exclusive on upper, so the top band must be open-ended.
-    { lower: 0.5, state: NotificationStates.WARN, message: 'Aurora very likely' }
+    {
+      lower: 0.5,
+      state: NotificationStates.WARN,
+      message: 'Aurora very likely'
+    }
   ]
 }

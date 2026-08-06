@@ -29,7 +29,10 @@ export const advisory: Product = {
   },
 
   async refresh({ client, publisher, settings, stopped }) {
-    const text = await client.text('/text/advisory-outlook.txt', 'Advisory Outlook')
+    const text = await client.text(
+      '/text/advisory-outlook.txt',
+      'Advisory Outlook'
+    )
     if (stopped()) return
 
     const outlook = parseAdvisoryOutlook(text)
