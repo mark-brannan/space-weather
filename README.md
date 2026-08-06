@@ -113,31 +113,3 @@ The Aurora tile has a **Show map** button that draws probability near your posit
 | Plugin configuration | The published paths in the data browser |
 
 ![Notifications](docs/screenshots/notifications.png)
-
-## Development
-
-```shell
-npm install
-npm run build
-npm test
-```
-
-The tests run entirely against the captured NOAA payloads in `examples/` and
-make no network requests, so they work offline and in a sandbox. If you add a
-parser, add a captured payload alongside it rather than reaching for the live
-service — NOAA has changed the shape of these products more than once, and the
-committed captures are what makes that visible.
-
-To try a change against a real server, install Signal K somewhere separate,
-point it at its own config directory, and symlink this checkout into it:
-
-```shell
-mkdir -p ~/signalk-dev/server ~/signalk-dev/config/node_modules
-cd ~/signalk-dev/server && npm install signalk-server
-ln -s /path/to/signalk-noaa-space-weather ~/signalk-dev/config/node_modules/signalk-noaa-space-weather
-SIGNALK_NODE_CONFIG_DIR=~/signalk-dev/config ./node_modules/.bin/signalk-server
-```
-
-The server loads the plugin from `dist/`, so run `npm run build` (or
-`npm run watch`) and restart the server to pick up a change. Using a separate
-config directory keeps the experiment away from a real boat's configuration.

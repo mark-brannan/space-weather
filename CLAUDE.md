@@ -93,20 +93,33 @@ conversions, boundaries — never display strings.
 npm install && npm run build && npm test
 ```
 
-Against a real server:
+There is a Signal K server already running in Docker on this machine at
+`localhost:3001`, installed from the published npm package — useful for
+read-only checks against real, released behavior (it's what backs any
+"browse the live server" research), but it runs whatever version is
+currently published, not this checkout's uncommitted changes. Don't
+restart, reconfigure, or write through it without checking who else might
+be using it first.
+
+To run this checkout's own uncommitted changes against a live server:
+clone the actual [SignalK/signalk-server
+repo](https://github.com/SignalK/signalk-server) to `~/signalk-server`
+(`npm install && npm link`, once), and use `~/.signalk-dev` as the shared
+scratch config directory (`SIGNALK_NODE_CONFIG_DIR`) plugins get linked
+into — never a real boat's `~/.signalk`. `npm link` each plugin checkout
+once from its own directory, then `npm link <package-name>` from inside
+`~/.signalk-dev` to wire it in. Run with:
 
 ```shell
-mkdir -p ~/signalk-dev/server ~/signalk-dev/config/node_modules
-cd ~/signalk-dev/server && npm install signalk-server
-ln -s /path/to/this/repo ~/signalk-dev/config/node_modules/signalk-noaa-space-weather
-SIGNALK_NODE_CONFIG_DIR=~/signalk-dev/config PORT=3100 ./node_modules/.bin/signalk-server
+cd ~/signalk-server && SIGNALK_NODE_CONFIG_DIR=~/.signalk-dev PORT=3100 bin/signalk-server
 ```
 
-The server loads from `dist/`, so rebuild and restart to pick up a change. Use a
-separate config directory — never a real boat's `~/.signalk`.
-
-On this machine, port 3000 is a Grafana container and 3001 is a Signal K
-Docker container, both in use; the dev server uses 3100.
+The plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
+watch`) and restart the server to pick up a change. This is a single shared
+instance — port 3000 is Grafana, 3001 and 3005 are other Docker containers,
+all already in use on this machine — so check nothing else is running
+against `~/.signalk-dev`/port 3100 before starting it, the same way you'd
+check before touching a shared branch.
 
 If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
