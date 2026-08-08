@@ -50,9 +50,21 @@ Zones also cause the server to raise notifications on your behalf, so the defaul
 
 Alerting on a level 1 would mean an interruption every four or five days, forever. So by default levels 1–2 are `normal`, level 3 is `alert` **with no visual or sound method** (it shows in the UI but does not interrupt), level 4 is `warn` (visual), and level 5 is `alarm` (visual and sound). Set `zoneAlertThreshold` to move that pivot.
 
+### Aurora on your chart plotter
+
+The aurora grid is also served as Web Mercator map tiles, so the oval can be drawn over your actual chart instead of only in this plugin's webapp:
+
+```
+http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/aurora-tile/{z}/{x}/{y}.png
+```
+
+Add that in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin) as an online chart source (chart format `png`, zoom 0–8), and it appears as a selectable layer in Freeboard-SK. Tiles are transparent everywhere the model gives no probability, so it overlays a real chart rather than covering it.
+
+Tiles are drawn on demand from the same cached fetch the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grid is 1°; beyond that there is nothing more to show.
+
 ### Planned
 
-* Aurora and storm activity as a Signal K resource, so other chart plugins (Freeboard-SK and similar) can draw the oval on a real chart, not just this webapp
+* Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
 
 ## Configuration
 

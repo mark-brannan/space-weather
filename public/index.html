@@ -290,9 +290,11 @@
     gap: 10px; margin-top: 10px; font-size: 0.72rem; color: var(--text-dim);
   }
   .map-legend { display: flex; align-items: center; gap: 8px; }
+  /* Matches NOAA_RAMP in the script below, so the legend means the same
+     thing the map does. Stops at 0/25/50/75/100% probability. */
   .map-legend .bar {
     width: 90px; height: 8px; border-radius: 4px;
-    background: linear-gradient(90deg, var(--aurora-a), var(--aurora-b), var(--aurora-c), var(--aurora-d));
+    background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
   }
 
   .advisory-teaser { margin-top: 12px; font-size: 0.86rem; color: var(--text); }
@@ -1048,9 +1050,6 @@
     ctx.scale(dpr, dpr)
 
     const styles = getComputedStyle(document.documentElement)
-    const auroraStops = ['--aurora-a', '--aurora-b', '--aurora-c', '--aurora-d'].map((v) =>
-      hexToRgb(styles.getPropertyValue(v).trim())
-    )
     const grid_ = styles.getPropertyValue('--grid').trim()
     const text = styles.getPropertyValue('--text').trim()
 
@@ -1089,9 +1088,8 @@
       if (Math.abs(d) > lonSpan) continue
       if (!(pct > 0)) continue
 
-      const t = Math.min(1, pct / 30) // saturate the gradient by 30%, not 100%: the interesting range is low
-      const [r, g, b] = auroraRampColor(auroraStops, t)
-      ctx.fillStyle = `rgba(${r},${g},${b},${0.25 + 0.65 * t})`
+      const [r, g, b] = noaaRampColor(pct)
+      ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(1, pct / 2) * (0.3 + 0.6 * (pct / 100))})`
       ctx.fillRect(x(lon) - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
     }
 
@@ -1110,18 +1108,23 @@
     ctx.globalAlpha = 1
   }
 
-  function hexToRgb(hex) {
-    const h = hex.replace('#', '')
-    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
-  }
-
-  // NOAA's own aurora forecast uses a green -> yellow -> orange -> red
-  // intensity ramp (not a two-hue blend), so this walks the same 4-stop
-  // --aurora-a..d ramp used by the CSS gradients, at an arbitrary t in [0,1].
-  function auroraRampColor(stops, t) {
-    const seg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)))
-    const localT = t * (stops.length - 1) - seg
-    const a = stops[seg], b = stops[seg + 1]
+  // NOAA's own OVATION scale, sampled from the legend on their published
+  // forecast image at 5% intervals, so this map and the chart-plotter tile
+  // overlay (src/tiles.ts, same table) agree with each other and with the
+  // aurora forecast everyone else is looking at. Spans the full 0-100%:
+  // green below half, yellow at 50, amber at 70, red only above 90.
+  const NOAA_RAMP = [
+    [116, 166, 117], [50, 196, 53], [23, 227, 16], [30, 232, 10], [37, 241, 6],
+    [45, 247, 3], [61, 255, 0], [109, 255, 0], [156, 255, 2], [199, 255, 1],
+    [248, 255, 1], [255, 238, 0], [254, 222, 0], [254, 201, 0], [255, 182, 0],
+    [255, 163, 0], [255, 144, 2], [254, 113, 0], [250, 54, 0], [249, 2, 0],
+    [228, 0, 0]
+  ]
+  function noaaRampColor(pct) {
+    const position = Math.max(0, Math.min(100, pct)) / 5
+    const seg = Math.min(NOAA_RAMP.length - 2, Math.floor(position))
+    const localT = position - seg
+    const a = NOAA_RAMP[seg], b = NOAA_RAMP[seg + 1]
     return [
       Math.round(a[0] + (b[0] - a[0]) * localT),
       Math.round(a[1] + (b[1] - a[1]) * localT),
