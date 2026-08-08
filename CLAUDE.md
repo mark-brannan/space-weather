@@ -150,13 +150,22 @@ no dependency entry and no `npm install` — which matters, because installing
 anything in that directory re-resolves every caret range in it and can upgrade
 plugins you weren't touching.
 
-Note the dependency entry that is there now is `file:`, and npm installed it
-as a **copy**, not a symlink — so a rebuild in this repo does not reach the
-server until it is reinstalled. Check whether
-`~/.signalk/node_modules/signalk-noaa-space-weather` is a symlink or a
-directory before wondering why a change did not show up. (`npm link` writes a
-`link:` spec, which npm 9 then refuses to install at all with
-`EUNSUPPORTEDPROTOCOL` — that is what broke `~/.signalk-dev`.)
+**`~/.signalk/node_modules/signalk-noaa-space-weather` is a symlink to this
+repo, and it should stay one.** A rebuild here reaches the server with no
+reinstall, which is the whole point. Recreate it with `ln -s` if something
+replaces it — an `npm install` in that directory will, since the `file:`
+dependency entry installs as a *copy* of the packed files instead. (Don't
+"fix" that with `npm link`: it writes a `link:` spec that npm 9 refuses to
+install at all with `EUNSUPPORTEDPROTOCOL`, which is what broke
+`~/.signalk-dev`.) Check which one you have before wondering why a change
+did not show up.
+
+The corollary, and it bites across parallel sessions: **the server runs
+whatever branch this repo has checked out**, from whatever is in `dist/`
+(gitignored, so a branch switch leaves the previous build in place until you
+rebuild). So leave the repo on `main` and rebuilt when you finish, do feature
+work on a branch knowing the shared server follows you onto it, and never
+leave it parked on a branch with a broken build.
 
 Most of what this plugin does needs `navigation.position` to exist.
 `signalk-fixed-position` is enabled in `~/.signalk` and will contend with any
