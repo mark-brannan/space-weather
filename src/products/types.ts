@@ -31,6 +31,14 @@ export interface Product {
    * fetch having failed — the vessel has no position fix yet, say. The caller
    * retries shortly instead of waiting out a whole interval, which on an
    * hourly product would mean an hour of silence after boot.
+   *
+   * Returning `{ nextDelayMinutes }` overrides `intervalMinutes` for the next
+   * scheduled run only — for a product whose natural cadence varies over
+   * time (the advisory outlook polling tighter near its expected weekly
+   * issuance). Most products never return this and just get `intervalMinutes`
+   * on every tick, unchanged from before.
    */
-  refresh: (ctx: ProductContext) => Promise<void | 'not-ready'>
+  refresh: (
+    ctx: ProductContext
+  ) => Promise<void | 'not-ready' | { nextDelayMinutes: number }>
 }

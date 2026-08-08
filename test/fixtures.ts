@@ -38,7 +38,8 @@ export const ADVISORY_FIXTURES = [
   'advisory-outlook.2025_04_11.txt',
   'advisory-outlook.2025_04_14.txt',
   'advisory-outlook.2025_04_18.txt',
-  'advisory-outlook.2026_08_01.txt'
+  'advisory-outlook.2026_08_01.txt',
+  'advisory-outlook.2026_08_03.txt'
 ]
 
 export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']

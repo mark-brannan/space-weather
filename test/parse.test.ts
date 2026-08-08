@@ -70,6 +70,24 @@ describe('parseAdvisoryOutlook', () => {
   it('returns null on input that is not an advisory', () => {
     expect(parseAdvisoryOutlook('nothing to see here')).toBeNull()
   })
+
+  it('extracts the first sentence of the Outlook For section as a teaser', () => {
+    const outlook = parseAdvisoryOutlook(
+      fixture('advisory-outlook.2026_08_03.txt')
+    )
+    expect(outlook?.outlookTeaser).toBe(
+      'G1 (Minor) storms are expected on 03 Aug  (due to a CME persistent' +
+        ' and waning disturbances) and likely on 19 Aug (due to a recurrent' +
+        ' high speed stream).'
+    )
+  })
+
+  it('finds a teaser in every captured advisory', () => {
+    for (const name of ADVISORY_FIXTURES) {
+      const outlook = parseAdvisoryOutlook(fixture(name))
+      expect(outlook?.outlookTeaser, name).toBeTruthy()
+    }
+  })
 })
 
 describe('getAlertLevel', () => {

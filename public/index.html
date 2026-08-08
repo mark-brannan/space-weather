@@ -68,22 +68,22 @@
     font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.09em;
     font-weight: 500; color: var(--text-dim); font-size: 0.72rem;
   }
-  .shell { max-width: 1180px; margin: 0 auto; padding: 20px 20px 48px; }
+  .shell { max-width: 1180px; margin: 0 auto; padding: 14px 20px 24px; }
 
   .statusbar {
     display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-    gap: 10px 24px; padding: 14px 18px; border: 1px solid var(--grid); border-radius: 4px;
+    gap: 6px 24px; padding: 8px 16px; border: 1px solid var(--grid); border-radius: 4px;
     background: linear-gradient(180deg, var(--panel-2), var(--panel)); box-shadow: var(--shadow);
-    margin-bottom: 18px;
+    margin-bottom: 12px;
   }
   .statusbar h1 {
-    font-family: var(--font-display); font-weight: 700; font-size: 1.15rem;
+    font-family: var(--font-display); font-weight: 700; font-size: 1rem;
     letter-spacing: 0.06em; text-transform: uppercase; margin: 0; color: var(--text);
   }
   .statusbar .field { display: flex; align-items: baseline; gap: 8px; }
   .statusbar .val { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
 
-  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
   .tile {
     border: 1px solid var(--grid); border-radius: 4px; background: var(--panel);
     box-shadow: var(--shadow); padding: 16px 18px; position: relative; overflow: hidden;
@@ -94,11 +94,12 @@
     letter-spacing: 0.02em; margin: 0 0 12px; color: var(--text);
   }
   .span-12 { grid-column: span 12; }
+  .span-8  { grid-column: span 8; }
   .span-6  { grid-column: span 6; }
   .span-4  { grid-column: span 4; }
   @media (max-width: 760px) {
     .grid { grid-template-columns: repeat(4, 1fr); }
-    .span-12, .span-6, .span-4 { grid-column: span 4; }
+    .span-12, .span-8, .span-6, .span-4 { grid-column: span 4; }
   }
 
   .chip {
@@ -216,6 +217,40 @@
     background: linear-gradient(90deg, var(--aurora-a), var(--aurora-b), var(--aurora-c), var(--aurora-d));
   }
 
+  .advisory-teaser { margin-top: 12px; font-size: 0.86rem; color: var(--text); }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  /* Author CSS always beats the [hidden] UA default, so `display: flex`
+     above would win even while the hidden attribute is set -- this is what
+     actually hides it, and what the JS toggling `.hidden` depends on. */
+  .overlay[hidden] { display: none; }
+  .overlay-backdrop {
+    position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 70%, transparent);
+  }
+  .overlay-panel {
+    position: relative; z-index: 1; max-width: 720px; width: 100%; max-height: 85vh;
+    overflow-y: auto; border: 1px solid var(--grid); border-radius: 4px; background: var(--panel);
+    box-shadow: var(--shadow); padding: 24px 26px;
+  }
+  .overlay-close {
+    position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; line-height: 1;
+    font-size: 1.3rem; color: var(--text-dim); background: transparent; border: 1px solid var(--grid);
+    border-radius: 4px; cursor: pointer;
+  }
+  .overlay-close:hover { border-color: var(--amber); color: var(--amber); }
+  .overlay-panel h2 { margin: 4px 0 6px; }
+  .overlay-explainer {
+    font-size: 0.78rem; font-style: italic; color: var(--text-dim);
+    margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--grid);
+  }
+  .advisory-text {
+    font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap;
+    color: var(--text); margin: 8px 0 0;
+  }
+
   .footstrip {
     margin-top: 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px;
     font-size: 0.68rem; color: var(--text-dim); border-top: 1px solid var(--grid); padding-top: 10px;
@@ -256,13 +291,24 @@
   </div>
 
   <div class="grid">
-    <div class="tile span-12 hero">
+    <div class="tile span-8 hero">
       <div>
         <span class="chip sev-0" id="heroChip">Loading</span>
         <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
         <div class="sub" id="heroSub"></div>
       </div>
       <div class="countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
+    </div>
+
+    <div class="tile span-4">
+      <div class="map-header">
+        <div>
+          <span class="label">Advisory &middot; NOAA SWPC</span>
+          <h2>Weekly Outlook</h2>
+        </div>
+      </div>
+      <div class="advisory-teaser" id="advisoryTeaser">Waiting for data&hellip;</div>
+      <button type="button" id="advisoryOpen" class="btn-outline" disabled style="margin-top:10px;">Read full outlook</button>
     </div>
 
     <div class="tile span-12">
@@ -349,6 +395,7 @@
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
+
   </div>
 
   <div class="learn-more">
@@ -366,6 +413,17 @@
     <span>Scales updated <span class="v" id="tsScales">&ndash;</span></span>
     <span>Aurora updated <span class="v" id="tsAurora">&ndash;</span></span>
     <span>Kp forecast updated <span class="v" id="tsKp">&ndash;</span></span>
+  </div>
+</div>
+
+<div class="overlay" id="advisoryOverlay" hidden>
+  <div class="overlay-backdrop" id="advisoryBackdrop"></div>
+  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="advisoryOverlayTitle">
+    <button type="button" class="overlay-close" id="advisoryClose" aria-label="Close">&times;</button>
+    <span class="label">Advisory &middot; NOAA SWPC</span>
+    <h2 id="advisoryOverlayTitle">&mdash;</h2>
+    <pre class="advisory-text" id="advisoryOverlayText"></pre>
+    <p class="overlay-explainer">A plain-language recap of last week and the week ahead, published Monday mornings.</p>
   </div>
 </div>
 
@@ -795,6 +853,47 @@
     setTimestamp(document.getElementById('tsKp'), leafTime(kp?.observed));
   }
 
+  function shortDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  let advisoryData = null;
+  function renderAdvisory(advisory) {
+    const teaser = document.getElementById('advisoryTeaser');
+    const openBtn = document.getElementById('advisoryOpen');
+    if (!advisory || !advisory.text) {
+      teaser.textContent = 'Waiting for data…';
+      openBtn.disabled = true;
+      advisoryData = null;
+      return;
+    }
+    advisoryData = advisory;
+    const date = shortDate(advisory.issued);
+    teaser.textContent = advisory.teaser
+      ? `${date} — ${advisory.teaser}`
+      : `${date} — ${advisory.idLine || 'Advisory issued'}`;
+    openBtn.disabled = false;
+  }
+
+  function openAdvisoryOverlay() {
+    if (!advisoryData) return;
+    document.getElementById('advisoryOverlayTitle').textContent = advisoryData.idLine || 'Advisory Outlook';
+    document.getElementById('advisoryOverlayText').textContent = advisoryData.text;
+    document.getElementById('advisoryOverlay').hidden = false;
+  }
+  function closeAdvisoryOverlay() {
+    document.getElementById('advisoryOverlay').hidden = true;
+  }
+  document.getElementById('advisoryOpen').addEventListener('click', openAdvisoryOverlay);
+  document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
+  document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) closeAdvisoryOverlay();
+  });
+
   window.addEventListener('resize', () => {
     const canvas = document.getElementById('kpChart');
     if (canvas && canvas._series) drawKpTimeline(canvas, canvas._series);
@@ -1038,9 +1137,9 @@
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare;
+    let scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory;
     try {
-      [scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare] = await Promise.all([
+      [scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
@@ -1048,7 +1147,8 @@
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
         getJson('/signalk/v1/api/vessels/self/name'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare')
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
+        getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook')
       ]);
     } catch (err) {
       // Every getJson call above hits this same server, so one 401 means
@@ -1080,6 +1180,7 @@
     renderAurora(aurora);
     renderWind(wind);
     renderKp(kp);
+    renderAdvisory(advisory);
 
     const pos = leafValue(position);
     document.getElementById('vesselPos').textContent = pos

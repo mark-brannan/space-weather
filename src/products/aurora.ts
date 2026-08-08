@@ -12,7 +12,7 @@ import {
   parseAuroraPayload,
   zonesForAurora
 } from '../parse.js'
-import { writeAuroraCache } from '../noaa/auroraCache.js'
+import { writeAuroraCache } from '../cache/auroraCache.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 
