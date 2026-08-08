@@ -104,3 +104,9 @@ dist
 .tern-port
 
 .DS_Store
+
+# Agent worktrees. These are full checkouts nested inside the repo, so leaving
+# them untracked is not enough: vitest globs their test files too (a stray one
+# silently doubled the local count to 372/22), and a careless `git add .` would
+# commit a second copy of the tree.
+.claude/worktrees/
