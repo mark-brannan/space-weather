@@ -687,9 +687,17 @@
   function renderScales(scales, xrayFlare, forecast) {
     const body = document.getElementById('scalesBody');
     const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
+    // The day's own date is the *value* at `<n>day.time` (NOAA's per-day
+    // DateStamp), not the leaf's delta timestamp -- all three days publish in
+    // one update, so a timestamp would label every column identically.
+    //
+    // Format in UTC, not the vessel's local zone. NOAA's forecast days are UTC
+    // days and days 2 and 3 arrive stamped 00:00:00, so rendering them locally
+    // moves them a day earlier anywhere west of Greenwich and a day later far
+    // enough east -- which put two columns on the same date again.
     const dayLabel = (d, i) => {
-      const t = leafTime(d?.time);
-      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${i + 1}`;
+      const t = leafValue(d?.time);
+      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) : `Day ${i + 1}`;
     };
 
     const gLevel = leafValue(scales?.G), sLevel = leafValue(scales?.S), rLevel = leafValue(scales?.R);
