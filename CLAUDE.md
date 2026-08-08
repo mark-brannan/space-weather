@@ -210,6 +210,43 @@ If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
 `node_modules/signalk-server/node_modules/@signalk/`.
 
+## Regenerating the README screenshots
+
+`scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
+against a running server. It is a **separate npm package** on purpose —
+Playwright would blow both the offline `npm ci` and the 60 second cap the
+registry scores this repo with — so install it on its own:
+
+```shell
+npm install --prefix scripts/screenshots
+npx --prefix scripts/screenshots playwright install chromium
+SK_USERNAME=... SK_PASSWORD=... node scripts/screenshots/capture.mjs
+```
+
+It defaults to the Docker instance on `localhost:3001`; `SK_URL` or `--url`
+points it at a dev server instead. `--only webapp,aurora-map` limits the run.
+Which one you want is a real choice: 3001 runs the published package, so its
+shots match what someone installing from the registry sees, while a dev server
+shows UI that has not shipped yet.
+
+Four of the five shots need only a **readonly** login. Just `plugin-configuration`
+needs admin, because `/skServer/plugins` is admin-gated — with a readonly session
+that one shot is skipped and the others still render. Note the plugin's own data
+endpoints are readable by a readonly user only because they are mounted under
+`/signalk/v1/api/*` rather than `/plugins/*`; see the comment in `src/index.ts`.
+
+To get an account without handing over an admin password, POST
+`{"userId":..., "password":...}` to `/signalk/v1/access/requests` (unauthenticated,
+returns 202) and approve it in the admin UI under Security → Access Requests,
+picking the permission level there. Delete the user again at Security → Users.
+
+Two things about the admin UI that cost an afternoon, so don't rediscover them:
+its sidebar section toggles are all `href="#"` with the routing done in JS, and
+their labels absorb count badges ("Data" is really "Data1") — so the script moves
+`window.location.hash` on the already-loaded SPA instead of clicking through. A
+*hard* navigation straight to a deep route still doesn't work, which is why it
+loads `/admin/` first.
+
 ## Releasing
 
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
