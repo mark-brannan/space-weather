@@ -130,19 +130,48 @@
     text-transform: uppercase; color: var(--text-dim); text-shadow: none; margin-top: 4px;
   }
 
-  .gauge-row { display: flex; align-items: center; gap: 14px; }
-  .gauge .track { fill: none; stroke: var(--grid); stroke-width: 8; }
-  .gauge .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.6s ease; }
-  .gauge .val { font-family: var(--font-mono); font-weight: 700; font-size: 1.4rem; fill: var(--text); text-anchor: middle; font-variant-numeric: tabular-nums; }
-  .scale-meta { display: flex; flex-direction: column; gap: 3px; }
-  .scale-meta .name { font-size: 0.86rem; font-weight: 500; }
-  .scale-meta .desc { font-size: 0.72rem; color: var(--text-dim); }
-  .letter-badge {
-    font-family: var(--font-display); font-weight: 700; font-size: 2.35rem; line-height: 1;
-    width: 40px; text-align: center; color: var(--letter-color, var(--text-dim));
+  /* Storm Scales card: one row per G/S/R scale, observed + 3-day forecast
+     laid out as a 5-column grid (name | observed badge | 3 forecast days).
+     Every row shares the same column template and a fixed min-height so the
+     forecast columns line up across G/S/R even though the R row's content
+     (letter + flare class) is visually taller than G/S's. */
+  .scales-head, .scales-row {
+    display: grid; grid-template-columns: 190px 90px 1fr 1fr 1fr; column-gap: 14px;
+  }
+  .scales-head { margin: 4px 0 2px; }
+  .scales-head span { text-align: center; font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
+  .scales-head span:first-child { visibility: hidden; }
+  .scales-row {
+    align-items: stretch; min-height: 76px; padding: 14px 0; border-top: 1px solid var(--grid);
+  }
+  .scales-row:first-of-type { border-top: none; }
+  .scales-row > * { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .scales-row .scales-meta { align-items: flex-start; text-align: left; }
+  .scales-meta .name { font-size: 0.9rem; font-weight: 500; }
+  .scales-badge-col { gap: 2px; }
+  .scales-badge, .scales-pred {
+    font-family: var(--font-display); font-weight: 700; font-size: 2.2rem; line-height: 1;
+    color: var(--letter-color, var(--text-dim));
     text-shadow: 0 0 18px color-mix(in srgb, var(--letter-color, transparent) 45%, transparent);
     transition: color 0.3s, text-shadow 0.3s;
   }
+  .scales-word { font-family: var(--font-display); font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  .scales-arc-svg { width: 74px; height: 46px; }
+
+  /* R row: name+badge share a 2x2 sub-grid so "Solar Flare Class" lines up
+     under "Radio Blackout" and its value lines up under R0, then the whole
+     block is centered as a unit -- same vertical rhythm as every other cell
+     in the row, just taller. */
+  .scales-r-namebadge {
+    grid-column: 1 / 3; display: grid; grid-template-columns: 190px 90px; row-gap: 8px;
+    justify-items: center; align-content: center; height: 100%;
+  }
+  .scales-r-namebadge .name { justify-self: start; }
+  .scales-flare-lbl { font-family: var(--font-display); font-size: 0.68rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-dim); justify-self: start; }
+  .scales-flare-val { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; line-height: 1; }
+  .scales-r-day { gap: 8px; }
+  .scales-r-line { font-size: 1.05rem; }
+  .scales-r-line b { font-variant-numeric: tabular-nums; }
 
   .aurora-tile {
     background:
@@ -178,10 +207,6 @@
   .kp-threshold { border-top: 1px dashed var(--sev-4); position: relative; margin: 2px 0 10px; opacity: 0.6; }
   .kp-threshold span { position: absolute; right: 0; top: -8px; font-size: 0.6rem; color: var(--sev-4); background: var(--panel); padding-left: 6px; }
   #kpChart { display: block; width: 100%; height: 132px; }
-  .outlook-table { display: grid; grid-template-columns: 1.3fr repeat(3, 1fr); gap: 2px 10px; font-size: 0.82rem; }
-  .outlook-table .oh { font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); padding-bottom: 6px; border-bottom: 1px solid var(--grid); }
-  .outlook-table .ol { color: var(--text-dim); align-self: center; }
-  .outlook-table .ov { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: center; padding: 5px 0; }
   .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
   .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
@@ -319,41 +344,14 @@
       </div>
     </div>
 
-    <div class="tile span-4">
+    <div class="tile span-12">
       <span class="label">Storm Scales</span>
-      <h2>Latest Observed</h2>
       <div id="scalesBody">
-        <div class="gauge-row" style="margin-bottom:14px;">
-          <div class="letter-badge" id="letterG">G</div>
-          <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
-            <circle class="track" cx="32" cy="32" r="26"/>
-            <circle class="fill" id="gaugeG" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
-            <text class="val" id="gaugeGVal" x="32" y="37">&ndash;</text>
-          </svg></div>
-          <div class="scale-meta"><span class="name">Geomagnetic Storm</span><span class="desc" id="descG">&ndash;</span></div>
-        </div>
-        <div class="gauge-row" style="margin-bottom:14px;">
-          <div class="letter-badge" id="letterS">S</div>
-          <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
-            <circle class="track" cx="32" cy="32" r="26"/>
-            <circle class="fill" id="gaugeS" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
-            <text class="val" id="gaugeSVal" x="32" y="37">&ndash;</text>
-          </svg></div>
-          <div class="scale-meta"><span class="name">Solar Radiation Storm</span><span class="desc" id="descS">&ndash;</span></div>
-        </div>
-        <div class="gauge-row">
-          <div class="letter-badge" id="letterR">R</div>
-          <div class="gauge"><svg width="64" height="64" viewBox="0 0 64 64">
-            <circle class="track" cx="32" cy="32" r="26"/>
-            <circle class="fill" id="gaugeR" cx="32" cy="32" r="26" stroke="var(--sev-0)" stroke-dasharray="163.4" stroke-dashoffset="163.4"/>
-            <text class="val" id="gaugeRVal" x="32" y="37">&ndash;</text>
-          </svg></div>
-          <div class="scale-meta"><span class="name">Radio Blackout</span><span class="desc" id="descR">&ndash;</span></div>
-        </div>
+        <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
 
-    <div class="tile span-4 aurora-tile">
+    <div class="tile span-6 aurora-tile">
       <div class="map-header">
         <div>
           <span class="label">Aurora &middot; OVATION</span>
@@ -366,18 +364,10 @@
       </div>
     </div>
 
-    <div class="tile span-4">
+    <div class="tile span-6">
       <span class="label">Solar Wind</span>
       <h2>Live Readouts</h2>
       <div id="windBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-12">
-      <span class="label">NOAA SWPC &middot; Scales</span>
-      <h2>3-Day Outlook</h2>
-      <div id="outlookBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
@@ -431,7 +421,6 @@
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
-  const CIRC = 2 * Math.PI * 26; // matches the r=26 gauge circles
 
   // Mirrors src/parse.ts stateForScaleValue's default threshold (3) and
   // src/parse.ts NotificationStates wording, so the webapp reads the same
@@ -449,17 +438,38 @@
     if (level === null || level === undefined) return '—';
     return SEV_WORDS[Math.min(5, Math.max(0, Math.round(level)))];
   }
-  function setGauge(circleEl, valEl, level) {
-    const cls = sevClass(level);
-    const color = cls ? `var(--${cls})` : 'var(--grid)';
-    circleEl.setAttribute('stroke', color);
-    const frac = level === null || level === undefined ? 0 : Math.min(5, Math.max(0, level)) / 5;
-    circleEl.setAttribute('stroke-dashoffset', String(CIRC * (1 - frac)));
-    valEl.textContent = level === null || level === undefined ? '–' : String(level);
-  }
   function setLetter(el, level) {
     const cls = sevClass(level) || 'sev-0';
     el.style.setProperty('--letter-color', `var(--${cls})`);
+  }
+  // Coloring for S/R's forecast percentages, not the 0-5 G/S/R scale levels
+  // above -- these are frequency tiers sourced from NOAA's own historical
+  // rates (median day sits around 1%, so most of the range is "green"):
+  // exceeds 1% ~90-95% of days, exceeds 5% ~15-20%, exceeds 10% ~5-10%,
+  // exceeds 25% ~2-4%, exceeds 50% <1%. Cutoffs are config constants here,
+  // easy to retune without touching the rendering logic.
+  function tierClass(pct) {
+    if (pct === null || pct === undefined) return null;
+    if (pct <= 5) return 'sev-1';
+    if (pct <= 10) return 'sev-3';
+    if (pct <= 25) return 'sev-4';
+    return 'sev-5';
+  }
+  // Half-circle arc gauge: fill is always linear 0-100% (honest magnitude),
+  // color flags the frequency tier -- a 15% reading is genuinely rare even
+  // though the arc itself is barely a third full.
+  function arcSvg(pct, cls) {
+    const p = pct === null || pct === undefined ? 0 : Math.max(0, Math.min(100, pct));
+    const dash = 78.5;
+    const offset = (dash * (1 - p / 100)).toFixed(1);
+    const color = cls ? `var(--${cls})` : 'var(--grid)';
+    const label = pct === null || pct === undefined ? '–' : `${Math.round(pct)}%`;
+    return `<svg class="scales-arc-svg" viewBox="0 0 60 34">
+      <path d="M5,30 A25,25 0 0,1 55,30" fill="none" stroke="var(--grid)" stroke-width="6"/>
+      <path d="M5,30 A25,25 0 0,1 55,30" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"
+        stroke-dasharray="${dash}" stroke-dashoffset="${offset}"/>
+      <text x="30" y="21" text-anchor="middle" fill="${color}" font-family="var(--font-mono)" font-weight="700" font-size="11">${label}</text>
+    </svg>`;
   }
   // Only the hero's single summary badge keeps the pill shape; the per-scale
   // rows use the letter badge instead (see setLetter).
@@ -597,26 +607,90 @@
     }
   }
 
-  function renderScales(scales, xrayFlare) {
-    setGauge(document.getElementById('gaugeG'), document.getElementById('gaugeGVal'), leafValue(scales?.G));
-    setGauge(document.getElementById('gaugeS'), document.getElementById('gaugeSVal'), leafValue(scales?.S));
-    setGauge(document.getElementById('gaugeR'), document.getElementById('gaugeRVal'), leafValue(scales?.R));
-    setLetter(document.getElementById('letterG'), leafValue(scales?.G));
-    setLetter(document.getElementById('letterS'), leafValue(scales?.S));
-    setLetter(document.getElementById('letterR'), leafValue(scales?.R));
-    document.getElementById('descG').textContent = sevWord(leafValue(scales?.G)) + ' — latest observed';
-    document.getElementById('descS').textContent = sevWord(leafValue(scales?.S)) + ' — latest observed';
+  // Folds the observed G/S/R levels together with the 3-day forecast into
+  // one card -- they're the same three scales, so a separate "3-Day
+  // Outlook" tile was just forcing the reader to cross-reference two tiles
+  // to answer "is this getting worse."
+  function renderScales(scales, xrayFlare, forecast) {
+    const body = document.getElementById('scalesBody');
+    const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
+    const dayLabel = (d, i) => {
+      const t = leafTime(d?.time);
+      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${i + 1}`;
+    };
+
+    const gLevel = leafValue(scales?.G), sLevel = leafValue(scales?.S), rLevel = leafValue(scales?.R);
+    const gCls = sevClass(gLevel) || 'sev-0', sCls = sevClass(sLevel) || 'sev-0', rCls = sevClass(rLevel) || 'sev-0';
+
+    const gPredCell = (d) => {
+      const v = leafValue(d?.G);
+      if (v === null) return '<div class="scales-pred sev-0">&ndash;</div>';
+      return `<div class="scales-pred ${sevClass(v) || 'sev-0'}">G${v}</div>`;
+    };
+    const sPredCell = (d) => {
+      const v = leafValue(d?.S?.probability);
+      const pct = v === null ? null : v * 100;
+      return `<div class="scales-arc">${arcSvg(pct, tierClass(pct))}</div>`;
+    };
+    const rLine = (pct, label) =>
+      `<div class="scales-r-line ${tierClass(pct) || 'sev-0'}">${label}: <b>${pct === null ? '&ndash;' : Math.round(pct) + '%'}</b></div>`;
+    const rPredCell = (d) => {
+      const minor = leafValue(d?.R?.minorProbability), major = leafValue(d?.R?.majorProbability);
+      return `<div class="scales-r-day">
+        ${rLine(minor === null ? null : minor * 100, 'R1&ndash;R2')}
+        ${rLine(major === null ? null : major * 100, 'R3&ndash;R5')}
+      </div>`;
+    };
+
     // Flare class is the same underlying measurement R buckets into 0-5, at
-    // the letter+number resolution HF operators actually use -- append it to
-    // R's own description rather than giving it a separate gauge. Colored by
+    // the letter+number resolution HF operators actually use. Colored by
     // the current R level rather than a separate letter-tier mapping: R's
     // own bucketing (M4.9 vs M5.0 crossing R1/R2, say) is the authoritative
     // one, and a second hand-picked threshold table would just risk drifting
     // out of sync with it.
     const flareClass = leafValue(xrayFlare?.class);
-    const flareCls = sevClass(leafValue(scales?.R)) || 'sev-0';
-    document.getElementById('descR').innerHTML = sevWord(leafValue(scales?.R)) + ' — latest observed'
-      + (flareClass ? `<br>Solar Flare Class: <span class="${flareCls}">${flareClass}</span>` : '');
+
+    body.innerHTML = `
+      <div class="scales-head">
+        <span></span><span>Today</span>
+        ${days.map((d, i) => `<span>${dayLabel(d, i)}</span>`).join('')}
+      </div>
+
+      <div class="scales-row">
+        <div class="scales-meta"><span class="name">Geomagnetic Storm</span></div>
+        <div class="scales-badge-col">
+          <div class="scales-badge" id="letterG">${gLevel === null ? '&ndash;' : 'G' + gLevel}</div>
+          <div class="scales-word ${gCls}">${sevWord(gLevel)}</div>
+        </div>
+        ${days.map(gPredCell).join('')}
+      </div>
+
+      <div class="scales-row">
+        <div class="scales-meta"><span class="name">Solar Radiation Storm</span></div>
+        <div class="scales-badge-col">
+          <div class="scales-badge" id="letterS">${sLevel === null ? '&ndash;' : 'S' + sLevel}</div>
+          <div class="scales-word ${sCls}">${sevWord(sLevel)}</div>
+        </div>
+        ${days.map(sPredCell).join('')}
+      </div>
+
+      <div class="scales-row">
+        <div class="scales-r-namebadge">
+          <div class="name">Radio Blackout</div>
+          <div class="scales-badge" id="letterR">${rLevel === null ? '&ndash;' : 'R' + rLevel}</div>
+          <div class="scales-flare-lbl">Solar Flare Class</div>
+          <div class="scales-flare-val ${rCls}">${flareClass || '&ndash;'}</div>
+        </div>
+        ${days.map(rPredCell).join('')}
+      </div>
+
+      <div class="empty-state" style="margin-top:2px;padding:0;background:none;font-size:0.68rem;">
+        R and S percentages are NOAA's predicted probability of reaching that level; G is NOAA's single predicted level, not a probability.
+      </div>`;
+
+    setLetter(document.getElementById('letterG'), gLevel);
+    setLetter(document.getElementById('letterS'), sLevel);
+    setLetter(document.getElementById('letterR'), rLevel);
     setTimestamp(document.getElementById('tsScales'), leafTime(scales?.G) || leafTime(scales?.time));
   }
 
@@ -764,45 +838,6 @@
     ctx.arc(x(peakI), y(series[peakI].kp), 4, 0, Math.PI * 2);
     ctx.fillStyle = series[peakI].kp >= 5 ? sev5 : amber;
     ctx.fill();
-  }
-
-  function renderOutlook(forecast) {
-    const body = document.getElementById('outlookBody');
-    const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
-    if (!days.some((d) => d)) {
-      body.innerHTML = '<div class="empty-state">No 3-day forecast yet.</div>';
-      return;
-    }
-    const pct = (leaf) => {
-      const v = leafValue(leaf);
-      return v === null ? '&ndash;' : `${Math.round(v * 100)}%`;
-    };
-    const gCell = (leaf) => {
-      const v = leafValue(leaf);
-      if (v === null) return '<span class="ov">&ndash;</span>';
-      const cls = sevClass(v) || 'sev-0';
-      return `<span class="ov ${cls}">G${v}</span>`;
-    };
-    const dayLabel = (d, i) => {
-      const t = leafTime(d?.time);
-      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : `Day ${i + 1}`;
-    };
-    body.innerHTML = `
-      <div class="outlook-table">
-        <span class="oh"></span>
-        ${days.map((d, i) => `<span class="oh">${dayLabel(d, i)}</span>`).join('')}
-        <span class="ol">R1&ndash;R2</span>
-        ${days.map((d) => `<span class="ov">${pct(d?.R?.minorProbability)}</span>`).join('')}
-        <span class="ol">R3&ndash;R5</span>
-        ${days.map((d) => `<span class="ov">${pct(d?.R?.majorProbability)}</span>`).join('')}
-        <span class="ol">S1 or greater</span>
-        ${days.map((d) => `<span class="ov">${pct(d?.S?.probability)}</span>`).join('')}
-        <span class="ol">G (predicted)</span>
-        ${days.map((d) => gCell(d?.G)).join('')}
-      </div>
-      <div class="empty-state" style="margin-top:10px;padding:0;background:none;font-size:0.68rem;">
-        R and S are NOAA's predicted probability of reaching that level; G is NOAA's single predicted level, not a probability.
-      </div>`;
   }
 
   function renderKp(kp) {
@@ -1175,8 +1210,7 @@
     } : null;
 
     renderHero(scalesLatest, kp);
-    renderScales(scalesLatest, xrayFlare);
-    renderOutlook(scalesForecast);
+    renderScales(scalesLatest, xrayFlare, scalesForecast);
     renderAurora(aurora);
     renderWind(wind);
     renderKp(kp);
