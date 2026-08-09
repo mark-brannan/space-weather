@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   NoaaScaleValues,
+  firstJsonValue,
   getAlertLevel,
   parseAdvisoryOutlook,
   parseAlert,
@@ -661,5 +662,46 @@ describe('parseSolarWind', () => {
       [{ bt: 3 }]
     )
     expect(wind.timestamp).toBe('2026-08-01T00:00:00Z')
+  })
+})
+
+describe('firstJsonValue', () => {
+  it('returns a well-formed payload unchanged', () => {
+    expect(firstJsonValue('[{"a":1}]')).toBe('[{"a":1}]')
+    expect(firstJsonValue('  {"a":[1,2]}\n')).toBe('{"a":[1,2]}')
+  })
+
+  it('stops at the end of the first complete value', () => {
+    // The real shape of a mid-write read: shorter new content, then the tail of
+    // the longer old content.
+    expect(firstJsonValue('[{"a":1}]_ratio": 0.1339')).toBe('[{"a":1}]')
+  })
+
+  it('is not fooled by brackets inside strings', () => {
+    const text = '[{"m":"ALERT: ]}] not a bracket"}]'
+    expect(firstJsonValue(text)).toBe(text)
+    expect(JSON.parse(firstJsonValue(text)!)[0].m).toContain(']}]')
+  })
+
+  it('handles an escaped quote before a bracket', () => {
+    const text = '[{"m":"a \\" ]"}]'
+    expect(firstJsonValue(text)).toBe(text)
+  })
+
+  it('counts nesting of the outer bracket type', () => {
+    expect(firstJsonValue('[[1],[2]]tail')).toBe('[[1],[2]]')
+    expect(firstJsonValue('{"a":{"b":1}}tail')).toBe('{"a":{"b":1}}')
+  })
+
+  it('returns null when the value never closes', () => {
+    // A truncated write. Recovering a prefix here would publish half a payload
+    // as though it were whole.
+    expect(firstJsonValue('[{"a":1}')).toBeNull()
+    expect(firstJsonValue('{"a":')).toBeNull()
+  })
+
+  it('returns null for anything that is not an array or object', () => {
+    for (const text of ['', '   ', 'nope', '"a string"', '42'])
+      expect(firstJsonValue(text), JSON.stringify(text)).toBeNull()
   })
 })

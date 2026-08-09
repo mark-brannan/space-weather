@@ -566,8 +566,13 @@
   // parent level, so callers must handle `null` throughout. Not every path
   // is a leaf, though -- vessel name is a bare string at its own path, so
   // `'value' in node` (node being a string) would throw.
+  // An object with no `value` is a path carrying only `meta` -- described at
+  // startup but never published, because that product's fetch failed. Falling
+  // through to the node itself rendered it as "[object Object]".
   const leafValue = (node) =>
-    node && typeof node === 'object' && 'value' in node ? node.value : node ?? null;
+    node && typeof node === 'object'
+      ? ('value' in node ? node.value : null)
+      : node ?? null;
   const leafTime = (node) => (node && node.timestamp) || null;
 
   function fmtTime(iso) {

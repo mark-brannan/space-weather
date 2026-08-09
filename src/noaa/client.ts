@@ -1,4 +1,5 @@
 /** The only outbound I/O in the plugin. */
+import { firstJsonValue } from '../parse.js'
 import { Publisher } from '../publisher.js'
 
 export const API = 'https://services.swpc.noaa.gov'
@@ -72,8 +73,38 @@ export function createClient(publisher: Publisher): Client {
     return data
   }
 
+  /**
+   * `response.json()`, except that a body which is a complete JSON value
+   * followed by trailing bytes yields that value instead of throwing.
+   *
+   * NOAA rewrites these files in place about once a minute and a read can land
+   * mid-write, arriving as the new content plus the tail of the old. Strict
+   * parsing first, so a well-formed payload takes the fast path and nothing
+   * about normal operation changes.
+   */
+  async function readJson(
+    response: Response,
+    productName: string
+  ): Promise<any> {
+    const body = await response.text()
+    try {
+      return JSON.parse(body)
+    } catch (err) {
+      const leading = firstJsonValue(body)
+      if (leading === null) throw err
+      const parsed = JSON.parse(leading)
+      publisher.error(
+        `NOAA Space Weather '${productName}' arrived with ` +
+          `${body.length - leading.length} trailing byte(s) after a complete ` +
+          `JSON value; used the value and ignored the rest`
+      )
+      return parsed
+    }
+  }
+
   return {
-    json: (subPath, productName) => get(subPath, productName, (r) => r.json()),
+    json: (subPath, productName) =>
+      get(subPath, productName, (r) => readJson(r, productName)),
     text: (subPath, productName) => get(subPath, productName, (r) => r.text())
   }
 }

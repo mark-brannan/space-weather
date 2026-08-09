@@ -665,6 +665,46 @@ export interface XrayFlare {
 }
 
 /**
+ * The first complete JSON array or object in `text`, or null.
+ *
+ * NOAA rewrites these files in place roughly once a minute, and a read that
+ * lands mid-write can return the new content followed by the tail of the old,
+ * longer content. `JSON.parse` rejects the whole thing ("Unexpected
+ * non-whitespace character after JSON at position N") and a reading is lost --
+ * observed on `xray-flares-latest.json`, which then left the plugin publishing
+ * metadata for a path whose value never arrived.
+ *
+ * A complete leading value means its closing bracket was written, so it is the
+ * new content in full rather than a guess at it: a truncated write fails to
+ * close and returns null here instead. Only the outer bracket type is counted,
+ * which is sound because a brace cannot close a bracket.
+ */
+export function firstJsonValue(text: string): string | null {
+  const start = text.search(/\S/)
+  if (start < 0) return null
+  const open = text[start]
+  if (open !== '[' && open !== '{') return null
+  const close = open === '[' ? ']' : '}'
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < text.length; i++) {
+    const char = text[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === open) depth++
+    else if (char === close && --depth === 0) return text.slice(start, i + 1)
+  }
+  return null
+}
+
+/**
  * GOES X-ray flare classification ("B3.3", "M2.1", "X1.4") for the most
  * recent event. A single-element array is the documented shape; tolerate an
  * empty one (no event ever recorded) rather than throwing.

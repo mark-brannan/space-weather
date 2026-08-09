@@ -10,6 +10,7 @@ import { createClient } from '../src/noaa/client'
 function harness() {
   const debugLines: string[] = []
   const statusLines: string[] = []
+  const errorLines: string[] = []
   const publisher = {
     meta: () => {},
     values: () => {},
@@ -17,10 +18,10 @@ function harness() {
     selfPath: () => undefined,
     status: (m: string) => statusLines.push(m),
     fail: () => {},
-    error: () => {},
+    error: (m: string) => errorLines.push(m),
     debug: (m: string) => debugLines.push(m)
   }
-  return { publisher, debugLines, statusLines }
+  return { publisher, debugLines, statusLines, errorLines }
 }
 
 function jsonResponse(body: any, headers: Record<string, string> = {}) {
@@ -139,5 +140,51 @@ describe('createClient conditional GET', () => {
     await expect(
       client.json('/products/noaa-scales.json', 'Scales')
     ).rejects.toThrow()
+  })
+})
+
+describe('createClient with a torn payload', () => {
+  // NOAA rewrites these files in place about once a minute, and a read landing
+  // mid-write returns the new content followed by the tail of the old, longer
+  // content. Observed on xray-flares-latest.json, where losing the reading left
+  // the plugin publishing metadata for a path whose value never arrived.
+  const torn = (body: string) =>
+    new Response(body, { status: 200, headers: { etag: '"t"' } })
+
+  it('uses the complete leading value and reports the trailing bytes', async () => {
+    const good = JSON.stringify([{ current_class: 'B5.7' }])
+    vi.stubGlobal('fetch', async () => torn(good + '_ratio": 0.133912'))
+    const { publisher, errorLines } = harness()
+
+    const data = await createClient(publisher as any).json(
+      '/json/goes/primary/xray-flares-latest.json',
+      'X-ray flare class'
+    )
+
+    expect(data).toEqual([{ current_class: 'B5.7' }])
+    expect(errorLines).toHaveLength(1)
+    expect(errorLines[0]).toContain('trailing byte')
+  })
+
+  it('still throws when the leading value never closes', async () => {
+    // A truncated write, rather than a short one followed by old bytes. There is
+    // no complete value to recover, and guessing at one would publish a
+    // half-read payload as though it were the whole thing.
+    vi.stubGlobal('fetch', async () => torn('[{"current_class": "B5.'))
+    const { publisher } = harness()
+
+    await expect(
+      createClient(publisher as any).json('/json/x.json', 'X')
+    ).rejects.toThrow()
+  })
+
+  it('leaves a well-formed payload on the strict path, with no warning', async () => {
+    vi.stubGlobal('fetch', async () => torn(JSON.stringify({ a: 1 })))
+    const { publisher, errorLines } = harness()
+
+    expect(await createClient(publisher as any).json('/x', 'X')).toEqual({
+      a: 1
+    })
+    expect(errorLines).toEqual([])
   })
 })
