@@ -11,6 +11,7 @@ export interface Settings {
   zoneAlertThreshold: number
   observationsInterval: number
   notificationsInterval: number
+  alertMaxAgeHours: number
 }
 
 export const schema = {
@@ -83,6 +84,17 @@ export const schema = {
       title: 'Notifications Interval',
       description: 'in minutes',
       default: 60
+    },
+    alertMaxAgeHours: {
+      type: 'number',
+      title: 'How long a NOAA alert stays raised',
+      description:
+        'in hours, 1 to 168. Warnings and watches carry their own expiry and' +
+        ' are cleared when it passes; plain alerts and event summaries state' +
+        " none, so this bounds them instead. NOAA's alerts feed is a rolling" +
+        ' 30-day archive, and treating all of it as current is what made this' +
+        ' plugin unusable before 0.12.0 (issue #45).',
+      default: 24
     }
   }
 }
@@ -97,6 +109,17 @@ function scaleValue(raw: any, fallback: number): number {
 function minutes(raw: any, fallback: number): number {
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+/**
+ * Clamped, not just validated. A week is already generous for "this NOAA
+ * message still describes the present", and the upper bound is what stops
+ * someone reconstructing issue #45 by typing 720 into the box.
+ */
+function alertAgeHours(raw: any, fallback: number): number {
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.min(parsed, 24 * 7)
 }
 
 export function settingsFrom(props: any): Settings {
@@ -126,14 +149,13 @@ export function settingsFrom(props: any): Settings {
       NoaaScaleValues.STRONG
     ),
     observationsInterval: minutes(p.observationsInterval, 60),
-    notificationsInterval: minutes(p.notificationsInterval, 60)
+    notificationsInterval: minutes(p.notificationsInterval, 60),
+    alertMaxAgeHours: alertAgeHours(p.alertMaxAgeHours, 24)
   }
 }
 
-/** The method array attached to notifications the plugin raises itself. */
-export function notificationMethod(settings: Settings): string[] {
-  const method: string[] = []
-  if (settings.notificationVisual) method.push('visual')
-  if (settings.notificationSound) method.push('sound')
-  return method
-}
+// `notificationVisual` / `notificationSound` are a ceiling on how loud a
+// notification may get, not a floor: `methodForState` in parse.ts decides how
+// loud each state actually is, and these can only remove methods from that.
+// Until 0.12.0 they were applied as a floor instead, which put a sound on
+// every NOAA message regardless of severity -- see issue #45.

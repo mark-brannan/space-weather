@@ -132,13 +132,53 @@ describe('parseAlert', () => {
     // returns, all three counts collapse to zero.
     for (const name of ALERT_FIXTURES) {
       const alerts = fixtureJson(name)
-      const alertingAt = (threshold: number) =>
-        alerts.filter((a: any) => parseAlert(a, threshold)!.state === 'alert')
+      const raisedAt = (threshold: number) =>
+        alerts.filter((a: any) => parseAlert(a, threshold)!.state !== 'normal')
           .length
 
-      expect(alertingAt(1), name).toBeGreaterThan(0)
-      expect(alertingAt(1), name).toBeGreaterThan(alertingAt(3))
-      expect(alertingAt(3), name).toBeGreaterThanOrEqual(alertingAt(5))
+      expect(raisedAt(1), name).toBeGreaterThan(0)
+      expect(raisedAt(1), name).toBeGreaterThan(raisedAt(3))
+      expect(raisedAt(3), name).toBeGreaterThanOrEqual(raisedAt(5))
+    }
+  })
+
+  it('grades a scale value through the same ladder the zones use', () => {
+    // The alert/watch/warning product used to collapse everything at or above
+    // the threshold to `alert` and then attach visual+sound to it regardless,
+    // so an S1 and an S5 were equally loud (issue #45). A NOAA level has to
+    // read the same whether it arrives as a message or as a zone transition.
+    const at = (scale: number) =>
+      parseAlert(
+        {
+          product_id: 'test',
+          issue_datetime: '2026-08-01 12:00:00.000',
+          message:
+            'Space Weather Message Code: ALTK07\nSerial Number: 1\n' +
+            'Issue Time: 2026 Aug 01 1200 UTC\n\nALERT: test\n' +
+            `NOAA Scale: G${scale} - test\n`
+        },
+        3
+      )!.state
+
+    expect(at(1)).toBe('normal')
+    expect(at(2)).toBe('normal')
+    expect(at(3)).toBe('alert')
+    expect(at(4)).toBe('warn')
+    expect(at(5)).toBe('alarm')
+  })
+
+  it('leaves a message with no scale line at normal', () => {
+    // The screenshot on issue #45 is one of these: "ALERT: Electron 2MeV
+    // Integral Flux exceeded 1000pfu" carries no NOAA scale at all, and there
+    // are more of them in a payload than there are scaled messages. They are
+    // informational, and must not be graded as though they were severe.
+    const unscaled = fixtureJson('alerts.2026_08_01.json')
+      .map((a: any) => parseAlert(a)!)
+      .filter((p: any) => p.scaleValue === null)
+
+    expect(unscaled.length).toBeGreaterThan(0)
+    for (const parsed of unscaled) {
+      expect(parsed.state, parsed.messageCode).toBe('normal')
     }
   })
 
@@ -179,7 +219,9 @@ describe('parseAlert', () => {
         'Space Weather Message Code: WATA50\nSerial Number: 1\nIssue Time: 2025 Apr 17 1200 UTC\n\nWATCH: Geomagnetic Storm Category G3 Predicted\n\nNOAA Scale: G3 or greater - Strong to Extreme\n'
     })!
     expect(parsed.scaleValue).toBe(NoaaScaleValues.EXTREME)
-    expect(parsed.state).toBe('alert')
+    // The extreme level is an alarm, not a bare alert: "G3 or greater" is the
+    // form NOAA uses when it will not rule out G5.
+    expect(parsed.state).toBe('alarm')
   })
 
   it('returns null instead of throwing on malformed entries', () => {

@@ -145,24 +145,71 @@ export function gScaleForKp(kp: number): number {
 }
 
 /**
+ * The one place that decides whether a notification state interrupts the user:
+ * nothing at or below `alert` does, `warn` is visual, and `alarm`/`emergency`
+ * are visual and audible.
+ *
+ * `zoneMethods` below hands this policy to the server's zone watcher, and the
+ * notifications this plugin raises itself go through it directly. Both have to
+ * agree — until 0.12.0 the alert/watch/warning product ignored it and attached
+ * visual+sound to every message including the `normal` ones, which is how a
+ * month-old "flux exceeded" summary ended up sounding an alarm (issue #45).
+ */
+export function methodForState(
+  state: AlarmState,
+  visual: boolean = true,
+  sound: boolean = true
+): string[] {
+  const method: string[] = []
+  if (
+    state === NotificationStates.WARN ||
+    state === NotificationStates.ALARM ||
+    state === NotificationStates.EMERGENCY
+  ) {
+    if (visual) method.push('visual')
+  }
+  if (
+    state === NotificationStates.ALARM ||
+    state === NotificationStates.EMERGENCY
+  ) {
+    if (sound) method.push('sound')
+  }
+  return method
+}
+
+/**
  * Notification method fields for a metadata object. These sit alongside
  * `zones` and let a zone carry a state without necessarily interrupting the
  * user: levels at or just above the alert threshold are informational
  * (empty method), and only the top bands get visual/sound.
  */
 export function zoneMethods(visual: boolean = true, sound: boolean = true) {
-  const loud: string[] = []
-  if (visual) loud.push('visual')
-  const loudest: string[] = [...loud]
-  if (sound) loudest.push('sound')
   return {
-    nominalMethod: [],
-    normalMethod: [],
-    alertMethod: [],
-    warnMethod: loud,
-    alarmMethod: loudest,
-    emergencyMethod: loudest
+    nominalMethod: methodForState(NotificationStates.NOMINAL, visual, sound),
+    normalMethod: methodForState(NotificationStates.NORMAL, visual, sound),
+    alertMethod: methodForState(NotificationStates.ALERT, visual, sound),
+    warnMethod: methodForState(NotificationStates.WARN, visual, sound),
+    alarmMethod: methodForState(NotificationStates.ALARM, visual, sound),
+    emergencyMethod: methodForState(NotificationStates.EMERGENCY, visual, sound)
   }
+}
+
+/**
+ * Parse a UTC date/time in the one format every NOAA product uses for them:
+ *   2025 Apr 08 1230 UTC
+ * Returns null rather than throwing when the text is absent or malformed.
+ */
+export function parseNoaaDateTime(text: string | null): Date | null {
+  if (!text) return null
+  const dateTimeRegex = /([0-9]{4} [A-Za-z]{3,9} [0-9]{1,2}) ([0-9]{2,4} UTC)/
+  const parts = text.match(dateTimeRegex)
+  if (!parts) return null
+  const datePortion = parts[1]
+  const timePortion = parts[2].padStart(8, '0')
+  const newTimeString =
+    timePortion.slice(0, 2) + ':' + timePortion.slice(2, 4) + ' UTC'
+  const parsed = new Date(datePortion + ' ' + newTimeString)
+  return isNaN(parsed.getTime()) ? null : parsed
 }
 
 /**
@@ -172,16 +219,13 @@ export function zoneMethods(visual: boolean = true, sound: boolean = true) {
  */
 export function parseIssueDate(text: string): Date | null {
   const issuedLine = text.match(/\n:Issued: ([^\n]*)/)
-  if (!issuedLine) return null
-  const dateTimeRegex = /([0-9]{4} [A-Za-z]{3,9} [0-9]{1,2}) ([0-9]{2,4} UTC)/
-  const parts = issuedLine[1].match(dateTimeRegex)
-  if (!parts) return null
-  const datePortion = parts[1]
-  const timePortion = parts[2].padStart(8, '0')
-  const newTimeString =
-    timePortion.slice(0, 2) + ':' + timePortion.slice(2, 4) + ' UTC'
-  const parsed = new Date(datePortion + ' ' + newTimeString)
-  return isNaN(parsed.getTime()) ? null : parsed
+  return issuedLine ? parseNoaaDateTime(issuedLine[1]) : null
+}
+
+/** The value of a `Label: ...` line in an alerts.json message body. */
+function labelledLine(message: string, label: string): string | null {
+  const match = message.match(new RegExp(`\\n${label}: *([^\\n]*)`))
+  return match ? match[1] : null
 }
 
 export interface AdvisoryOutlook {
@@ -233,6 +277,31 @@ export interface ParsedAlert {
   scaleValue: number | null
   state: AlarmState
   issued: Date
+  /**
+   * When the message stops describing the present, where NOAA says so.
+   * Null for the ones that don't (see `alertValidUntil`), leaving the caller
+   * to bound them by age instead.
+   */
+  validUntil: Date | null
+  /** A `CANCEL ALERT`/`CANCEL WARNING` retraction of an earlier serial. */
+  cancelled: boolean
+}
+
+/**
+ * How long a NOAA message describes the present, according to the message.
+ *
+ * Warnings and watches carry an explicit end, restated as "Now Valid Until"
+ * each time NOAA extends one. A summary reports an event that has already
+ * finished, so its "End Time" is the moment it stopped being news. Plain
+ * alerts state neither — they are a threshold crossing at an instant — and
+ * return null here.
+ */
+function alertValidUntil(message: string): Date | null {
+  for (const label of ['Now Valid Until', 'Valid To', 'End Time']) {
+    const parsed = parseNoaaDateTime(labelledLine(message, label))
+    if (parsed) return parsed
+  }
+  return null
 }
 
 /**
@@ -283,19 +352,172 @@ export function parseAlert(
     }
   }
 
+  const mainMessage = headline ? headline[5] : alert.message.split('\n')[0]
+  const cancelled = /^ *CANCEL\b/.test(mainMessage)
+
   return {
     serialNumber: serial[1],
     messageCode: code[1],
     alertLevel: getAlertLevel(code[1]),
-    mainMessage: headline ? headline[5] : alert.message.split('\n')[0],
+    mainMessage,
     scaleText,
     scaleValue,
+    // A retraction of an earlier message is never itself a live condition, so
+    // it resolves to `normal` and clears the path the message it cancels was
+    // published on. Everything else runs through the same severity ladder the
+    // scale and Kp zones use, so a given NOAA level reads the same whichever
+    // way it reaches the user.
     state:
-      scaleValue !== null && scaleValue >= alertThreshold
-        ? NotificationStates.ALERT
-        : NotificationStates.NORMAL,
-    issued
+      cancelled || scaleValue === null
+        ? NotificationStates.NORMAL
+        : stateForScaleValue(scaleValue, alertThreshold),
+    issued,
+    validUntil: alertValidUntil(alert.message),
+    cancelled
   }
+}
+
+/**
+ * Hard ceiling on simultaneously raised alert notifications, whatever NOAA
+ * sends. Grouping by message code already bounds this to the ~40 documented
+ * codes, and the busiest fixture on record (the April 2025 G4 storm) reaches
+ * 8 — but a payload change that made the code capture vary would silently
+ * reintroduce the unbounded path count of issue #45, and this is a plugin
+ * inside somebody's navigation server.
+ */
+export const MAX_ALERT_NOTIFICATIONS = 25
+
+/** Loudest first, so `MAX_ALERT_NOTIFICATIONS` drops the least important. */
+const STATE_SEVERITY: string[] = [
+  NotificationStates.NOMINAL,
+  NotificationStates.NORMAL,
+  NotificationStates.ALERT,
+  NotificationStates.WARN,
+  NotificationStates.ALARM,
+  NotificationStates.EMERGENCY
+]
+
+export interface AlertNotification {
+  /** NOAA message code, e.g. `WARK05`. The leaf of the Signal K path. */
+  code: string
+  serialNumber: string
+  alertLevel: string
+  mainMessage: string
+  scaleText: string
+  state: AlarmState
+  method: string[]
+  issued: Date
+  validUntil: Date | null
+  /** The full NOAA message body. */
+  description: string
+}
+
+export interface AlertSelectionOptions {
+  now: Date
+  /** How long a message that states no expiry of its own stays in force. */
+  maxAgeMs: number
+  alertThreshold?: number
+  visual?: boolean
+  sound?: boolean
+  limit?: number
+}
+
+export interface AlertSelection {
+  /** In force at `now`, at most one per message code, loudest first. */
+  inForce: AlertNotification[]
+  unparseable: number
+  /** In-force messages discarded by `limit`. Zero in every real payload. */
+  dropped: number
+}
+
+/**
+ * Reduce a whole `/products/alerts.json` payload to the notifications that
+ * describe the present.
+ *
+ * The payload is a rolling ~30-day archive — 118 to 200 messages in every
+ * captured fixture — and until 0.12.0 this plugin raised a notification for
+ * each one, on a path keyed by NOAA's serial number. That was wrong twice
+ * over. Most of those messages describe events that ended weeks ago, and NOAA
+ * mints a fresh serial every time it extends or continues a condition, so one
+ * ongoing K-index warning became 19 separate permanent notification paths in a
+ * month. See issue #45: a Pi5 was unusable inside ten minutes.
+ *
+ * So: drop anything no longer in force, and key the path on the message code
+ * instead. A code names one condition, which is what a notification is for —
+ * extensions, continuations and cancellations of that condition then update
+ * the path in place rather than accumulating beside it, and the path count is
+ * bounded by NOAA's code list for the life of the server.
+ */
+export function currentAlertNotifications(
+  payload: any[],
+  options: AlertSelectionOptions
+): AlertSelection {
+  const {
+    now,
+    maxAgeMs,
+    alertThreshold = NoaaScaleValues.STRONG,
+    visual = true,
+    sound = true,
+    limit = MAX_ALERT_NOTIFICATIONS
+  } = options
+
+  const newest = new Map<string, AlertNotification>()
+  let unparseable = 0
+
+  for (const entry of payload) {
+    const parsed = parseAlert(entry, alertThreshold)
+    if (!parsed) {
+      unparseable++
+      continue
+    }
+
+    const expiresAt =
+      parsed.validUntil ?? new Date(parsed.issued.getTime() + maxAgeMs)
+    if (expiresAt.getTime() <= now.getTime()) continue
+
+    const candidate: AlertNotification = {
+      code: parsed.messageCode,
+      serialNumber: parsed.serialNumber,
+      alertLevel: parsed.alertLevel,
+      mainMessage: parsed.mainMessage.trim(),
+      scaleText: parsed.scaleText,
+      state: parsed.state,
+      method: methodForState(parsed.state, visual, sound),
+      issued: parsed.issued,
+      validUntil: parsed.validUntil,
+      description: entry.message
+    }
+
+    const held = newest.get(candidate.code)
+    if (!held || supersedes(candidate, held))
+      newest.set(candidate.code, candidate)
+  }
+
+  const ordered = [...newest.values()].sort(
+    (a, b) =>
+      STATE_SEVERITY.indexOf(b.state) - STATE_SEVERITY.indexOf(a.state) ||
+      b.issued.getTime() - a.issued.getTime()
+  )
+
+  return {
+    inForce: ordered.slice(0, limit),
+    unparseable,
+    dropped: Math.max(0, ordered.length - limit)
+  }
+}
+
+/**
+ * Later issue time wins. Serial numbers break a tie because NOAA stamps
+ * `issue_datetime` to the millisecond but a reissue can share it, and the
+ * serial is monotonic per code.
+ */
+function supersedes(
+  candidate: AlertNotification,
+  held: AlertNotification
+): boolean {
+  const byTime = candidate.issued.getTime() - held.issued.getTime()
+  if (byTime !== 0) return byTime > 0
+  return Number(candidate.serialNumber) > Number(held.serialNumber)
 }
 
 /**

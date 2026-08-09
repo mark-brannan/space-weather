@@ -49,6 +49,24 @@ So: **capture a dated fixture into `examples/` before writing a parser**, and
 make the parser accept the old shape as well as the new one. `parseSolarWind`
 and `kpRows` in `parse.ts` are the pattern to copy.
 
+**`/products/alerts.json` is a rolling 30-day archive, not a list of current
+conditions.** 88 to 200 messages per payload, nearly all describing events that
+ended weeks ago, and NOAA mints a fresh serial number every time it extends or
+continues one condition. Publishing a notification per entry keyed on the
+serial number — which is what 0.11 and earlier did — raised ~120 permanent
+notifications at once and made a Pi 5 unusable (issue #45). So: one path per
+**message code** under `ALERTS_BASE`, only while the message is in force, and
+withdrawn ones actively set back to `normal`. `currentAlertNotifications` in
+`parse.ts` owns all of that and is the thing to change; don't reintroduce a
+per-message loop in the product.
+
+**Every notification goes through `methodForState`.** It is the single policy
+for whether a state interrupts the user, and `zoneMethods` is derived from it
+so a NOAA level reads the same whether it arrives as a zone transition or as a
+message. `notificationVisual` / `notificationSound` are a ceiling on it, never
+a floor — applying them as a floor is what put a sound on 120 informational
+messages.
+
 **Zone metadata generates notifications.** The server (`signalk-server`
 `src/zones.ts`) watches any path with `meta.zones` and raises
 `notifications.<path>` on zone *transitions*. Its matcher is half-open —

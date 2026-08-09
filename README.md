@@ -23,7 +23,7 @@ The plugin currently surfaces:
 * The weekly ["outlook advisory"](https://www.spaceweather.gov/products/space-weather-advisory-outlook) as a signalk notification
 * The G/S/R storm "scales" for latest observed, prior 24-hour observed maximums, and a 3 day forecast (e.g `environment.noaa.swpc.scales.observations.24_hours_maximums.G`)
 * The GOES X-ray flare class of the most recent event (e.g. `M2.1`) at `environment.noaa.swpc.xray_flare.class` — the same measurement the R scale buckets into 0-5, at the resolution HF operators actually use
-* NOAA SWPC Alerts, Warnings, and Watches as signalk notifications with a configurable threshold (default 3, "strong")
+* NOAA SWPC Alerts, Warnings, and Watches as signalk notifications, one per message code under `notifications.noaa.swpc.alerts` (e.g. `alerts.WARK05`), carrying only the conditions currently in force — see [Alerts, watches and warnings](#alerts-watches-and-warnings)
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
 * Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is roughly 900 KB per fetch
@@ -50,6 +50,23 @@ Zones also cause the server to raise notifications on your behalf, so the defaul
 
 Alerting on a level 1 would mean an interruption every four or five days, forever. So by default levels 1–2 are `normal`, level 3 is `alert` **with no visual or sound method** (it shows in the UI but does not interrupt), level 4 is `warn` (visual), and level 5 is `alarm` (visual and sound). Set `zoneAlertThreshold` to move that pivot.
 
+Every notification this plugin raises follows that same ladder, whether it comes from a zone transition or from a NOAA message. `notificationVisual` and `notificationSound` are a *ceiling* on it — they can quieten a level, never make one louder.
+
+### Alerts, watches and warnings
+
+`sendAlertsWatchesWarnings` publishes NOAA's individual message products, one Signal K path per NOAA message code:
+
+```
+notifications.noaa.swpc.alerts.WARK05    WARNING: Geomagnetic K-index of 5 expected
+notifications.noaa.swpc.alerts.ALTEF3    ALERT: Electron 2MeV Integral Flux exceeded 1000pfu
+```
+
+Two things about this are worth knowing, because the obvious implementation of both is wrong and shipped that way until 0.12.0 ([#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)):
+
+**NOAA's feed is a 30-day archive, not a list of live conditions.** Every payload carries 88–200 messages, nearly all describing events that ended weeks ago. Only those still in force are raised. Warnings and watches state their own expiry and are cleared when it passes; event summaries expire at the event's end time; plain alerts state no expiry, and `alertMaxAgeHours` (default 24) bounds those. In practice that means a handful of notifications — one to three on a quiet day, eight during the April 2025 G4 storm.
+
+**A message code is the condition; a serial number is just one telling of it.** NOAA issues a new serial every time it extends, continues or cancels a condition, so keying paths on the serial number turned a single ongoing warning into 19 permanent notifications in a month. Keying on the code means a reissue updates the path in place, a cancellation clears it, and the number of paths stays bounded no matter how long the server runs.
+
 ### Aurora on your chart plotter
 
 The aurora grid is also served as Web Mercator map tiles, so the oval can be drawn over your actual chart instead of only in this plugin's webapp:
@@ -72,7 +89,9 @@ All settings are optional and have working defaults; the ones worth knowing abou
 
 * `zoneAlertThreshold` (default 3, "strong") — lowest scale value this plugin treats as worth your attention. Governs both the alarm zone on the observed/forecast paths and NOAA alert/watch/warning notifications. See [Alarm zones](#alarm-zones) above for why 3.
 * `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the NOAA payload is ~900 KB; needs a vessel position.
-* `sendAlertsWatchesWarnings` (default off) — individual NOAA alert/watch/warning products as notifications, distinct from the weekly outlook advisory (on by default).
+* `sendAlertsWatchesWarnings` (default off) — individual NOAA alert/watch/warning products as notifications, distinct from the weekly outlook advisory (on by default). See [Alerts, watches and warnings](#alerts-watches-and-warnings).
+* `alertMaxAgeHours` (default 24, maximum 168) — how long a NOAA message that states no expiry of its own stays raised. Warnings and watches carry their own expiry and ignore this.
+* `notificationVisual` / `notificationSound` (both default on) — a ceiling on how loud any notification may get, not a floor. Turning `notificationSound` off silences the `alarm` level; it cannot make a `normal` message audible.
 * `observationsInterval` / `notificationsInterval` — poll intervals in minutes, 60 by default.
 * `auroraInterval` — separate poll interval for the ~900 KB aurora payload, 120 minutes by default.
 

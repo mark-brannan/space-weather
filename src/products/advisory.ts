@@ -1,7 +1,10 @@
 // https://services.swpc.noaa.gov/text/advisory-outlook.txt
-import { notificationMethod } from '../config.js'
 import { ADVISORY_BASE } from '../paths.js'
-import { NotificationStates, parseAdvisoryOutlook } from '../parse.js'
+import {
+  NotificationStates,
+  methodForState,
+  parseAdvisoryOutlook
+} from '../parse.js'
 import {
   readAdvisoryCache,
   writeAdvisoryCache
@@ -94,7 +97,15 @@ export const advisory: Product = {
       message: `${idLine} for ${issued.toDateString()}`,
       description: text,
       state: NotificationStates.ALERT,
-      method: notificationMethod(settings)
+      // A weekly informational bulletin, so `alert` and therefore silent by
+      // the same policy the scale zones use: visible in the notifications UI,
+      // no popup and no sound. Until 0.12.0 this one sounded an alarm every
+      // Monday on a default install.
+      method: methodForState(
+        NotificationStates.ALERT,
+        settings.notificationVisual,
+        settings.notificationSound
+      )
     }
     publisher.value(path, current, issued.toISOString())
 

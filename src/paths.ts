@@ -17,6 +17,14 @@ export const AURORA_BASE = 'environment.noaa.swpc.aurora'
 export const XRAY_FLARE_BASE = 'environment.noaa.swpc.xray_flare'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
+/**
+ * Alerts, watches and warnings, one leaf per NOAA message code (`WARK05`,
+ * `ALTEF3`, ...). Before 0.12.0 these went straight under NOTIFICATIONS_BASE
+ * keyed by NOAA's serial number, which minted a new permanent path for every
+ * reissue of the same condition -- see `currentAlertNotifications` and issue
+ * #45. A code names one condition, so the path count is bounded.
+ */
+export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
 // A single "most recent Noon reading" value, not bucketed by observation
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'
