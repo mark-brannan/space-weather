@@ -18,10 +18,11 @@ export const alerts: Product = {
   // No `enabled`: there is nothing left for a switch to decide. Loudness is
   // `alarmLevel` -- at the default this product raises four
   // notifications on an ordinary day and none of them make a sound -- and
-  // bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and
-  // an unchanged payload comes back as a 304 with no body. The 71-146 KB
+  // bandwidth is ~5 KB gzipped per poll, about 120 KB a day. The 71-146 KB
   // fixtures on disk are ten times the wire cost, which is what makes this
-  // look expensive when it isn't.
+  // look expensive when it isn't. Every poll pays that: NOAA's ETag carries
+  // the file mtime, which moves on each rewrite, so the conditional request
+  // never returns a 304 at any realistic interval.
 
   metadata(): Meta[] {
     return [

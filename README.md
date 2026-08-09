@@ -113,7 +113,7 @@ Five settings were removed in 0.13.0. Configs that set the old keys still work �
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
 * `alertMaxAgeHours` — now a fixed 24 hours.
 * `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
-* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and an unchanged payload comes back as a 304 with no body.
+* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB gzipped per poll, about 120 KB a day at the default interval, because NOAA serves this endpoint gzipped.
 
 ## References
 
