@@ -53,6 +53,21 @@ So: **capture a dated fixture into `examples/` before writing a parser**, and
 make the parser accept the old shape as well as the new one. `parseSolarWind`
 and `kpRows` in `parse.ts` are the pattern to copy.
 
+**How NOAA's endpoints actually behave is measured in
+[docs/noaa-products.md](docs/noaa-products.md)** — wire sizes, publish cadence,
+the fact that conditional GET never returns a 304 at a realistic poll interval,
+and that files are rewritten in place so a read can land mid-write. That file is
+the source of truth and carries the date of each measurement. Don't restate its
+numbers here or in a source comment, and don't reason about what NOAA probably
+does: re-run `scripts/measure-noaa.mjs`.
+
+The one invariant worth stating outside it: `firstJsonValue` in `parse.ts`
+recovers the complete leading value of a torn payload and `readJson` in
+`noaa/client.ts` uses it as a fallback after a strict parse fails. **Never
+extend that to recover a truncated value.** There is no complete value to
+recover, and publishing half a payload as though it were whole is worse than
+skipping a poll.
+
 **`/products/alerts.json` is a rolling 30-day archive, not a list of current
 conditions.** 88 to 200 messages per payload, nearly all describing events that
 ended weeks ago, and NOAA mints a fresh serial number every time it extends or

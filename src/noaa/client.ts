@@ -77,10 +77,10 @@ export function createClient(publisher: Publisher): Client {
    * `response.json()`, except that a body which is a complete JSON value
    * followed by trailing bytes yields that value instead of throwing.
    *
-   * NOAA rewrites these files in place about once a minute and a read can land
-   * mid-write, arriving as the new content plus the tail of the old. Strict
-   * parsing first, so a well-formed payload takes the fast path and nothing
-   * about normal operation changes.
+   * NOAA rewrites these files in place and a read can land mid-write, arriving
+   * as the new content plus the tail of the old, longer content -- measured in
+   * docs/noaa-products.md. Strict parsing runs first, so a well-formed payload
+   * takes the fast path and nothing about normal operation changes.
    */
   async function readJson(
     response: Response,
