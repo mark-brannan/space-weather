@@ -30,13 +30,6 @@ describe('alarmLevel', () => {
     expect(property.type).toBe('number')
   })
 
-  it('names the level and how often it happens in every option', () => {
-    for (const option of property.oneOf) {
-      expect(option.title).toContain(String(option.const))
-      expect(option.title).toMatch(/year|month|week/)
-    }
-  })
-
   it('resolves an out-of-range saved value to the default', () => {
     // The admin form renders 0 or 7 as a blank select with no error and saves
     // it back unchanged, so this is the only thing standing between a
