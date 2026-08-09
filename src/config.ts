@@ -129,15 +129,18 @@ export function settingsFrom(props: any): Settings {
     sendAlertsWatchesWarnings: p.sendAlertsWatchesWarnings === true,
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
-    // An explicitly absent notificationVisual has always meant "both methods".
+    // Each of these resolves its own default, independently. Until 0.12.1 the
+    // sound branch tested `notificationVisual`, so a config that turned sound
+    // off without also touching the visual checkbox kept making noise, and one
+    // that turned visual off silently lost sound as well. Both fields carry
+    // `default: true` in the schema so the admin UI always writes the pair --
+    // which is why this survived: it only ever bit a hand-edited config.
     notificationVisual:
       typeof p.notificationVisual === 'undefined'
         ? true
         : !!p.notificationVisual,
     notificationSound:
-      typeof p.notificationVisual === 'undefined'
-        ? true
-        : !!p.notificationSound,
+      typeof p.notificationSound === 'undefined' ? true : !!p.notificationSound,
     // Before 0.8.0 this was two separate settings (minScaleAlert and
     // zoneAlertThreshold) that happened to share the same default and the
     // same purpose -- "how bad before this plugin makes noise about it" --
