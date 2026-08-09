@@ -344,12 +344,12 @@ export function parseAlert(
   )
   if (scaleLine) {
     scaleText = scaleLine[2].trim()
-    if (scaleText.match(/or greater/)) {
-      scaleValue = NoaaScaleValues.EXTREME
-    } else {
-      const digits = scaleText.match(/[GSR]([0-5])/)
-      scaleValue = digits ? parseInt(digits[1], 10) : null
-    }
+    // The stated digit, including for "G3 or greater": that is a floor NOAA is
+    // asserting, not a ceiling it is predicting. Reading it as 5 inverts the
+    // ladder, since a hedged forecast then outranks an observed G4. The hedge
+    // stays visible in `scaleText` either way.
+    const digits = scaleText.match(/[GSR]([0-5])/)
+    scaleValue = digits ? parseInt(digits[1], 10) : null
   }
 
   const mainMessage = headline ? headline[5] : alert.message.split('\n')[0]

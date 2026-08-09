@@ -207,21 +207,39 @@ describe('parseAlert', () => {
     expect(withOrGreater.length).toBeGreaterThan(0)
     for (const parsed of withOrGreater) {
       expect(parsed.scaleText).not.toContain('\n')
-      expect(parsed.scaleValue).toBe(NoaaScaleValues.EXTREME)
+      expect(parsed.scaleValue).toBe(NoaaScaleValues.STRONG)
     }
   })
 
-  it('treats "or greater" as the extreme level', () => {
+  it('grades "or greater" at the level NOAA stated, not above it', () => {
     const parsed = parseAlert({
       product_id: 'test',
       issue_datetime: '2025-04-17 12:00:00.000',
       message:
         'Space Weather Message Code: WATA50\nSerial Number: 1\nIssue Time: 2025 Apr 17 1200 UTC\n\nWATCH: Geomagnetic Storm Category G3 Predicted\n\nNOAA Scale: G3 or greater - Strong to Extreme\n'
     })!
-    expect(parsed.scaleValue).toBe(NoaaScaleValues.EXTREME)
-    // The extreme level is an alarm, not a bare alert: "G3 or greater" is the
-    // form NOAA uses when it will not rule out G5.
-    expect(parsed.state).toBe('alarm')
+    // "or greater" is a floor NOAA is asserting, not a ceiling it is
+    // predicting. Grading it EXTREME makes this hedged forecast sound an alarm
+    // while an observed G4 only reaches warn.
+    expect(parsed.scaleValue).toBe(NoaaScaleValues.STRONG)
+    expect(parsed.state).toBe('alert')
+    expect(parsed.scaleText).toBe('G3 or greater')
+  })
+
+  it('never grades a forecast above an observation of the same level', () => {
+    const at = (scaleText: string) =>
+      parseAlert({
+        product_id: 'test',
+        issue_datetime: '2025-04-17 12:00:00.000',
+        message:
+          'Space Weather Message Code: WATA50\nSerial Number: 1\nIssue Time: 2025 Apr 17 1200 UTC\n\nWATCH: test\n\nNOAA Scale: ' +
+          scaleText +
+          '\n'
+      })!.state
+
+    expect(at('G3 or greater - Strong to Extreme')).toBe('alert')
+    expect(at('G4 - Severe')).toBe('warn')
+    expect(at('G5 - Extreme')).toBe('alarm')
   })
 
   it('returns null instead of throwing on malformed entries', () => {

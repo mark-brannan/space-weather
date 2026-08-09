@@ -50,6 +50,8 @@ Zones also cause the server to raise notifications on your behalf, so the defaul
 
 Alerting on a level 1 would mean an interruption every four or five days, forever. So by default levels 1–2 are `normal`, level 3 is `alert` **with no visual or sound method** (it shows in the UI but does not interrupt), level 4 is `warn` (visual), and level 5 is `alarm` (visual and sound). Set `zoneAlertThreshold` to move that pivot.
 
+A level NOAA states as "G3 or greater" grades at 3, not at 5. "Or greater" is a floor NOAA is asserting rather than a ceiling it is predicting, and reading it as 5 inverts the ladder: a hedged *forecast* outranks an *observed* G4.
+
 Every notification this plugin raises follows that same ladder, whether it comes from a zone transition or from a NOAA message. `notificationVisual` and `notificationSound` are a *ceiling* on it — they can quieten a level, never make one louder.
 
 ### Alerts, watches and warnings
