@@ -3,6 +3,10 @@
 A Signal K server plugin that publishes NOAA Space Weather Prediction Center
 data to a boat's Signal K instance.
 
+**Read [AGENTS.md](AGENTS.md) too.** It holds the conventions — scope, comments,
+tests, commits, pull requests, and the bar a new config setting has to clear.
+This file is what the codebase *is*; that one is how to work in it.
+
 ## Architecture
 
 ```
