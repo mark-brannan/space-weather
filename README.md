@@ -26,7 +26,7 @@ The plugin currently surfaces:
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications, one per message code under `notifications.noaa.swpc.alerts` (e.g. `alerts.WARK05`), carrying only the conditions currently in force — see [Alerts, watches and warnings](#alerts-watches-and-warnings)
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
-* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is roughly 900 KB per fetch
+* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is about 145 KB per fetch
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -103,7 +103,7 @@ Five settings, all optional, all with working defaults:
 
 * `alarmLevel` (default 5, "Extreme") — which NOAA level sounds an alarm, as a dropdown labelled with how often each one happens. Quieter states derive downward from it, and it is the only control over how loud this plugin gets. Applies to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
-* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload dwarfs everything else this plugin fetches; needs a vessel position.
+* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 

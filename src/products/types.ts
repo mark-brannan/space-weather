@@ -19,7 +19,7 @@ export interface Product {
   /**
    * How often to poll, in minutes. A function of settings rather than a fixed
    * enum of schedules, because a product with an unusual payload can justify
-   * its own cadence — the aurora grid is ~900 KB and gets a slower one.
+   * its own cadence — the aurora grid is ~145 KB and gets a slower one.
    */
   intervalMinutes: (settings: Settings) => number
   /** Products the user can switch off. Defaults to always on. */

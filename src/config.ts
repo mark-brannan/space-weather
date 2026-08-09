@@ -45,9 +45,11 @@ export const schema = {
       type: 'boolean',
       title: 'Publish aurora visibility at the vessel position',
       description:
-        "Requires a position. Off by default because NOAA's aurora grid is" +
-        ' roughly 900 KB per fetch, which is significant on a metered' +
-        ' satellite link.',
+        'Needs a vessel position. Off by default on bandwidth: the aurora grid' +
+        ' is about 145 KB per fetch, roughly thirty times everything else this' +
+        ' plugin downloads put together. At the default interval that is about' +
+        ' 1.7 MB a day, which is real money on a metered satellite link and' +
+        ' nothing at all on marina wifi.',
       default: false
     },
     auroraInterval: {
@@ -55,18 +57,17 @@ export const schema = {
       title: 'Aurora fetch interval',
       description:
         'in minutes. Separate from the interval below, and longer, because of' +
-        ' the payload size (~900 KB): aurora is a glance-at-it feature rather' +
-        ' than a value that needs to track in real time, so there is little' +
-        ' reason to spend the bandwidth more than a couple of times an hour.',
+        ' the payload size: aurora is a glance-at-it feature rather than a' +
+        ' value that needs to track in real time, so there is little reason to' +
+        ' spend the bandwidth more than a couple of times an hour.',
       default: 120
     },
     updateInterval: {
       type: 'number',
       title: 'How often to fetch from NOAA',
       description:
-        'in minutes. Covers observations, forecasts and alerts alike. NOAA' +
-        ' publishes on its own cadence, so polling faster than it publishes' +
-        ' only costs bandwidth.',
+        'in minutes. Covers observations, forecasts and alerts alike, which' +
+        ' together come to about 5 KB per poll.',
       default: 60
     }
   }
