@@ -209,9 +209,7 @@ describe('f107 product', () => {
   })
 
   it('has a hard-coded interval, not one driven by settings', () => {
-    expect(
-      f107.intervalMinutes(settingsFrom({ observationsInterval: 5 }))
-    ).toBe(240)
+    expect(f107.intervalMinutes(settingsFrom({ updateInterval: 5 }))).toBe(240)
   })
 
   it('publishes nothing rather than an error-free silent gap when no Noon entry exists', async () => {

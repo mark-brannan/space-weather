@@ -154,7 +154,7 @@ describe('zoneMethods', () => {
   it('leaves everything up to and including alert silent', () => {
     // A state is informational; the method array is what actually interrupts
     // the user. Only the top two bands are allowed to.
-    const methods = zoneMethods(true, true)
+    const methods = zoneMethods()
     expect(methods.nominalMethod).toEqual([])
     expect(methods.normalMethod).toEqual([])
     expect(methods.alertMethod).toEqual([])
@@ -162,10 +162,13 @@ describe('zoneMethods', () => {
     expect(methods.alarmMethod).toEqual(['visual', 'sound'])
   })
 
-  it('respects the configured notification methods', () => {
-    expect(zoneMethods(false, false).alarmMethod).toEqual([])
-    expect(zoneMethods(true, false).alarmMethod).toEqual(['visual'])
-    expect(zoneMethods(false, true).alarmMethod).toEqual(['sound'])
-    expect(zoneMethods(false, true).warnMethod).toEqual([])
+  it('escalates emergency the same as alarm', () => {
+    expect(zoneMethods().emergencyMethod).toEqual(['visual', 'sound'])
+  })
+
+  it('takes no arguments, so state is the only thing that sets loudness', () => {
+    // Pins that a per-method override cannot come back as a positional
+    // argument by accident.
+    expect(zoneMethods.length).toBe(0)
   })
 })

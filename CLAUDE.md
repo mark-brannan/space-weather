@@ -82,9 +82,12 @@ per-message loop in the product.
 **Every notification goes through `methodForState`.** It is the single policy
 for whether a state interrupts the user, and `zoneMethods` is derived from it
 so a NOAA level reads the same whether it arrives as a zone transition or as a
-message. `notificationVisual` / `notificationSound` are a ceiling on it, never
-a floor — applying them as a floor is what put a sound on 120 informational
-messages.
+message. **State is its only input**, and `zoneAlertThreshold` — which moves the
+whole ladder — is the only control over loudness. Don't add a per-method
+override: it mutes every product at once, it is a preference about the
+notification client rather than about space weather, and measured against the
+fixtures a pair of visual/sound checkboxes changed 0 of 4 notifications on a
+quiet day.
 
 **Zone metadata generates notifications.** The server (`signalk-server`
 `src/zones.ts`) watches any path with `meta.zones` and raises

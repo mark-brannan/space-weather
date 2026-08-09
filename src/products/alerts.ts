@@ -2,6 +2,7 @@
 // Message codes: http://www.spaceweather.org/ISES/code/fmt/exam.html
 import { ALERTS_BASE, NOTIFICATIONS_BASE } from '../paths.js'
 import {
+  ALERT_MAX_AGE_MS,
   AlertNotification,
   NotificationStates,
   currentAlertNotifications
@@ -13,10 +14,16 @@ const ID_PREFIX = 'noaa_swpc_alert_'
 
 export const alerts: Product = {
   name: 'Alerts, Watches, and Warnings',
-  intervalMinutes: (settings) => settings.notificationsInterval,
-  enabled: (settings) => settings.sendAlertsWatchesWarnings,
+  intervalMinutes: (settings) => settings.updateInterval,
+  // No `enabled`: there is nothing left for a switch to decide. Loudness is
+  // `zoneAlertThreshold` -- at the default this product raises four
+  // notifications on an ordinary day and none of them make a sound -- and
+  // bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and
+  // an unchanged payload comes back as a 304 with no body. The 71-146 KB
+  // fixtures on disk are ten times the wire cost, which is what makes this
+  // look expensive when it isn't.
 
-  metadata(settings): Meta[] {
+  metadata(): Meta[] {
     return [
       {
         path: ALERTS_BASE,
@@ -28,7 +35,7 @@ export const alerts: Product = {
           // The delta timestamp on each of these is the NOAA issue time, so a
           // client honouring the timeout expires the notification at the same
           // moment this plugin would stop republishing it.
-          timeout: settings.alertMaxAgeHours * 60 * 60
+          timeout: ALERT_MAX_AGE_MS / 1000
         }
       }
     ]
@@ -49,10 +56,7 @@ export const alerts: Product = {
     const now = new Date()
     const { inForce, unparseable, dropped } = currentAlertNotifications(json, {
       now,
-      maxAgeMs: settings.alertMaxAgeHours * 60 * 60 * 1000,
-      alertThreshold: settings.zoneAlertThreshold,
-      visual: settings.notificationVisual,
-      sound: settings.notificationSound
+      alertThreshold: settings.zoneAlertThreshold
     })
 
     let raised = 0

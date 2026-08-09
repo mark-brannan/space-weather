@@ -26,36 +26,93 @@ describe('zoneAlertThreshold / minScaleAlert merge (0.8.0)', () => {
   })
 })
 
-describe('notificationVisual / notificationSound', () => {
-  // Until 0.12.1 the sound branch tested `notificationVisual`, so each
-  // setting's default was gated on the other one's presence.
-  it('defaults both on when neither is saved', () => {
-    const settings = settingsFrom({})
-    expect(settings.notificationVisual).toBe(true)
-    expect(settings.notificationSound).toBe(true)
+describe('sendAlertsWatchesWarnings is no longer a setting', () => {
+  it('is gone from the schema and from the resolved settings', () => {
+    expect(schema.properties).not.toHaveProperty('sendAlertsWatchesWarnings')
+    expect(
+      (settingsFrom({ sendAlertsWatchesWarnings: false }) as any)
+        .sendAlertsWatchesWarnings
+    ).toBeUndefined()
+  })
+})
+
+describe('removed settings', () => {
+  // These were a ceiling on methodForState. Severity is the only input now, so
+  // a leftover schema property would be a dial that visibly does nothing.
+  it('does not expose notificationVisual / notificationSound', () => {
+    expect(schema.properties).not.toHaveProperty('notificationVisual')
+    expect(schema.properties).not.toHaveProperty('notificationSound')
   })
 
-  it('honours sound:false when visual is absent', () => {
-    // The case that mattered: turning the sound off did nothing at all unless
-    // the visual checkbox happened to be saved too.
-    expect(settingsFrom({ notificationSound: false }).notificationSound).toBe(
-      false
-    )
+  it('does not expose alertMaxAgeHours', () => {
+    expect(schema.properties).not.toHaveProperty('alertMaxAgeHours')
   })
 
-  it('keeps sound on when only visual is turned off', () => {
-    const settings = settingsFrom({ notificationVisual: false })
-    expect(settings.notificationVisual).toBe(false)
-    expect(settings.notificationSound).toBe(true)
-  })
-
-  it('resolves each field from its own value when both are saved', () => {
-    const settings = settingsFrom({
-      notificationVisual: true,
-      notificationSound: false
+  it('ignores all three if a saved config still carries them', () => {
+    const settings: any = settingsFrom({
+      notificationVisual: false,
+      notificationSound: false,
+      alertMaxAgeHours: 168
     })
-    expect(settings.notificationVisual).toBe(true)
-    expect(settings.notificationSound).toBe(false)
+    expect(settings.notificationVisual).toBeUndefined()
+    expect(settings.notificationSound).toBeUndefined()
+    expect(settings.alertMaxAgeHours).toBeUndefined()
+  })
+})
+
+describe('updateInterval', () => {
+  it('defaults to 60 minutes', () => {
+    expect(settingsFrom({}).updateInterval).toBe(60)
+  })
+
+  it('uses updateInterval when present', () => {
+    expect(settingsFrom({ updateInterval: 30 }).updateInterval).toBe(30)
+  })
+
+  it('no longer exposes either of the settings it replaced', () => {
+    expect(schema.properties).not.toHaveProperty('observationsInterval')
+    expect(schema.properties).not.toHaveProperty('notificationsInterval')
+  })
+
+  it('falls back to a saved observationsInterval', () => {
+    expect(settingsFrom({ observationsInterval: 15 }).updateInterval).toBe(15)
+  })
+
+  it('falls back to a saved notificationsInterval', () => {
+    expect(settingsFrom({ notificationsInterval: 20 }).updateInterval).toBe(20)
+  })
+
+  it('takes the lower of the two when an old config set both', () => {
+    // The install was already fetching that often, so keep its cadence rather
+    // than quietly slowing one half of the plugin down.
+    expect(
+      settingsFrom({ observationsInterval: 45, notificationsInterval: 90 })
+        .updateInterval
+    ).toBe(45)
+    expect(
+      settingsFrom({ observationsInterval: 90, notificationsInterval: 45 })
+        .updateInterval
+    ).toBe(45)
+  })
+
+  it('prefers updateInterval over both old keys', () => {
+    expect(
+      settingsFrom({
+        updateInterval: 10,
+        observationsInterval: 45,
+        notificationsInterval: 90
+      }).updateInterval
+    ).toBe(10)
+  })
+
+  it('rejects junk and zero in the old keys as well as the new one', () => {
+    expect(settingsFrom({ updateInterval: 'soon' }).updateInterval).toBe(60)
+    expect(settingsFrom({ observationsInterval: 0 }).updateInterval).toBe(60)
+    expect(settingsFrom({ notificationsInterval: -5 }).updateInterval).toBe(60)
+    expect(
+      settingsFrom({ observationsInterval: 0, notificationsInterval: 30 })
+        .updateInterval
+    ).toBe(30)
   })
 })
 
@@ -63,8 +120,6 @@ describe('auroraInterval default', () => {
   it('defaults to 120 minutes, longer than the other poll intervals', () => {
     const settings = settingsFrom({})
     expect(settings.auroraInterval).toBe(120)
-    expect(settings.auroraInterval).toBeGreaterThan(
-      settings.observationsInterval
-    )
+    expect(settings.auroraInterval).toBeGreaterThan(settings.updateInterval)
   })
 })

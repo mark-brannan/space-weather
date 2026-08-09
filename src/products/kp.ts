@@ -19,13 +19,10 @@ import { Product } from './types.js'
 
 export const kp: Product = {
   name: 'Planetary K-index Forecast',
-  intervalMinutes: (settings) => settings.observationsInterval,
+  intervalMinutes: (settings) => settings.updateInterval,
 
   metadata(settings: Settings): Meta[] {
-    const methods = zoneMethods(
-      settings.notificationVisual,
-      settings.notificationSound
-    )
+    const methods = zoneMethods()
     const zones = zonesForKp(settings.zoneAlertThreshold)
     // Kp is a dimensionless index, so no `units`.
     const common = {

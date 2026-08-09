@@ -8,7 +8,7 @@
  * month, not that HF propagation is good or bad right now.
  *
  * The underlying data only changes once a day (the "Noon" reading), so this
- * deliberately does not use `observationsInterval`: giving it its own
+ * deliberately does not use `updateInterval`: giving it its own
  * settings dial would be one more knob nobody needs to touch for a number
  * that moves this slowly. Hard-coded well below daily is already far more
  * often than the data itself changes; if NOAA is late publishing, the last

@@ -52,11 +52,11 @@ Alerting on a level 1 would mean an interruption every four or five days, foreve
 
 A level NOAA states as "G3 or greater" grades at 3, not at 5. "Or greater" is a floor NOAA is asserting rather than a ceiling it is predicting, and reading it as 5 inverts the ladder: a hedged *forecast* outranks an *observed* G4.
 
-Every notification this plugin raises follows that same ladder, whether it comes from a zone transition or from a NOAA message. `notificationVisual` and `notificationSound` are a *ceiling* on it — they can quieten a level, never make one louder.
+Every notification this plugin raises follows that same ladder, whether it comes from a zone transition or from a NOAA message. Severity is the only thing that decides loudness, and `zoneAlertThreshold` is the only setting that changes it — raise it and the whole ladder moves with it. A per-method mute would cut across every product at once, which is a preference about your notification client rather than about space weather.
 
 ### Alerts, watches and warnings
 
-`sendAlertsWatchesWarnings` publishes NOAA's individual message products, one Signal K path per NOAA message code:
+NOAA's individual message products are published one Signal K path per message code:
 
 ```
 notifications.noaa.swpc.alerts.WARK05    WARNING: Geomagnetic K-index of 5 expected
@@ -65,7 +65,7 @@ notifications.noaa.swpc.alerts.ALTEF3    ALERT: Electron 2MeV Integral Flux exce
 
 Two things about this are worth knowing, because the obvious implementation of both is wrong and shipped that way until 0.12.0 ([#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)):
 
-**NOAA's feed is a 30-day archive, not a list of live conditions.** Every payload carries 88–200 messages, nearly all describing events that ended weeks ago. Only those still in force are raised. Warnings and watches state their own expiry and are cleared when it passes; event summaries expire at the event's end time; plain alerts state no expiry, and `alertMaxAgeHours` (default 24) bounds those. In practice that means a handful of notifications — one to three on a quiet day, eight during the April 2025 G4 storm.
+**NOAA's feed is a 30-day archive, not a list of live conditions.** Every payload carries 88–200 messages, nearly all describing events that ended weeks ago. Only those still in force are raised. Warnings and watches state their own expiry and are cleared when it passes; event summaries expire at the event's end time; plain alerts state no expiry, and a fixed 24 hours bounds those. In practice that means a handful of notifications — one to three on a quiet day, eight during the April 2025 G4 storm.
 
 **A message code is the condition; a serial number is just one telling of it.** NOAA issues a new serial every time it extends, continues or cancels a condition, so keying paths on the serial number turned a single ongoing warning into 19 permanent notifications in a month. Keying on the code means a reissue updates the path in place, a cancellation clears it, and the number of paths stays bounded no matter how long the server runs.
 
@@ -87,15 +87,20 @@ Tiles are drawn on demand from the same cached fetch the webapp reads — enabli
 
 ## Configuration
 
-All settings are optional and have working defaults; the ones worth knowing about:
+Five settings, all optional, all with working defaults:
 
-* `zoneAlertThreshold` (default 3, "strong") — lowest scale value this plugin treats as worth your attention. Governs both the alarm zone on the observed/forecast paths and NOAA alert/watch/warning notifications. See [Alarm zones](#alarm-zones) above for why 3.
-* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the NOAA payload is ~900 KB; needs a vessel position.
-* `sendAlertsWatchesWarnings` (default off) — individual NOAA alert/watch/warning products as notifications, distinct from the weekly outlook advisory (on by default). See [Alerts, watches and warnings](#alerts-watches-and-warnings).
-* `alertMaxAgeHours` (default 24, maximum 168) — how long a NOAA message that states no expiry of its own stays raised. Warnings and watches carry their own expiry and ignore this.
-* `notificationVisual` / `notificationSound` (both default on) — a ceiling on how loud any notification may get, not a floor. Turning `notificationSound` off silences the `alarm` level; it cannot make a `normal` message audible.
-* `observationsInterval` / `notificationsInterval` — poll intervals in minutes, 60 by default.
-* `auroraInterval` — separate poll interval for the ~900 KB aurora payload, 120 minutes by default.
+* `zoneAlertThreshold` (default 3, "strong") — lowest scale value this plugin treats as worth your attention. Governs both the alarm zone on the observed/forecast paths and NOAA alert/watch/warning notifications, and it is the one control over how loud this plugin gets. See [Alarm zones](#alarm-zones) above for why 3.
+* `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
+* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload dwarfs everything else this plugin fetches; needs a vessel position.
+* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
+* `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
+
+Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored.
+
+* `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
+* `alertMaxAgeHours` — now a fixed 24 hours.
+* `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
+* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `zoneAlertThreshold`'s job, and the bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and an unchanged payload comes back as a 304 with no body.
 
 ## References
 

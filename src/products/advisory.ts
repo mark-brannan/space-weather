@@ -61,7 +61,7 @@ export const advisory: Product = {
     ]
   },
 
-  async refresh({ client, publisher, settings, stopped }) {
+  async refresh({ client, publisher, stopped }) {
     // Best-effort: a cache read failing here should not block the fetch
     // below, only fall back to treating this as "nothing cached yet".
     let lastIssued: Date | null = null
@@ -101,11 +101,7 @@ export const advisory: Product = {
       // the same policy the scale zones use: visible in the notifications UI,
       // no popup and no sound. Until 0.12.0 this one sounded an alarm every
       // Monday on a default install.
-      method: methodForState(
-        NotificationStates.ALERT,
-        settings.notificationVisual,
-        settings.notificationSound
-      )
+      method: methodForState(NotificationStates.ALERT)
     }
     publisher.value(path, current, issued.toISOString())
 

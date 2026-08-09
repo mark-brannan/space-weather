@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
 import { ALERTS_BASE, NOTIFICATIONS_BASE } from '../src/paths'
 import {
+  ALERT_MAX_AGE_MS,
   MAX_ALERT_NOTIFICATIONS,
   currentAlertNotifications
 } from '../src/parse'
@@ -90,7 +91,7 @@ function harness(payload: any, existing: Record<string, any> = {}) {
   const ctx = {
     client: { json: async () => payload, text: async () => '' },
     publisher,
-    settings: settingsFrom({ sendAlertsWatchesWarnings: true }),
+    settings: settingsFrom({}),
     stopped: () => false
   }
 
@@ -212,7 +213,7 @@ describe('currentAlertNotifications', () => {
     }
   })
 
-  it('reserves sound for the alarm level, and honours the user ceiling', () => {
+  it('reserves sound for the alarm level', () => {
     // At the peak of the 16 April storm: ALTK08 was issued at 2054 and the
     // next lower reading only at 2140, so the G4 is genuinely current here.
     const now = new Date('2025-04-16T21:00:00Z')
@@ -227,14 +228,25 @@ describe('currentAlertNotifications', () => {
     expect(alarms.length).toBeGreaterThan(0)
     for (const alert of alarms)
       expect(alert.method).toEqual(['visual', 'sound'])
+    for (const alert of loud)
+      expect(alert.method.includes('sound')).toBe(alert.state === 'alarm')
+  })
 
-    const muted = currentAlertNotifications(payload, {
-      now,
-      maxAgeMs: 24 * HOUR_MS,
-      alertThreshold: 1,
-      sound: false
-    }).inForce
-    for (const alert of muted) expect(alert.method).not.toContain('sound')
+  it('quietens the whole payload as the threshold rises', () => {
+    // zoneAlertThreshold is the only control over loudness, so it has to work
+    // as one on a real payload. At 5 nothing can reach warn or alarm at all.
+    const payload = fixtureJson('alerts.2025_04_17.json')
+    const now = captureTime(payload)
+    const audible = (alertThreshold: number) =>
+      currentAlertNotifications(payload, {
+        now,
+        maxAgeMs: 24 * HOUR_MS,
+        alertThreshold
+      }).inForce.filter((a) => a.method.length > 0).length
+
+    expect(audible(1)).toBeGreaterThan(audible(3))
+    expect(audible(3)).toBeGreaterThan(0)
+    expect(audible(5)).toBe(0)
   })
 
   it('resolves a cancellation to normal and silent', () => {
@@ -449,11 +461,13 @@ describe('alerts product', () => {
   })
 
   it('declares a timeout so clients expire the notification themselves', () => {
-    const settings = settingsFrom({ alertMaxAgeHours: 12 })
-    const meta = alerts.metadata!(settings)
+    // Matches the age bound the product itself applies, so a client honouring
+    // the timeout drops the notification at the same moment this plugin would
+    // stop republishing it.
+    const meta = alerts.metadata!(settingsFrom({}))
     expect(meta).toHaveLength(1)
     expect(meta[0].path).toBe(ALERTS_BASE)
-    expect(meta[0].value.timeout).toBe(12 * 60 * 60)
+    expect(meta[0].value.timeout).toBe(ALERT_MAX_AGE_MS / 1000)
   })
 
   it('reports a payload that is not an array instead of publishing', async () => {

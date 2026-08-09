@@ -287,10 +287,10 @@ describe('aurora product', () => {
     expect(aurora.enabled!(settingsFrom({ auroraEnabled: true }))).toBe(true)
   })
 
-  it('polls on its own interval, not the observations one', () => {
+  it('polls on its own interval, not the shared one', () => {
     const settings = settingsFrom({
       auroraInterval: 120,
-      observationsInterval: 15
+      updateInterval: 15
     })
     expect(aurora.intervalMinutes(settings)).toBe(120)
   })

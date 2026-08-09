@@ -22,13 +22,10 @@ const PROBABILITY_META = { units: 'ratio', timeout: 60 * 60 * 4 }
 
 export const scales: Product = {
   name: 'Scales',
-  intervalMinutes: (settings) => settings.observationsInterval,
+  intervalMinutes: (settings) => settings.updateInterval,
 
   metadata(settings: Settings): Meta[] {
-    const methods = zoneMethods(
-      settings.notificationVisual,
-      settings.notificationSound
-    )
+    const methods = zoneMethods()
     const metas: Meta[] = []
 
     for (const range of NOAA_SCALE_RANGES) {

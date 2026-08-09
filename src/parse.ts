@@ -151,28 +151,29 @@ export function gScaleForKp(kp: number): number {
  *
  * `zoneMethods` below hands this policy to the server's zone watcher, and the
  * notifications this plugin raises itself go through it directly. Both have to
- * agree — until 0.12.0 the alert/watch/warning product ignored it and attached
- * visual+sound to every message including the `normal` ones, which is how a
- * month-old "flux exceeded" summary ended up sounding an alarm (issue #45).
+ * agree: a product that attaches visual+sound of its own accord is how a
+ * month-old "flux exceeded" summary ends up sounding an alarm (issue #45).
+ *
+ * State is the only input, deliberately. Severity already says how loud a thing
+ * should be, and a user who wants a quieter plugin has `zoneAlertThreshold`,
+ * which moves the whole ladder. A per-method mute would cut across every
+ * product at once — a preference about the notification client rather than
+ * about space weather.
  */
-export function methodForState(
-  state: AlarmState,
-  visual: boolean = true,
-  sound: boolean = true
-): string[] {
+export function methodForState(state: AlarmState): string[] {
   const method: string[] = []
   if (
     state === NotificationStates.WARN ||
     state === NotificationStates.ALARM ||
     state === NotificationStates.EMERGENCY
   ) {
-    if (visual) method.push('visual')
+    method.push('visual')
   }
   if (
     state === NotificationStates.ALARM ||
     state === NotificationStates.EMERGENCY
   ) {
-    if (sound) method.push('sound')
+    method.push('sound')
   }
   return method
 }
@@ -183,14 +184,14 @@ export function methodForState(
  * user: levels at or just above the alert threshold are informational
  * (empty method), and only the top bands get visual/sound.
  */
-export function zoneMethods(visual: boolean = true, sound: boolean = true) {
+export function zoneMethods() {
   return {
-    nominalMethod: methodForState(NotificationStates.NOMINAL, visual, sound),
-    normalMethod: methodForState(NotificationStates.NORMAL, visual, sound),
-    alertMethod: methodForState(NotificationStates.ALERT, visual, sound),
-    warnMethod: methodForState(NotificationStates.WARN, visual, sound),
-    alarmMethod: methodForState(NotificationStates.ALARM, visual, sound),
-    emergencyMethod: methodForState(NotificationStates.EMERGENCY, visual, sound)
+    nominalMethod: methodForState(NotificationStates.NOMINAL),
+    normalMethod: methodForState(NotificationStates.NORMAL),
+    alertMethod: methodForState(NotificationStates.ALERT),
+    warnMethod: methodForState(NotificationStates.WARN),
+    alarmMethod: methodForState(NotificationStates.ALARM),
+    emergencyMethod: methodForState(NotificationStates.EMERGENCY)
   }
 }
 
@@ -412,13 +413,23 @@ export interface AlertNotification {
   description: string
 }
 
+/**
+ * How long a NOAA message that states no expiry of its own stays in force.
+ *
+ * Fixed rather than configurable: nobody can answer "how many hours should an
+ * alert with no stated expiry keep counting as current?" better than the value
+ * matching how NOAA issues them, and getting it wrong is invisible in both
+ * directions — too low drops live conditions, too high rebuilds issue #45 one
+ * poll at a time. Messages that *do* state an expiry ignore this entirely,
+ * which is most of the ones a boat cares about.
+ */
+export const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
 export interface AlertSelectionOptions {
   now: Date
-  /** How long a message that states no expiry of its own stays in force. */
-  maxAgeMs: number
+  /** Overrides {@link ALERT_MAX_AGE_MS}; tests only. */
+  maxAgeMs?: number
   alertThreshold?: number
-  visual?: boolean
-  sound?: boolean
   limit?: number
 }
 
@@ -454,10 +465,8 @@ export function currentAlertNotifications(
 ): AlertSelection {
   const {
     now,
-    maxAgeMs,
+    maxAgeMs = ALERT_MAX_AGE_MS,
     alertThreshold = NoaaScaleValues.STRONG,
-    visual = true,
-    sound = true,
     limit = MAX_ALERT_NOTIFICATIONS
   } = options
 
@@ -482,7 +491,7 @@ export function currentAlertNotifications(
       mainMessage: parsed.mainMessage.trim(),
       scaleText: parsed.scaleText,
       state: parsed.state,
-      method: methodForState(parsed.state, visual, sound),
+      method: methodForState(parsed.state),
       issued: parsed.issued,
       validUntil: parsed.validUntil,
       description: entry.message

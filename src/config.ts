@@ -3,15 +3,10 @@ import { NoaaScaleValues } from './parse.js'
 
 export interface Settings {
   sendAdvisoryOutlook: boolean
-  sendAlertsWatchesWarnings: boolean
   auroraEnabled: boolean
   auroraInterval: number
-  notificationVisual: boolean
-  notificationSound: boolean
   zoneAlertThreshold: number
-  observationsInterval: number
-  notificationsInterval: number
-  alertMaxAgeHours: number
+  updateInterval: number
 }
 
 export const schema = {
@@ -23,32 +18,15 @@ export const schema = {
         'Send notifications for weekly "Advisory Outlook" (as notification state="alert")',
       default: true
     },
-    sendAlertsWatchesWarnings: {
-      type: 'boolean',
-      title:
-        'Send notifications for alerts, watches, and warnings (state "alert" or "normal")',
-      default: false
-    },
-    notificationVisual: {
-      type: 'boolean',
-      title: 'Notification Method Visual',
-      default: true
-    },
-    notificationSound: {
-      type: 'boolean',
-      title: 'Notification Method Sound',
-      default: true
-    },
     zoneAlertThreshold: {
       type: 'number',
       title:
         'Lowest NOAA "scale" value this plugin treats as worth your attention',
       description:
         '1-5. Governs both the alarm zone on observed/forecast scale and Kp values,' +
-        ' and the state of NOAA alert/watch/warning notifications (was two separate' +
-        ' settings before 0.8.0; one number now drives both). Levels below this are' +
-        ' "normal". This level is "alert" (no popup or sound), one above is "warn"' +
-        ' (visual), and higher is "alarm" (visual and sound). The default of 3' +
+        ' and the state of NOAA alert/watch/warning notifications. Levels below this' +
+        ' are "normal". This level is "alert" (no popup or sound), one above is' +
+        ' "warn" (visual), and higher is "alarm" (visual and sound). The default of 3' +
         ' reflects NOAA event frequencies: level 1 occurs on roughly a quarter of all' +
         ' days, level 3 about monthly, level 5 four times per solar cycle.',
       default: NoaaScaleValues.STRONG
@@ -66,35 +44,20 @@ export const schema = {
       type: 'number',
       title: 'Aurora fetch interval',
       description:
-        'in minutes. Kept separate from the observations interval because of' +
-        ' the payload size (~900 KB). Defaults longer than the other intervals' +
-        ' on purpose: aurora is a glance-at-it feature, not a value that needs' +
-        ' to track in real time, so there is little reason to spend the bandwidth' +
-        ' more than a couple of times an hour.',
+        'in minutes. Separate from the interval below, and longer, because of' +
+        ' the payload size (~900 KB): aurora is a glance-at-it feature rather' +
+        ' than a value that needs to track in real time, so there is little' +
+        ' reason to spend the bandwidth more than a couple of times an hour.',
       default: 120
     },
-    observationsInterval: {
+    updateInterval: {
       type: 'number',
-      title: 'Interval for observations and forecasts',
-      description: 'in minutes',
-      default: 60
-    },
-    notificationsInterval: {
-      type: 'number',
-      title: 'Notifications Interval',
-      description: 'in minutes',
-      default: 60
-    },
-    alertMaxAgeHours: {
-      type: 'number',
-      title: 'How long a NOAA alert stays raised',
+      title: 'How often to fetch from NOAA',
       description:
-        'in hours, 1 to 168. Warnings and watches carry their own expiry and' +
-        ' are cleared when it passes; plain alerts and event summaries state' +
-        " none, so this bounds them instead. NOAA's alerts feed is a rolling" +
-        ' 30-day archive, and treating all of it as current is what made this' +
-        ' plugin unusable before 0.12.0 (issue #45).',
-      default: 24
+        'in minutes. Covers observations, forecasts and alerts alike. NOAA' +
+        ' publishes on its own cadence, so polling faster than it publishes' +
+        ' only costs bandwidth.',
+      default: 60
     }
   }
 }
@@ -111,36 +74,12 @@ function minutes(raw: any, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-/**
- * Clamped, not just validated. A week is already generous for "this NOAA
- * message still describes the present", and the upper bound is what stops
- * someone reconstructing issue #45 by typing 720 into the box.
- */
-function alertAgeHours(raw: any, fallback: number): number {
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
-  return Math.min(parsed, 24 * 7)
-}
-
 export function settingsFrom(props: any): Settings {
   const p = props ?? {}
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
-    sendAlertsWatchesWarnings: p.sendAlertsWatchesWarnings === true,
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
-    // Each of these resolves its own default, independently. Until 0.12.1 the
-    // sound branch tested `notificationVisual`, so a config that turned sound
-    // off without also touching the visual checkbox kept making noise, and one
-    // that turned visual off silently lost sound as well. Both fields carry
-    // `default: true` in the schema so the admin UI always writes the pair --
-    // which is why this survived: it only ever bit a hand-edited config.
-    notificationVisual:
-      typeof p.notificationVisual === 'undefined'
-        ? true
-        : !!p.notificationVisual,
-    notificationSound:
-      typeof p.notificationSound === 'undefined' ? true : !!p.notificationSound,
     // Before 0.8.0 this was two separate settings (minScaleAlert and
     // zoneAlertThreshold) that happened to share the same default and the
     // same purpose -- "how bad before this plugin makes noise about it" --
@@ -151,14 +90,20 @@ export function settingsFrom(props: any): Settings {
       p.zoneAlertThreshold ?? p.minScaleAlert,
       NoaaScaleValues.STRONG
     ),
-    observationsInterval: minutes(p.observationsInterval, 60),
-    notificationsInterval: minutes(p.notificationsInterval, 60),
-    alertMaxAgeHours: alertAgeHours(p.alertMaxAgeHours, 24)
+    // `observationsInterval` and `notificationsInterval` are the two settings
+    // this replaced. Both are still read so a saved config keeps its cadence
+    // instead of silently snapping back to 60, and the smaller wins, since that
+    // is the rate the install was already polling at.
+    updateInterval: minutes(
+      p.updateInterval ??
+        smaller(p.observationsInterval, p.notificationsInterval),
+      60
+    )
   }
 }
 
-// `notificationVisual` / `notificationSound` are a ceiling on how loud a
-// notification may get, not a floor: `methodForState` in parse.ts decides how
-// loud each state actually is, and these can only remove methods from that.
-// Until 0.12.0 they were applied as a floor instead, which put a sound on
-// every NOAA message regardless of severity -- see issue #45.
+/** The lower of two possibly-absent minute values. */
+function smaller(a: any, b: any): any {
+  const values = [a, b].map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  return values.length > 0 ? Math.min(...values) : undefined
+}
