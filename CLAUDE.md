@@ -144,8 +144,11 @@ assume from a failed command), set it up per that CONTRIBUTING.md; otherwise
 clone.
 
 **`~/.signalk` is the integration environment.** It is the default config
-directory, so plain `bin/signalk-server` (port 3000) uses it with no
-environment variables at all. Feature work here is almost always additive —
+directory, so plain `bin/signalk-server` uses it with no environment variables
+at all. **It listens on 3010**, set as `port` in its own `settings.json` — 3000
+is the signalk-server default and collides with too much else, so nothing here
+should be on it. `PORT` still overrides, which is what the `nmea-from-file`
+recipe below relies on. Feature work here is almost always additive —
 one more position source, one more chart provider, one more sample log — and
 a fresh scratch directory silently loses the settings that make the last
 feature testable. So work in `~/.signalk` and add to it. Scratch directories
@@ -222,14 +225,27 @@ node ~/.signalk/scripts/set-value.mjs --sweep 69.65,18.96 60.1,24.9 --seconds 60
 This plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
 watch`, in this repo) and restart the server to pick up a change — and see
 the copy-versus-symlink note above before concluding the change didn't work.
-These are shared instances, not one per session: port 3000 is the `~/.signalk`
+These are shared instances, not one per session: 3010 is the `~/.signalk`
 server and 3001 is a Docker container running the published package, both
 usually already up. Check before starting anything, the same way you'd check
 before touching a shared branch. Coordinate with a lock file: before starting
 a server or doing anything live against `:3001`, check for and create
 `~/.signalk/locks/dev-server.lock` or `docker-3001.lock` (one line: who, when,
 why) — remove it when done, and treat someone else's lock file as a hard stop,
-not a suggestion.
+not a suggestion. The lock records who is using the server and why; it is not
+the place to write down which port a conflict pushed you onto. If a port
+collides, fix the port.
+
+Start it detached, or it dies with the shell that launched it:
+
+```shell
+cd ~/signalk-server && setsid nohup node bin/signalk-server > /tmp/sk.log 2>&1 < /dev/null &
+```
+
+Don't leave a `while true; do npm start; done` supervisor behind. One got
+orphaned that way and spent an afternoon respawning every two seconds, losing
+on `EADDRINUSE` against the real server and making every port question harder
+to answer.
 
 `~/.signalk` has `allow_readonly` off, so every API read needs a token. There
 is an approved read-only device `claude-dev-tools` registered in its
