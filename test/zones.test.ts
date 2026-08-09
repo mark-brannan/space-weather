@@ -26,19 +26,48 @@ describe('stateForScaleValue', () => {
     expect(stateForScaleValue(5)).toBe('alarm')
   })
 
-  it('moves the whole ladder with the threshold', () => {
-    expect(stateForScaleValue(1, 1)).toBe('alert')
-    expect(stateForScaleValue(2, 1)).toBe('warn')
-    expect(stateForScaleValue(3, 1)).toBe('alarm')
-    expect(stateForScaleValue(5, 1)).toBe('alarm')
+  it('moves the whole ladder with the alarm level', () => {
+    // The quiet states hang below the alarm, so lowering it pulls everything up.
+    expect([1, 2, 3, 4, 5].map((v) => stateForScaleValue(v, 3))).toEqual([
+      'alert',
+      'warn',
+      'alarm',
+      'alarm',
+      'alarm'
+    ])
+    expect([1, 2, 3, 4, 5].map((v) => stateForScaleValue(v, 1))).toEqual([
+      'alarm',
+      'alarm',
+      'alarm',
+      'alarm',
+      'alarm'
+    ])
+  })
 
-    expect(stateForScaleValue(4, 5)).toBe('normal')
-    expect(stateForScaleValue(5, 5)).toBe('alert')
+  it('leaves no alarm level that cannot sound', () => {
+    // The reason the setting anchors on the alarm rather than deriving upward
+    // from an attention threshold. Deriving upward, a pivot of 4 could never
+    // reach `alarm` and a pivot of 5 could not even reach `warn` -- the two
+    // loudest-looking choices silenced the plugin.
+    for (let alarmLevel = 1; alarmLevel <= 5; alarmLevel++) {
+      const states = [1, 2, 3, 4, 5].map((v) =>
+        stateForScaleValue(v, alarmLevel)
+      )
+      expect(states, `alarmLevel ${alarmLevel}`).toContain('alarm')
+    }
+  })
+
+  it('is monotonically louder as the alarm level comes down', () => {
+    const alarms = (alarmLevel: number) =>
+      [1, 2, 3, 4, 5].filter(
+        (v) => stateForScaleValue(v, alarmLevel) === 'alarm'
+      ).length
+    expect([5, 4, 3, 2, 1].map(alarms)).toEqual([1, 2, 3, 4, 5])
   })
 
   it('never escalates level 0', () => {
-    for (let threshold = 1; threshold <= 5; threshold++) {
-      expect(stateForScaleValue(0, threshold)).toBe('nominal')
+    for (let alarmLevel = 1; alarmLevel <= 5; alarmLevel++) {
+      expect(stateForScaleValue(0, alarmLevel)).toBe('nominal')
     }
   })
 })
@@ -76,12 +105,13 @@ describe('zonesForScale', () => {
     ])
   })
 
-  it('honours a configured threshold', () => {
-    const zones = overTheWire(zonesForScale('R', 1))
+  it('honours a configured alarm level', () => {
+    const zones = overTheWire(zonesForScale('R', 3))
     const stateFor = (value: number) => zones[matchZone(zones, value)].state
     expect(stateFor(0)).toBe('nominal')
     expect(stateFor(1)).toBe('alert')
     expect(stateFor(2)).toBe('warn')
+    expect(stateFor(3)).toBe('alarm')
     expect(stateFor(5)).toBe('alarm')
   })
 

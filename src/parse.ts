@@ -58,21 +58,31 @@ export interface ValueUpdate {
 /**
  * Map a NOAA scale value (0-5) to a Signal K alarm state.
  *
- * `alertThreshold` is the lowest value that produces anything above `normal`.
- * NOAA's own frequency table makes the default of 3 the sensible pivot: over an
- * 11-year cycle (~4015 days) G1 occurs on ~900 days and R1 on ~950 -- roughly a
- * quarter of all days -- while level 3 occurs on ~130-140 days (about monthly)
- * and level 5 on ~4. Alerting below 3 would be noise.
+ * `alarmLevel` is the level that sounds an alarm; the quieter states derive
+ * *downward* from it — one below is `warn`, two below is `alert`, anything
+ * under that is `normal`.
+ *
+ * The direction matters and is the whole reason this reads the way it does.
+ * Deriving upward from a "worth your attention" pivot instead runs off the end
+ * of a five-level scale: with the pivot at 4 nothing can reach `alarm`, and at
+ * 5 nothing can even reach `warn`, so the two loudest-sounding choices a user
+ * could make were the two that silenced the plugin. Anchoring on the alarm
+ * leaves the levels above the pivot to absorb that, so every setting is live
+ * and turning the number down is monotonically louder.
+ *
+ * The default of 5 is what NOAA's frequency table supports: over an 11-year
+ * cycle level 5 falls on ~4 days, level 4 on ~60, level 3 on ~130. Alarming
+ * below 5 means a sound several times a year, and below 3 it is most weeks.
  */
 export function stateForScaleValue(
   value: number,
-  alertThreshold: number = NoaaScaleValues.STRONG
+  alarmLevel: number = NoaaScaleValues.EXTREME
 ): AlarmState {
   if (value <= 0) return NotificationStates.NOMINAL
-  if (value < alertThreshold) return NotificationStates.NORMAL
-  if (value === alertThreshold) return NotificationStates.ALERT
-  if (value === alertThreshold + 1) return NotificationStates.WARN
-  return NotificationStates.ALARM
+  if (value >= alarmLevel) return NotificationStates.ALARM
+  if (value === alarmLevel - 1) return NotificationStates.WARN
+  if (value === alarmLevel - 2) return NotificationStates.ALERT
+  return NotificationStates.NORMAL
 }
 
 /**
@@ -85,14 +95,14 @@ export function stateForScaleValue(
  */
 export function zonesForScale(
   letter: string,
-  alertThreshold: number = NoaaScaleValues.STRONG
+  alarmLevel: number = NoaaScaleValues.EXTREME
 ): Zone[] {
   const zones: Zone[] = []
   for (let value = 0; value <= MAX_NOAA_SCALE; value++) {
     zones.push({
       lower: value,
       upper: value + 1,
-      state: stateForScaleValue(value, alertThreshold),
+      state: stateForScaleValue(value, alarmLevel),
       message:
         value === 0
           ? `No ${letter} activity`
@@ -108,7 +118,7 @@ export function zonesForScale(
  * boundaries are the G thresholds rather than unit-wide buckets.
  */
 export function zonesForKp(
-  alertThreshold: number = NoaaScaleValues.STRONG
+  alarmLevel: number = NoaaScaleValues.EXTREME
 ): Zone[] {
   const zones: Zone[] = [
     {
@@ -121,7 +131,7 @@ export function zonesForKp(
   for (let g = 1; g <= MAX_NOAA_SCALE; g++) {
     const zone: Zone = {
       lower: KP_FOR_G1 + g - 1,
-      state: stateForScaleValue(g, alertThreshold),
+      state: stateForScaleValue(g, alarmLevel),
       message: `G${g} (${NoaaScaleNames[g]}) -- Kp ${KP_FOR_G1 + g - 1}`
     }
     // The top band deliberately carries no `upper` key. Kp saturates at 9 and
@@ -155,8 +165,8 @@ export function gScaleForKp(kp: number): number {
  * month-old "flux exceeded" summary ends up sounding an alarm (issue #45).
  *
  * State is the only input, deliberately. Severity already says how loud a thing
- * should be, and a user who wants a quieter plugin has `zoneAlertThreshold`,
- * which moves the whole ladder. A per-method mute would cut across every
+ * should be, and a user who wants a quieter plugin has `alarmLevel`, which
+ * moves the whole ladder. A per-method mute would cut across every
  * product at once — a preference about the notification client rather than
  * about space weather.
  */
@@ -313,7 +323,7 @@ function alertValidUntil(message: string): Date | null {
  */
 export function parseAlert(
   alert: any,
-  alertThreshold: number = NoaaScaleValues.STRONG
+  alarmLevel: number = NoaaScaleValues.EXTREME
 ): ParsedAlert | null {
   if (!alert || typeof alert.message !== 'string') return null
 
@@ -371,7 +381,7 @@ export function parseAlert(
     state:
       cancelled || scaleValue === null
         ? NotificationStates.NORMAL
-        : stateForScaleValue(scaleValue, alertThreshold),
+        : stateForScaleValue(scaleValue, alarmLevel),
     issued,
     validUntil: alertValidUntil(alert.message),
     cancelled
@@ -429,7 +439,7 @@ export interface AlertSelectionOptions {
   now: Date
   /** Overrides {@link ALERT_MAX_AGE_MS}; tests only. */
   maxAgeMs?: number
-  alertThreshold?: number
+  alarmLevel?: number
   limit?: number
 }
 
@@ -466,7 +476,7 @@ export function currentAlertNotifications(
   const {
     now,
     maxAgeMs = ALERT_MAX_AGE_MS,
-    alertThreshold = NoaaScaleValues.STRONG,
+    alarmLevel = NoaaScaleValues.EXTREME,
     limit = MAX_ALERT_NOTIFICATIONS
   } = options
 
@@ -474,7 +484,7 @@ export function currentAlertNotifications(
   let unparseable = 0
 
   for (const entry of payload) {
-    const parsed = parseAlert(entry, alertThreshold)
+    const parsed = parseAlert(entry, alarmLevel)
     if (!parsed) {
       unparseable++
       continue

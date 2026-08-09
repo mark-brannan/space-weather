@@ -5,7 +5,7 @@ export interface Settings {
   sendAdvisoryOutlook: boolean
   auroraEnabled: boolean
   auroraInterval: number
-  zoneAlertThreshold: number
+  alarmLevel: number
   updateInterval: number
 }
 
@@ -18,18 +18,28 @@ export const schema = {
         'Send notifications for weekly "Advisory Outlook" (as notification state="alert")',
       default: true
     },
-    zoneAlertThreshold: {
+    alarmLevel: {
       type: 'number',
-      title:
-        'Lowest NOAA "scale" value this plugin treats as worth your attention',
+      title: 'Sound an alarm at',
       description:
-        '1-5. Governs both the alarm zone on observed/forecast scale and Kp values,' +
-        ' and the state of NOAA alert/watch/warning notifications. Levels below this' +
-        ' are "normal". This level is "alert" (no popup or sound), one above is' +
-        ' "warn" (visual), and higher is "alarm" (visual and sound). The default of 3' +
-        ' reflects NOAA event frequencies: level 1 occurs on roughly a quarter of all' +
-        ' days, level 3 about monthly, level 5 four times per solar cycle.',
-      default: NoaaScaleValues.STRONG
+        'One level down shows a popup instead. Two down is listed but silent.' +
+        ' Covers the G, S and R scales and Kp.',
+      // `default` has to stay even though RJSF ignores it as a value under
+      // `oneOf` -- it is what selects the initial option, and without it option
+      // one silently becomes the default on a fresh install. `type` has to stay
+      // too: without it the field renders as nothing at all.
+      default: NoaaScaleValues.EXTREME,
+      // Quietest first, so reading down the list is turning the plugin up.
+      // Frequencies are geomagnetic-storm days per 11-year cycle from NOAA's
+      // own table, divided by 11 and rounded to something a person can picture.
+      // "and above" is doing real work: it says which way the choice includes.
+      oneOf: [
+        { const: 5, title: 'Extreme (5) — once every few years' },
+        { const: 4, title: 'Severe (4) and above — a few times a year' },
+        { const: 3, title: 'Strong (3) and above — about monthly' },
+        { const: 2, title: 'Moderate (2) and above — a few times a month' },
+        { const: 1, title: 'Minor (1) and above — most weeks' }
+      ]
     },
     auroraEnabled: {
       type: 'boolean',
@@ -62,9 +72,15 @@ export const schema = {
   }
 }
 
+/**
+ * A NOAA scale value is one of five integers. Anything else falls back, which
+ * matters more than it looks: the admin form renders an out-of-range saved
+ * value as a blank select with no error and writes it back untouched, so this
+ * is the only thing between a hand-edited config and a level nothing can reach.
+ */
 function scaleValue(raw: any, fallback: number): number {
   const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 5
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5
     ? parsed
     : fallback
 }
@@ -80,15 +96,18 @@ export function settingsFrom(props: any): Settings {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
-    // Before 0.8.0 this was two separate settings (minScaleAlert and
-    // zoneAlertThreshold) that happened to share the same default and the
-    // same purpose -- "how bad before this plugin makes noise about it" --
-    // and had no reason to ever be set differently. `minScaleAlert` is
-    // accepted here only so an old saved config that customised it isn't
-    // silently ignored; it no longer appears in the schema.
-    zoneAlertThreshold: scaleValue(
-      p.zoneAlertThreshold ?? p.minScaleAlert,
-      NoaaScaleValues.STRONG
+    // `zoneAlertThreshold` (and `minScaleAlert` before it) named the lowest
+    // level worth the user's attention, and the loud states derived upward from
+    // it. This anchors on the alarm and derives down instead, so a saved value
+    // means a different thing and has to be moved: the old pivot put `alarm`
+    // two levels up, which is exactly the offset applied here. An old default
+    // of 3 therefore lands on 5 and behaves identically. Old values of 4 and 5
+    // clamp to 5 -- they were the dead settings that could never sound at all,
+    // and there is no honest way to preserve "silent" through a rename of the
+    // thing that makes noise.
+    alarmLevel: scaleValue(
+      p.alarmLevel ?? shiftUp(p.zoneAlertThreshold ?? p.minScaleAlert),
+      NoaaScaleValues.EXTREME
     ),
     // `observationsInterval` and `notificationsInterval` are the two settings
     // this replaced. Both are still read so a saved config keeps its cadence
@@ -100,6 +119,14 @@ export function settingsFrom(props: any): Settings {
       60
     )
   }
+}
+
+/** An old attention-threshold as the equivalent alarm level. */
+function shiftUp(raw: any): any {
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed >= 1
+    ? Math.min(parsed + 2, NoaaScaleValues.EXTREME)
+    : undefined
 }
 
 /** The lower of two possibly-absent minute values. */

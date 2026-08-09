@@ -49,7 +49,7 @@ export const scales: Product = {
                 upper: NoaaScaleValues.EXTREME,
                 type: 'linear'
               },
-              zones: zonesForScale(letter, settings.zoneAlertThreshold)
+              zones: zonesForScale(letter, settings.alarmLevel)
             }
           })
         } else if (letter === 'S') {

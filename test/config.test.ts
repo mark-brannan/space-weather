@@ -1,28 +1,82 @@
 import { describe, expect, it } from 'vitest'
 import { schema, settingsFrom } from '../src/config'
 
-describe('zoneAlertThreshold / minScaleAlert merge (0.8.0)', () => {
-  it('no longer exposes minScaleAlert as a separate setting', () => {
-    expect(schema.properties).not.toHaveProperty('minScaleAlert')
+describe('alarmLevel', () => {
+  const property: any = (schema.properties as any).alarmLevel
+
+  it('defaults to 5, so only an Extreme event sounds', () => {
+    expect(settingsFrom({}).alarmLevel).toBe(5)
+    expect(property.default).toBe(5)
   })
 
-  it('uses zoneAlertThreshold when present', () => {
-    expect(settingsFrom({ zoneAlertThreshold: 4 }).zoneAlertThreshold).toBe(4)
+  it('uses alarmLevel when present', () => {
+    expect(settingsFrom({ alarmLevel: 3 }).alarmLevel).toBe(3)
   })
 
-  it('falls back to a saved minScaleAlert so an old customisation is not silently dropped', () => {
-    expect(settingsFrom({ minScaleAlert: 4 }).zoneAlertThreshold).toBe(4)
+  it('offers one option per NOAA scale value, quietest first', () => {
+    expect(property.oneOf.map((o: any) => o.const)).toEqual([5, 4, 3, 2, 1])
   })
 
-  it('prefers zoneAlertThreshold when both are present', () => {
+  it('matches by number, not string', () => {
+    // RJSF `const` matching is exact and typed: "3" would never select.
+    for (const option of property.oneOf)
+      expect(typeof option.const).toBe('number')
+  })
+
+  it('keeps type and default, which RJSF needs for different reasons', () => {
+    // Without `type` the field renders as nothing at all. Without `default`,
+    // RJSF picks option one on a fresh install -- it uses `default` to select
+    // the initial option rather than as a value.
+    expect(property.type).toBe('number')
+  })
+
+  it('names the level and how often it happens in every option', () => {
+    for (const option of property.oneOf) {
+      expect(option.title).toContain(String(option.const))
+      expect(option.title).toMatch(/year|month|week/)
+    }
+  })
+
+  it('resolves an out-of-range saved value to the default', () => {
+    // The admin form renders 0 or 7 as a blank select with no error and saves
+    // it back unchanged, so this is the only thing standing between a
+    // hand-edited config and a level nothing can reach.
+    for (const bad of [0, 7, 3.5, -1, 'loud', null])
+      expect(settingsFrom({ alarmLevel: bad }).alarmLevel).toBe(5)
+  })
+})
+
+describe('migrating a saved zoneAlertThreshold / minScaleAlert', () => {
+  // The old setting named the lowest level worth attention and put `alarm` two
+  // levels above it, so the equivalent alarm level is the old value plus two.
+  it('moves the old default onto the new one, unchanged in behaviour', () => {
+    expect(settingsFrom({ zoneAlertThreshold: 3 }).alarmLevel).toBe(5)
+  })
+
+  it('carries a quieter old customisation across', () => {
+    expect(settingsFrom({ zoneAlertThreshold: 1 }).alarmLevel).toBe(3)
+    expect(settingsFrom({ zoneAlertThreshold: 2 }).alarmLevel).toBe(4)
+  })
+
+  it('clamps the two old values that could never sound', () => {
+    expect(settingsFrom({ zoneAlertThreshold: 4 }).alarmLevel).toBe(5)
+    expect(settingsFrom({ zoneAlertThreshold: 5 }).alarmLevel).toBe(5)
+  })
+
+  it('still reads the pre-0.8.0 minScaleAlert', () => {
+    expect(settingsFrom({ minScaleAlert: 1 }).alarmLevel).toBe(3)
+  })
+
+  it('prefers an explicit alarmLevel over either old key', () => {
     expect(
-      settingsFrom({ zoneAlertThreshold: 4, minScaleAlert: 2 })
-        .zoneAlertThreshold
-    ).toBe(4)
+      settingsFrom({ alarmLevel: 2, zoneAlertThreshold: 3, minScaleAlert: 1 })
+        .alarmLevel
+    ).toBe(2)
   })
 
-  it('defaults to 3 (strong) when neither is set', () => {
-    expect(settingsFrom({}).zoneAlertThreshold).toBe(3)
+  it('no longer exposes either old key', () => {
+    expect(schema.properties).not.toHaveProperty('zoneAlertThreshold')
+    expect(schema.properties).not.toHaveProperty('minScaleAlert')
   })
 })
 

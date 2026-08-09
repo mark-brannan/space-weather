@@ -39,7 +39,7 @@ function select(name: string, overrides: Record<string, any> = {}) {
   return currentAlertNotifications(payload, {
     now: captureTime(payload),
     maxAgeMs: 24 * HOUR_MS,
-    alertThreshold: 3,
+    alarmLevel: 5,
     ...overrides
   })
 }
@@ -221,7 +221,7 @@ describe('currentAlertNotifications', () => {
     const loud = currentAlertNotifications(payload, {
       now,
       maxAgeMs: 24 * HOUR_MS,
-      alertThreshold: 1
+      alarmLevel: 1
     }).inForce
     const alarms = loud.filter((a) => a.state === 'alarm')
 
@@ -232,21 +232,36 @@ describe('currentAlertNotifications', () => {
       expect(alert.method.includes('sound')).toBe(alert.state === 'alarm')
   })
 
-  it('quietens the whole payload as the threshold rises', () => {
-    // zoneAlertThreshold is the only control over loudness, so it has to work
-    // as one on a real payload. At 5 nothing can reach warn or alarm at all.
-    const payload = fixtureJson('alerts.2025_04_17.json')
-    const now = captureTime(payload)
-    const audible = (alertThreshold: number) =>
-      currentAlertNotifications(payload, {
+  it('gets monotonically louder as the alarm level comes down', () => {
+    // The setting is the only control over loudness, so it has to behave like
+    // one on a real payload: never quieter for a lower number, at any step.
+    // Same moment as the test above: the observed G4 is genuinely current, so
+    // the ladder has something at every rung. At the payload's capture time a
+    // later, lower reading has already stood the G4 down.
+    const now = new Date('2025-04-16T21:00:00Z')
+    const payload = asOf(fixtureJson('alerts.2025_04_17.json'), now)
+    const counts = (alarmLevel: number) => {
+      const inForce = currentAlertNotifications(payload, {
         now,
         maxAgeMs: 24 * HOUR_MS,
-        alertThreshold
-      }).inForce.filter((a) => a.method.length > 0).length
+        alarmLevel
+      }).inForce
+      return {
+        notified: inForce.filter((a) => a.method.length > 0).length,
+        audible: inForce.filter((a) => a.method.includes('sound')).length
+      }
+    }
 
-    expect(audible(1)).toBeGreaterThan(audible(3))
-    expect(audible(3)).toBeGreaterThan(0)
-    expect(audible(5)).toBe(0)
+    const ladder = [5, 4, 3, 2, 1].map(counts)
+    for (let i = 1; i < ladder.length; i++) {
+      expect(ladder[i].notified).toBeGreaterThanOrEqual(ladder[i - 1].notified)
+      expect(ladder[i].audible).toBeGreaterThanOrEqual(ladder[i - 1].audible)
+    }
+
+    // This storm peaked at an observed G4, so at the default only a popup is
+    // warranted -- and dropping the alarm to 4 is what makes it audible.
+    expect(ladder[0]).toEqual({ notified: 1, audible: 0 })
+    expect(ladder[1].audible).toBe(1)
   })
 
   it('resolves a cancellation to normal and silent', () => {
@@ -259,7 +274,7 @@ describe('currentAlertNotifications', () => {
     const { inForce } = currentAlertNotifications([cancel], {
       now: new Date(cancel.issue_datetime + 'Z'),
       maxAgeMs: HOUR_MS,
-      alertThreshold: 1
+      alarmLevel: 1
     })
     expect(inForce).toHaveLength(1)
     expect(inForce[0].state).toBe('normal')

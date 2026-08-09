@@ -38,7 +38,7 @@ The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA
 
 Every scale and Kp path carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
 
-Zones also cause the server to raise notifications on your behalf, so the default mapping is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle are roughly:
+Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle:
 
 | Level | Days per cycle | Share of all days |
 | ----- | -------------- | ----------------- |
@@ -48,11 +48,23 @@ Zones also cause the server to raise notifications on your behalf, so the defaul
 | 4 (Severe)   | 8–60    | ~1%  |
 | 5 (Extreme)  | ~4      | ~0.1% |
 
-Alerting on a level 1 would mean an interruption every four or five days, forever. So by default levels 1–2 are `normal`, level 3 is `alert` **with no visual or sound method** (it shows in the UI but does not interrupt), level 4 is `warn` (visual), and level 5 is `alarm` (visual and sound). Set `zoneAlertThreshold` to move that pivot.
+`alarmLevel` picks which of those sounds an alarm. Everything quieter hangs below it: one level down shows a popup, two down is listed but silent, anything lower is recorded and nothing else.
 
-A level NOAA states as "G3 or greater" grades at 3, not at 5. "Or greater" is a floor NOAA is asserting rather than a ceiling it is predicting, and reading it as 5 inverts the ladder: a hedged *forecast* outranks an *observed* G4.
+The default is 5, so a sound means an Extreme event — about once every few years. Turn it down and the whole ladder comes with it:
 
-Every notification this plugin raises follows that same ladder, whether it comes from a zone transition or from a NOAA message. Severity is the only thing that decides loudness, and `zoneAlertThreshold` is the only setting that changes it — raise it and the whole ladder moves with it. A per-method mute would cut across every product at once, which is a preference about your notification client rather than about space weather.
+| `alarmLevel` | Sounds | Popup | How often it sounds |
+| --- | --- | --- | --- |
+| 5 *(default)* | 5 | 4 | once every few years |
+| 4 | 4–5 | 3 | a few times a year |
+| 3 | 3–5 | 2 | about monthly |
+| 2 | 2–5 | 1 | a few times a month |
+| 1 | 1–5 | — | most weeks |
+
+Alarming on a level 1 would mean a noise every four or five days, forever, which is why the default sits where it does.
+
+NOAA writes `G3 or greater` when it won't say how bad a storm will get. That counts as G3 here. Treating it as G5 made an uncertain forecast louder than a confirmed G4, which is backwards.
+
+Every notification follows that same ladder, whether it comes from a zone transition or a NOAA message. How bad the event is decides how loud it gets, and `alarmLevel` is the only setting that changes that. There is deliberately no separate "mute sounds" checkbox: it would silence every product at once, which is something to fix in your notification client, not here.
 
 ### Alerts, watches and warnings
 
@@ -89,7 +101,7 @@ Tiles are drawn on demand from the same cached fetch the webapp reads — enabli
 
 Five settings, all optional, all with working defaults:
 
-* `zoneAlertThreshold` (default 3, "strong") — lowest scale value this plugin treats as worth your attention. Governs both the alarm zone on the observed/forecast paths and NOAA alert/watch/warning notifications, and it is the one control over how loud this plugin gets. See [Alarm zones](#alarm-zones) above for why 3.
+* `alarmLevel` (default 5, "Extreme") — which NOAA level sounds an alarm, as a dropdown labelled with how often each one happens. Quieter states derive downward from it, and it is the only control over how loud this plugin gets. Applies to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
 * `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload dwarfs everything else this plugin fetches; needs a vessel position.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
@@ -97,10 +109,11 @@ Five settings, all optional, all with working defaults:
 
 Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored.
 
+* `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way.
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
 * `alertMaxAgeHours` — now a fixed 24 hours.
 * `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
-* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `zoneAlertThreshold`'s job, and the bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and an unchanged payload comes back as a 304 with no body.
+* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and an unchanged payload comes back as a 304 with no body.
 
 ## References
 

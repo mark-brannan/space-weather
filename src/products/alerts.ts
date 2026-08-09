@@ -16,7 +16,7 @@ export const alerts: Product = {
   name: 'Alerts, Watches, and Warnings',
   intervalMinutes: (settings) => settings.updateInterval,
   // No `enabled`: there is nothing left for a switch to decide. Loudness is
-  // `zoneAlertThreshold` -- at the default this product raises four
+  // `alarmLevel` -- at the default this product raises four
   // notifications on an ordinary day and none of them make a sound -- and
   // bandwidth is ~5 KB per poll, because NOAA serves this endpoint gzipped and
   // an unchanged payload comes back as a 304 with no body. The 71-146 KB
@@ -56,7 +56,7 @@ export const alerts: Product = {
     const now = new Date()
     const { inForce, unparseable, dropped } = currentAlertNotifications(json, {
       now,
-      alertThreshold: settings.zoneAlertThreshold
+      alarmLevel: settings.alarmLevel
     })
 
     let raised = 0

@@ -138,8 +138,8 @@ describe('parseAlert', () => {
           .length
 
       expect(raisedAt(1), name).toBeGreaterThan(0)
-      expect(raisedAt(1), name).toBeGreaterThan(raisedAt(3))
-      expect(raisedAt(3), name).toBeGreaterThanOrEqual(raisedAt(5))
+      expect(raisedAt(1), name).toBeGreaterThanOrEqual(raisedAt(3))
+      expect(raisedAt(3), name).toBeGreaterThan(raisedAt(5))
     }
   })
 
@@ -158,7 +158,7 @@ describe('parseAlert', () => {
             'Issue Time: 2026 Aug 01 1200 UTC\n\nALERT: test\n' +
             `NOAA Scale: G${scale} - test\n`
         },
-        3
+        5
       )!.state
 
     expect(at(1)).toBe('normal')

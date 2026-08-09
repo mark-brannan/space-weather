@@ -82,8 +82,8 @@ per-message loop in the product.
 **Every notification goes through `methodForState`.** It is the single policy
 for whether a state interrupts the user, and `zoneMethods` is derived from it
 so a NOAA level reads the same whether it arrives as a zone transition or as a
-message. **State is its only input**, and `zoneAlertThreshold` — which moves the
-whole ladder — is the only control over loudness. Don't add a per-method
+message. **State is its only input**, and `alarmLevel` — which moves the whole
+ladder — is the only control over loudness. Don't add a per-method
 override: it mutes every product at once, it is a preference about the
 notification client rather than about space weather, and measured against the
 fixtures a pair of visual/sound checkboxes changed 0 of 4 notifications on a
@@ -103,10 +103,19 @@ load-bearing for the design below.
 
 **Alarm thresholds are deliberately conservative.** NOAA's frequency tables put
 a level 1 event on roughly a quarter of all days and a level 5 on about four
-days per 11-year solar cycle. Alerting on anything below level 3 is noise on a
-boat. Default mapping: 0 `nominal`, 1–2 `normal`, 3 `alert` with an **empty
-method array**, 4 `warn` (visual), 5 `alarm` (visual + sound). `zoneAlertThreshold`
-moves the pivot. Do not make this louder without a frequency argument.
+days per 11-year solar cycle. Alarming below level 3 is noise on a boat. Default
+mapping: 0 `nominal`, 1–2 `normal`, 3 `alert` with an **empty method array**, 4
+`warn` (visual), 5 `alarm` (visual + sound). Do not make this louder without a
+frequency argument.
+
+**`alarmLevel` anchors on the alarm and derives the quiet states downward** —
+one below is `warn`, two below is `alert`. Do not flip that direction back.
+Deriving upward from a "worth your attention" pivot runs off the end of a
+five-level scale: the pivot at 4 could never reach `alarm`, and at 5 never even
+`warn`, so the two loudest-*sounding* choices in the dropdown were the two that
+silenced the plugin. `stateForScaleValue` carries the argument; `zones.test.ts`
+pins that no alarm level is unreachable and that lowering it is monotonically
+louder.
 
 **Signal K wants SI units.** Solar wind speed in m/s (NOAA gives km/s), Bt and
 Bz in Tesla (NOAA gives nT), probabilities as 0–1 ratios with `units: "ratio"`
