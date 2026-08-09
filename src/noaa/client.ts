@@ -33,9 +33,11 @@ export function createClient(publisher: Publisher): Client {
     const url = API + subPath
     const cached = cache.get(subPath)
     const headers: Record<string, string> = { 'User-Agent': USER_AGENT }
-    // Every product endpoint here confirmed to send ETag and/or
-    // Last-Modified with a 60s Cache-Control; sending both conditional
-    // headers when known costs nothing and is the more compatible form.
+    // Sending both conditional headers costs nothing, and is kept even though
+    // no endpoint has ever been observed returning a 304 at a realistic poll
+    // interval -- NOAA's ETag carries the file mtime and the files are
+    // rewritten whether or not the content changed. Measurements, and the
+    // reason this is not a bug, are in docs/noaa-products.md.
     if (cached?.etag) headers['If-None-Match'] = cached.etag
     if (cached?.lastModified) headers['If-Modified-Since'] = cached.lastModified
 

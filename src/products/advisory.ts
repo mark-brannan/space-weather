@@ -18,9 +18,9 @@ const ID_PREFIX = 'space_weather_advisory_outlook'
 // Monday, ~0100-0400 UTC), so a flat interval either chatters all week for
 // nothing or misses same-day pickup. Instead: sleep until shortly before the
 // next expected issuance, then poll tightly until the new one actually shows
-// up. Cheap either way: the bulletin is ~1.6 KB gzipped. (Not because of a
-// 304 -- NOAA's ETag carries the file mtime, so a conditional request never
-// short-circuits at any interval this plugin uses.)
+// up. The tight poll is affordable because the bulletin is small; see
+// docs/noaa-products.md for the size, and for why a 304 is not what makes it
+// cheap.
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const PRE_WINDOW_MS = 6 * 60 * 60 * 1000
 const TIGHT_POLL_MINUTES = 15
