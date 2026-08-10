@@ -291,6 +291,33 @@ describe('transformJsonScaleRange', () => {
     }
   })
 
+  it('never yields NaN on a scalar level, in any captured payload', () => {
+    // NOAA changed the solar wind summaries from {"Bt":5} to [{"bt":4}] and the
+    // old accessors became `undefined * 1`, publishing NaN for months. A shape
+    // change is silent, so the guard has to sweep every capture. The
+    // probability sweep above covers the probability paths and skips the rest,
+    // which leaves the scalar G/S/R levels -- and the observed variant -- unheld.
+    let checked = 0
+    for (const name of SCALES_FIXTURES) {
+      const scales = fixtureJson(name)
+      for (const index of ['1', '2', '3']) {
+        if (!scales[index]) continue
+        for (const observed of [true, false]) {
+          for (const update of transformJsonScaleRange(
+            scales[index],
+            'base',
+            observed
+          )) {
+            if (update.path.includes('robability')) continue
+            checked++
+            expect(update.value, `${name} ${update.path}`).not.toBeNaN()
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(0)
+  })
+
   it('converts percentages to ratios', () => {
     const scales = fixtureJson('noaa-scales.2026_08_01.json')
     // The captured payload reads S Prob "75", R MinorProb "35", MajorProb "5".
