@@ -23,16 +23,21 @@ export const schema = {
       title: 'Sound an alarm at',
       description:
         'One level down shows a popup instead. Two down is listed but silent.' +
-        ' Covers the G, S and R scales and Kp.',
+        ' Applies to the G, S and R scales and to Kp. The rates below are for' +
+        ' geomagnetic storms; the other two differ, sharply at levels 4 and 5.',
       // `default` has to stay even though RJSF ignores it as a value under
       // `oneOf` -- it is what selects the initial option, and without it option
       // one silently becomes the default on a fresh install. `type` has to stay
       // too: without it the field renders as nothing at all.
       default: NoaaScaleValues.EXTREME,
       // Quietest first, so reading down the list is turning the plugin up.
-      // Frequencies are geomagnetic-storm days per 11-year cycle from NOAA's
-      // own table, divided by 11 and rounded to something a person can picture.
       // "and above" is doing real work: it says which way the choice includes.
+      // The rates are geomagnetic-storm days per solar cycle over 11, rounded
+      // to something a person can picture. They are G-scale specific and this
+      // setting governs three scales, which is why the description says so.
+      // Don't claim the scales are comparable in either direction: R is close
+      // to G at levels 1 and 3, 17% below it at 2, and 87% below it at 4. The
+      // table is in docs/noaa-products.md.
       oneOf: [
         { const: 5, title: 'Extreme (5) — once every few years' },
         { const: 4, title: 'Severe (4) and above — a few times a year' },

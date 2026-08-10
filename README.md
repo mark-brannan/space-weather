@@ -40,13 +40,15 @@ Every scale and Kp path carries Signal K [`zones`](https://signalk.org/specifica
 
 Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle:
 
-| Level | Days per cycle | Share of all days |
-| ----- | -------------- | ----------------- |
-| 1 (Minor)    | 900–950 | ~23% |
-| 2 (Moderate) | 300–360 | ~8%  |
-| 3 (Strong)   | 130–140 | ~3%  |
-| 4 (Severe)   | 8–60    | ~1%  |
-| 5 (Extreme)  | ~4      | ~0.1% |
+| Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) |
+| ----- | --------------- | ------------------ | ------------------- |
+| 1 (Minor)    | 900 days | 950 days | 50 events |
+| 2 (Moderate) | 360 days | 300 days | 25 events |
+| 3 (Strong)   | 130 days | 140 days | 10 events |
+| 4 (Severe)   | 60 days  | 8 days   | 3 events  |
+| 5 (Extreme)  | 4 days   | 1 day    | 1 event   |
+
+Radio blackouts run close to geomagnetic storms at levels 1 and 3, somewhat behind at 2, and far behind at 4 — 60 days a cycle against 8. Radiation storms are rarer than either at every level. The dropdown quotes the geomagnetic rates, since that is the scale a boat notices first.
 
 `alarmLevel` picks which of those sounds an alarm. Everything quieter hangs below it: one level down shows a popup, two down is listed but silent, anything lower is recorded and nothing else.
 

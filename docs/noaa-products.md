@@ -164,6 +164,33 @@ NOAA also writes a scale as `G3 or greater` when it will not say how bad a storm
 will get. That is the level it stated, and grading it as 5 makes an uncertain
 forecast louder than a confirmed G4.
 
+## Event frequency by scale
+
+Read from [NOAA's scales page](https://www.swpc.noaa.gov/noaa-scales-explanation)
+on 2026-08-09. One cycle is 11 years. G and R are quoted as days per cycle; S is
+quoted as events per cycle only.
+
+NOAA quotes events per cycle for all three, and days per cycle for G and R only.
+Compare like with like: events against events.
+
+| Level | G events / days | R events / days | S events | R vs G, by days | G ÷ S, by events |
+| --- | --- | --- | --- | --- | --- |
+| 1 Minor | 1700 / 900 | 2000 / 950 | 50 | +6% | 34× |
+| 2 Moderate | 600 / 360 | 350 / 300 | 25 | −17% | 24× |
+| 3 Strong | 200 / 130 | 175 / 140 | 10 | +8% | 20× |
+| 4 Severe | 100 / 60 | 8 / 8 | 3 | **−87%** | 33× |
+| 5 Extreme | 4 / 4 | 1 / 1 | 1 | **−75%** | 4× |
+
+**They are not interchangeable, and not comparable in one direction either.** R
+runs slightly ahead of G at levels 1 and 3, 17% behind at level 2, and 87%
+behind at level 4 — the single biggest gap, on one of the two options the
+dropdown puts at the top. S is 20–34× rarer than G by event count at levels 1–4
+and only 4× rarer at level 5.
+
+`alarmLevel` governs all three scales plus Kp, so no single cadence can label an
+option correctly. Its dropdown quotes the G figures and its description says so.
+Don't quote one scale's rate as though it covered the others.
+
 ## Unmeasured
 
 Named so nobody cites this file for them:
@@ -173,5 +200,3 @@ Named so nobody cites this file for them:
 - content cadence for `/json/ovation_aurora_latest.json` and
   `/text/advisory-outlook.txt` — both were in the size and conditional-GET runs
   but not the 15-minute cadence watch
-- how NOAA's frequency table (days per solar cycle, quoted in the README) was
-  derived, and whether it differs materially between the G, S and R scales
