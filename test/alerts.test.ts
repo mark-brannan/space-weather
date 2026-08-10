@@ -19,6 +19,20 @@ function captureTime(payload: any[]): Date {
   )
 }
 
+/**
+ * The payload as a poll at `now` would have seen it.
+ *
+ * A fixture is a 30-day archive, so picking a moment inside a storm otherwise
+ * hands the selection messages issued days later — harmless against the real
+ * clock, where NOAA cannot issue into the future, but it makes any test that
+ * moves `now` backwards meaningless.
+ */
+function asOf(payload: any[], now: Date): any[] {
+  return payload.filter(
+    (a: any) => new Date(a.issue_datetime + 'Z').getTime() <= now.getTime()
+  )
+}
+
 function select(name: string, overrides: Record<string, any> = {}) {
   const payload = fixtureJson(name)
   return currentAlertNotifications(payload, {
@@ -199,8 +213,10 @@ describe('currentAlertNotifications', () => {
   })
 
   it('reserves sound for the alarm level, and honours the user ceiling', () => {
-    const payload = fixtureJson('alerts.2025_04_17.json')
-    const now = captureTime(payload)
+    // At the peak of the 16 April storm: ALTK08 was issued at 2054 and the
+    // next lower reading only at 2140, so the G4 is genuinely current here.
+    const now = new Date('2025-04-16T21:00:00Z')
+    const payload = asOf(fixtureJson('alerts.2025_04_17.json'), now)
     const loud = currentAlertNotifications(payload, {
       now,
       maxAgeMs: 24 * HOUR_MS,
@@ -236,6 +252,111 @@ describe('currentAlertNotifications', () => {
     expect(inForce).toHaveLength(1)
     expect(inForce[0].state).toBe('normal')
     expect(inForce[0].method).toEqual([])
+  })
+
+  it('stands a level down when NOAA reports a lower one for the same phenomenon', () => {
+    // The gap cancellations and observed-value zones both miss: an ALT message
+    // carries no stated expiry, so a G3 stays raised for a full day after the
+    // next synoptic period has already reported the storm easing.
+    const now = new Date('2026-07-04T15:00:00Z')
+    const payload = asOf(fixtureJson('alerts.2026_08_01.json'), now)
+    const codes = (p: any[]) =>
+      currentAlertNotifications(p, {
+        now,
+        maxAgeMs: 24 * HOUR_MS,
+        alertThreshold: 3
+      }).inForce.map((a) => a.code)
+
+    // ALTK07 was issued at 0510 and the last ALTK06 at 1358, both inside the
+    // 24-hour window. Only the lower one describes the present.
+    expect(codes(payload)).toContain('ALTK06')
+    expect(codes(payload)).not.toContain('ALTK07')
+
+    // Without any later lower reading it stays up: this is a downgrade rule,
+    // not a blanket age cut.
+    const noLowerReadings = payload.filter(
+      (a: any) => !/Message Code: ALTK0[456]/.test(a.message)
+    )
+    expect(codes(noLowerReadings)).toContain('ALTK07')
+  })
+
+  it('keeps a level that a lower one only preceded', () => {
+    // A storm ramping up issues K4, then K5, then K6. Every lower message is
+    // older, and standing the top of the ladder down on those would silence
+    // the plugin exactly when it matters.
+    const entry = (code: string, issued: string) => ({
+      product_id: code,
+      issue_datetime: issued,
+      message:
+        `Space Weather Message Code: ${code}\nSerial Number: 1\n` +
+        'Issue Time: 2026 Aug 01 1200 UTC\n\nALERT: test\n'
+    })
+    const { inForce } = currentAlertNotifications(
+      [
+        entry('ALTK04', '2026-08-01 10:00:00.000'),
+        entry('ALTK05', '2026-08-01 11:00:00.000'),
+        entry('ALTK07', '2026-08-01 12:00:00.000')
+      ],
+      { now: new Date('2026-08-01T13:00:00Z'), maxAgeMs: 24 * HOUR_MS }
+    )
+    expect(inForce.map((a) => a.code).sort()).toEqual([
+      'ALTK04',
+      'ALTK05',
+      'ALTK07'
+    ])
+  })
+
+  it('leaves a shared prefix that is not a severity ladder alone', () => {
+    // ALTTP2 and ALTTP4 are Type II and Type IV radio bursts -- unrelated
+    // emissions, not rungs. Grouping them by prefix stood a live Type IV
+    // burst down when a Type II arrived 45 seconds later.
+    const now = new Date('2026-07-30T18:00:00Z')
+    const payload = asOf(fixtureJson('alerts.2026_08_01.json'), now)
+    const codes = currentAlertNotifications(payload, {
+      now,
+      maxAgeMs: 24 * HOUR_MS,
+      alertThreshold: 3
+    }).inForce.map((a) => a.code)
+
+    expect(codes).toContain('ALTTP2')
+    expect(codes).toContain('ALTTP4')
+  })
+
+  it('keeps codes that only look like one phenomenon', () => {
+    // ALTPC0 and ALTPX1 are different particle measurements, and a code with
+    // no number at all is on no ladder.
+    const entry = (code: string, issued: string) => ({
+      product_id: code,
+      issue_datetime: issued,
+      message:
+        `Space Weather Message Code: ${code}\nSerial Number: 1\n` +
+        'Issue Time: 2026 Aug 01 1200 UTC\n\nALERT: test\n'
+    })
+    const { inForce } = currentAlertNotifications(
+      [
+        entry('ALTPX1', '2026-08-01 10:00:00.000'),
+        entry('ALTPC0', '2026-08-01 12:00:00.000'),
+        entry('ALTXMF', '2026-08-01 12:00:00.000')
+      ],
+      { now: new Date('2026-08-01T13:00:00Z'), maxAgeMs: 24 * HOUR_MS }
+    )
+    expect(inForce).toHaveLength(3)
+  })
+
+  it('leaves no stale K-index level raised in any fixture', () => {
+    // Named families rather than the implementation's own regex: an invariant
+    // written in terms of the rule it is checking passes by construction.
+    for (const name of ALERT_FIXTURES) {
+      const kIndex = (code: string) => /^(ALTK|WARK)(\d+)$/.exec(code)
+      const { inForce } = select(name)
+      for (const a of inForce)
+        for (const b of inForce) {
+          const [ra, rb] = [kIndex(a.code), kIndex(b.code)]
+          if (!ra || !rb || ra[1] !== rb[1]) continue
+          const stale = Number(ra[2]) > Number(rb[2]) && a.issued < b.issued
+          expect(stale, `${name} ${a.code} under ${b.code}`).toBe(false)
+        }
+    }
   })
 
   it('counts unparseable entries rather than throwing on them', () => {
