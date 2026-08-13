@@ -138,6 +138,18 @@ is a plugin inside somebody's navigation server; it does not get to stall it.
 `require()` on an absolute directory path, and Node's CommonJS resolver ignores
 `exports` in that case. Removing `main` reintroduces issue #1.
 
+**The icon lives in two places for two different readers, and the second copy
+is generated.** The App Store resolves `signalk.appIcon` server-side against
+the package root, so `./icon.svg` works there. The admin Webapps page reads the
+*top-level* `appIcon` and loads it as a plain URL from the browser, and
+`mountWebModules` in signalk-server serves `public/` as the webapp's root when
+that directory exists — so the file has to be at `public/icon.svg` or the page
+renders a broken image. **A symlink cannot be that file**: npm's packlist skips
+symlinked files instead of following them, and the copy is simply missing from
+the tarball. `scripts/sync-icon.mjs` generates it on `prebuild` and `prepare`;
+it is gitignored like `dist/`, and `icon.test.ts` fails if the wiring comes
+undone. Don't commit a second copy, and don't reintroduce the symlink.
+
 ## Conventions
 
 No semicolons, two-space indent, single quotes — run `npm run format`

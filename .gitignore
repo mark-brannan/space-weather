@@ -110,3 +110,8 @@ dist
 # silently doubled the local count to 372/22), and a careless `git add .` would
 # commit a second copy of the tree.
 .claude/worktrees/
+
+# Generated from the root icon.svg by scripts/sync-icon.mjs, the same way
+# dist/ is generated: build output that ships (public/ is in package.json's
+# "files") but has no business being a second copy under version control.
+/public/icon.svg
