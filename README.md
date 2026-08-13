@@ -37,6 +37,13 @@ The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA
 
 ### The 27-day outlook
 
+**These paths are provisional and may move without a deprecation window.** The
+outlook is arguably just the Kp forecast further out, and it may end up under
+`environment.noaa.swpc.kp.forecast` rather than its own base — see
+[#57](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/57).
+Everything else the plugin publishes is stable; treat these six as pre-release
+and expect to follow a rename.
+
 Everything else here stops at 72 hours. The 27-day outlook runs a full solar rotation at one row per UTC day, which is the only thing in the plugin that speaks to *next week* — whether a passage a fortnight out is likely to fall in a disturbed stretch.
 
 It buys that horizon by being a **recurrence** forecast. 27 days is the solar rotation period, so the outlook is largely the last rotation repeated, on the assumption that the same coronal holes come back around. It has far less skill than the 3-day products and gives a whole-day maximum rather than a time.
