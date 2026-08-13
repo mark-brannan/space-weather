@@ -20,11 +20,13 @@ export const schema = {
     },
     alarmLevel: {
       type: 'number',
-      title: 'Sound an alarm at',
+      title: 'Sound an alarm at…',
       description:
-        'One level down shows a popup instead. Two down is listed but silent.' +
-        ' Applies to the G, S and R scales and to Kp. The rates below are for' +
-        ' geomagnetic storms; the other two differ, sharply at levels 4 and 5.',
+        'One level below this shows a popup (but no sound); two below is' +
+        ' listed silently. Applies to the G, S and R scales and to Kp. Rates' +
+        ' are geomagnetic-storm days in a median year — the other scales' +
+        ' differ, sharply at 4 and 5 — and roughly double during the active' +
+        ' stretch of a solar cycle.',
       // `default` has to stay even though RJSF ignores it as a value under
       // `oneOf` -- it is what selects the initial option, and without it option
       // one silently becomes the default on a fresh install. `type` has to stay
@@ -32,13 +34,15 @@ export const schema = {
       default: NoaaScaleValues.EXTREME,
       // Quietest first, so reading down the list is turning the plugin up.
       // "and above" is doing real work: it says which way the choice includes.
-      // The rates in these titles are provisional -- read the note in
-      // docs/noaa-products.md before changing them or copying them anywhere.
+      // Rates and their provenance are in docs/noaa-products.md.
       oneOf: [
-        { const: 5, title: 'Extreme (5) — once every few years' },
-        { const: 4, title: 'Severe (4) and above — a few times a year' },
-        { const: 3, title: 'Strong (3) and above — about monthly' },
-        { const: 2, title: 'Moderate (2) and above — a few times a month' },
+        { const: 5, title: 'Extreme (5) — once or twice a decade' },
+        { const: 4, title: 'Severe (4) and above — once or twice a year' },
+        { const: 3, title: 'Strong (3) and above — several times a year' },
+        {
+          const: 2,
+          title: 'Moderate (2) and above — a couple of times a month'
+        },
         { const: 1, title: 'Minor (1) and above — most weeks' }
       ]
     },

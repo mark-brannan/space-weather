@@ -64,7 +64,9 @@ Zones also cause the server to raise notifications on your behalf, so the defaul
 | 4 (Severe)   | 60 days  | 8 days   | 3 events  | popup |
 | 5 (Extreme)  | 4 days   | 1 day    | 1 event   | popup + sound |
 
-The three scales are not interchangeable; [docs/noaa-products.md](docs/noaa-products.md) compares them, and flags these rates as provisional pending a measured replacement. The settings dropdown quotes the geomagnetic figures, since that is the scale a boat notices first.
+The three scales are not interchangeable; [docs/noaa-products.md](docs/noaa-products.md) compares them.
+
+Those are counts per cycle, which is how NOAA publishes them. The settings dropdown quotes something different — geomagnetic storm days in a **median year**, measured from the Kp archive — because dividing a per-cycle count by eleven describes an average cycle rather than the year you are living in, and runs about twice the rate an ordinary year actually sees. [`docs/noaa-products.md`](docs/noaa-products.md#event-frequency-by-scale) has the measured numbers, the method, and `scripts/measure-kp.mjs` regenerates them.
 
 `alarmLevel` moves that last column as a block. Set it to 3 and a Strong event sounds — as do Severe and Extreme — while Moderate shows a popup and Minor is listed but silent. Lower is always louder, and alarming on a level 1 would be near-constant noise, which is why the default sits where it does.
 

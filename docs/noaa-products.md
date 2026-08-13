@@ -211,12 +211,14 @@ forecast louder than a confirmed G4.
 
 ## Event frequency by scale
 
-**Provisional — a measured replacement is in progress.** Unlike everything else
-in this file, these are NOAA's published counts read off their page rather than
-anything measured here, and turning a per-cycle count into a rate by dividing by
-11 is currently being checked against measured medians from the GFZ Kp archive.
-Don't propagate these figures into new copies, and don't cite this table as a
-measurement — the rest of this file's rules about that apply doubly here.
+**Not measured here.** Unlike everything else in this file, these are NOAA's
+published counts read off their page. They are useful for comparing the three
+scales against each other, which is the only thing this section is for. They are
+not a rate: dividing a per-cycle count by 11 runs about twice what an ordinary
+year sees, which is why nothing in the UI quotes them. The measured figures are
+in [What the dropdown actually quotes](#what-the-dropdown-actually-quotes)
+below. Don't propagate these into new copies, and don't cite this table as a
+measurement.
 
 Read from [NOAA's scales page](https://www.swpc.noaa.gov/noaa-scales-explanation)
 on 2026-08-09. One cycle is 11 years. G and R are quoted as days per cycle; S is
@@ -242,6 +244,58 @@ and only 4× rarer at level 5.
 `alarmLevel` governs all three scales plus Kp, so no single cadence can label an
 option correctly. Its dropdown quotes the G figures and its description says so.
 Don't quote one scale's rate as though it covered the others.
+
+### What the dropdown actually quotes
+
+Not the table above. Those are per-cycle totals, and dividing by 11 assumes an
+average cycle — which is a real thing, but not the thing a user experiences.
+Storm days cluster into a five-year active stretch, and the stretch is bigger in
+some cycles than the whole of others.
+
+So the dropdown quotes the measured record instead: geomagnetic storm days per
+year, counted from GFZ's Kp archive, 1932–2025, 94 complete years. Regenerate
+with `node scripts/measure-kp.mjs`.
+
+| Level and above | Median year | p10 | p90 | Worst year | Dropdown says |
+| --- | --- | --- | --- | --- | --- |
+| G1+ | 53 | 19 | 103 | 141 | most weeks |
+| G2+ | 20 | 4 | 44 | 62 | a couple of times a month |
+| G3+ | 7 | 0 | 18 | 27 | several times a year |
+| G4+ | 2 | 0 | 6 | 13 | once or twice a year |
+| G5+ | 0 | 0 | 1 | 3 | once or twice a decade |
+
+p90 sits at roughly twice the median at every level, which is the "active
+stretch" the description mentions. Cycle 25's started around 2023 and should run
+to about 2028.
+
+**Don't fit this to one cycle.** Cycle 24 is the trap: its median year had 23
+G1+ days against the record's 53, so labels derived from it come out about half
+as loud as the truth. Cycle 22's median year had 81. Any window shorter than the
+full record is a cycle-strength sample, not a rate.
+
+The measured medians also run about half NOAA's per-cycle figures. Part of that
+is banding — NOAA's `G4 = Kp 8` means 8−, 8o, 8+, so it starts at 7.667 where
+this plugin's zones start at 8.0, worth about 30% at the top levels — and the
+rest is that NOAA's long-run average includes cycles stronger than any since.
+Both numbers are honest; they answer different questions.
+
+**These count storm *days*, and a label says "times".** A storm running across
+two UTC dates counts twice here and is one thing a boat experiences; several
+transitions inside one date count once. The error runs in the safe direction —
+days over-count occasions, so a label promises slightly more noise than the
+plugin will actually make — and it washes out in the rounding at G1+ and G2+.
+At G4+ (median 2) and G5+ (median 0, worst year 3) it is the same order as the
+number itself, which is why those two labels are deliberately vague.
+
+Related, unfixed, and tracked as
+[#63](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/63): the
+plugin bands on integer Kp and NOAA bands on thirds, so every boundary sits a
+third of a step high here. A Kp of 8− lands in G3 here and in G4 at NOAA. It
+bites hardest at the top: `zonesForKp` gives G5 `lower: 9` and no `upper`, so
+G5 here is Kp ≥ 9.0 exactly, where NOAA's G5 also takes in 9− at 8.667 — the
+narrowest band in the table relative to its NOAA counterpart, and the one
+behind the "once or twice a decade" label. Don't read the G5+ row against
+NOAA's G5 figure without that in mind.
 
 ## Unmeasured
 
