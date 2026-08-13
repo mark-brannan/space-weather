@@ -55,7 +55,7 @@ Everything else is small enough that it has never mattered; the remaining
 observation and forecast endpoints together come to about 5 KB per poll.
 
 `/text/27-day-outlook.txt` was measured 2026-08-12, separately from the run
-above and after it, by the same method. 451 B every four hours is about 2.7 KB
+above and after it, by the same method. 451 B every eight hours is about 1.4 KB
 a day, which is why `outlook27` has no setting.
 
 **Consequence.** Only aurora is worth a setting (`auroraEnabled`,

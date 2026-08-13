@@ -24,7 +24,15 @@ import { NoaaScaleValues, parse27DayOutlook } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
 
-const INTERVAL_MINUTES = 240 // four times a day, against a daily reissue
+/**
+ * Three times a day against a daily reissue. Slower than the other products
+ * because the data is: NOAA issues this once, and the far end of the window
+ * barely moves between issues, so a poll that lands eight hours late costs
+ * nothing anyone could see. Not slower still — once a day would phase-drift
+ * against NOAA's issue time and leave the outlook most of a day stale for no
+ * further saving worth having.
+ */
+const INTERVAL_MINUTES = 480
 
 /**
  * Well past the reissue interval. A stale outlook is still the best available

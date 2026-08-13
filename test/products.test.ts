@@ -279,10 +279,13 @@ describe('outlook27 product', () => {
     for (const path of h.paths()) expect(described).toContain(path)
   })
 
-  it('has a hard-coded interval, not one driven by settings', () => {
-    expect(outlook27.intervalMinutes(settingsFrom({ updateInterval: 5 }))).toBe(
-      240
-    )
+  it('polls no more than three times a day, whatever the settings say', () => {
+    // Bandwidth: the data is reissued once a day, so anything faster is paid
+    // for and thrown away. Pinned as a ceiling rather than an equality so the
+    // number can come down without a test edit, but not quietly go up.
+    expect(
+      outlook27.intervalMinutes(settingsFrom({ updateInterval: 5 }))
+    ).toBeGreaterThanOrEqual(480)
   })
 
   it('publishes nothing when the table cannot be read', async () => {
