@@ -285,11 +285,15 @@ orphaned that way and spent an afternoon respawning every two seconds, losing
 on `EADDRINUSE` against the real server and making every port question harder
 to answer.
 
-`~/.signalk` has `allow_readonly` off, so every API read needs a token. There
-is an approved read-only device `claude-dev-tools` registered in its
-`security.json`; `bin/signalk-generate-token` only signs user ids, not device
-ids, so getting a working token is a real step — ask rather than minting an
-admin one.
+`~/.signalk` has `allow_readonly` **on**, matching `~/symphony/signalk` — check
+`allow_readonly` in the relevant `security.json` rather than assuming, since
+this has already been documented backwards once. So a plain GET against the
+data API needs no token at all.
+
+Writes and the admin API still do. There is an approved read-only device
+`claude-dev-tools` in `~/.signalk/security.json`, and
+`bin/signalk-generate-token` only signs user ids, not device ids, so getting a
+working token is a real step — ask rather than minting an admin one.
 
 If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
