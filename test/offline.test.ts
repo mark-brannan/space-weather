@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   auroraProbabilityAt,
+  parse27DayOutlook,
   parseAdvisoryOutlook,
   parseAlert,
   parseAuroraPayload,
@@ -16,6 +17,7 @@ import {
   AURORA_FIXTURES,
   ALERT_FIXTURES,
   KP_FORECAST_FIXTURES,
+  OUTLOOK27_FIXTURES,
   SCALES_FIXTURES,
   fixture,
   fixtureJson
@@ -86,6 +88,10 @@ describe('parsing is entirely offline', () => {
       expect(forecast).not.toBeNull()
       expect(auroraProbabilityAt(forecast, 65, -147)).not.toBeNull()
     }
+    for (const name of OUTLOOK27_FIXTURES) {
+      expect(parse27DayOutlook(fixture(name))?.days.length).toBeGreaterThan(0)
+    }
+
     zonesForScale('G')
     zonesForKp()
 
