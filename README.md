@@ -161,6 +161,17 @@ The plugin ships a companion webapp — no configuration needed, it reads whatev
 
 ![The companion webapp](docs/screenshots/webapp.png)
 
+### The banner, in the states you don't see most days
+
+The banner answers one question — is anything happening right now? — and a quiet page has to mean a quiet sky rather than a plugin that stopped fetching. The clock always counts to whatever changes next.
+
+| | |
+| --- | --- |
+| ![A storm in force](docs/screenshots/hero-storm.png) | ![A storm forecast](docs/screenshots/hero-brewing.png) |
+| A storm in force. Any other scale at level 3 or above gets named alongside it, so a radiation storm doesn't hide behind a geomagnetic one. | Quiet now, storm forecast — counting down to the window it opens in. |
+| ![Quiet after a storm](docs/screenshots/hero-all-clear.png) | ![Stale data](docs/screenshots/hero-stale.png) |
+| Quiet, and specific about what the last 24 hours actually held. | No update in three hours. Not an all-clear — go look at the server log. |
+
 The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a **Refresh** button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
 
 ![The aurora map](docs/screenshots/aurora-map.png)
