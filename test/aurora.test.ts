@@ -129,7 +129,6 @@ describe('zonesForAurora', () => {
   const wire = () => JSON.parse(JSON.stringify(zonesForAurora()))
 
   it('never escalates to alarm at any probability', () => {
-    // Aurora is an opportunity, not a hazard. Nothing here may make a noise.
     const zones = wire()
     for (const zone of zones) {
       expect(['nominal', 'normal', 'alert', 'warn']).toContain(zone.state)
@@ -141,8 +140,6 @@ describe('zonesForAurora', () => {
     for (const p of [0, 0.05, 0.1, 0.29, 0.3, 0.49, 0.5, 0.99, 1]) {
       expect(matchZone(zones, p), `p=${p}`).toBeGreaterThanOrEqual(0)
     }
-    // The top band must be open-ended: the matcher is exclusive on `upper`,
-    // so a value of exactly 1 would otherwise fall outside every zone.
     expect('upper' in zones[zones.length - 1]).toBe(false)
     expect(zones[matchZone(zones, 1)].state).toBe('warn')
   })
@@ -221,7 +218,7 @@ describe('aurora product', () => {
   })
 
   it('does not fetch at all when the vessel has no position', async () => {
-    // The payload is ~900 KB and the link may be metered; there is nothing to
+    // The link may be metered and this is the largest payload; nothing to
     // do with a global grid and no position.
     const h = harness(undefined, fixtureJson(REAL))
     const result = await aurora.refresh(h.ctx as any)

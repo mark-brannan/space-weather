@@ -3,9 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * Captured NOAA payloads live in examples/ and are the only input these tests
- * use. Nothing here touches the network: the registry test harness runs the
- * suite under `firejail --net=none`, and offline.test.ts asserts that property
- * directly.
+ * use. Nothing here touches the network; offline.test.ts asserts that.
  */
 export function fixture(name: string): string {
   return readFileSync(

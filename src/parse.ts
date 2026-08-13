@@ -70,9 +70,8 @@ export interface ValueUpdate {
  * leaves the levels above the pivot to absorb that, so every setting is live
  * and turning the number down is monotonically louder.
  *
- * The default of 5 is what NOAA's frequency table supports: over an 11-year
- * cycle level 5 falls on ~4 days, level 4 on ~60, level 3 on ~130. Alarming
- * below 5 means a sound several times a year, and below 3 it is most weeks.
+ * Where the default sits is an argument about how often each level happens
+ * rather than about this function; the settings dropdown carries those rates.
  */
 export function stateForScaleValue(
   value: number,
@@ -391,8 +390,8 @@ export function parseAlert(
 /**
  * Hard ceiling on simultaneously raised alert notifications, whatever NOAA
  * sends. Grouping by message code already bounds this to the ~40 documented
- * codes, and the busiest fixture on record (the April 2025 G4 storm) reaches
- * 8 — but a payload change that made the code capture vary would silently
+ * codes, and no captured payload comes close (docs/noaa-products.md counts
+ * them) — but a payload change that made the code capture vary would silently
  * reintroduce the unbounded path count of issue #45, and this is a plugin
  * inside somebody's navigation server.
  */
@@ -455,9 +454,9 @@ export interface AlertSelection {
  * Reduce a whole `/products/alerts.json` payload to the notifications that
  * describe the present.
  *
- * The payload is a rolling ~30-day archive — 118 to 200 messages in every
- * captured fixture — and until 0.12.0 this plugin raised a notification for
- * each one, on a path keyed by NOAA's serial number. That was wrong twice
+ * The payload is a rolling ~30-day archive of a couple of hundred messages,
+ * and until 0.12.0 this plugin raised a notification for each one, on a path
+ * keyed by NOAA's serial number. That was wrong twice
  * over. Most of those messages describe events that ended weeks ago, and NOAA
  * mints a fresh serial every time it extends or continues a condition, so one
  * ongoing K-index warning became 19 separate permanent notification paths in a
@@ -800,7 +799,7 @@ export interface KpSummary {
  * tagged observed / estimated / predicted. That is eight times the resolution
  * of the single G value per forecast day in noaa-scales.json, and unlike that
  * feed it says *when* -- which is the actionable part of a geomagnetic storm
- * forecast. Kp maps directly onto the G scale (G1 = Kp5 ... G5 = Kp9).
+ * forecast.
  *
  * `now` is injectable so the windows are testable against captured payloads.
  */
@@ -946,14 +945,8 @@ export interface Outlook27 {
  * Parse https://services.swpc.noaa.gov/text/27-day-outlook.txt
  *
  * One row per UTC day for a full solar rotation: Radio Flux 10.7cm, Planetary
- * A Index, and the largest Kp expected that day.
- *
- * 27 days *is* the solar rotation period, which is the whole basis of the
- * product: it assumes the same coronal holes come back around, so it is a
- * recurrence estimate rather than a physics-driven forecast the way the
- * 3-day products are. Treat it as a planning horizon, not as the Kp forecast
- * with a longer tail -- it carries neither that skill nor its 3-hourly
- * resolution, and this plugin deliberately hangs no notification off it.
+ * A Index, and the largest Kp expected that day. See the outlook27 product for
+ * what that horizon is worth and why nothing here raises a notification.
  */
 export function parse27DayOutlook(text: string): Outlook27 | null {
   const days: Outlook27Day[] = []
@@ -1202,9 +1195,8 @@ export function auroraProbabilityAt(
 /**
  * Zones for aurora probability (a 0-1 ratio).
  *
- * Aurora is an opportunity, not a hazard, so no band is allowed to reach
- * `alarm` and the product never attaches a sound method. The top band is
- * `warn` purely so a dashboard can make it stand out.
+ * The top band is `warn` purely so a dashboard can make it stand out; nothing
+ * here reaches `alarm`. See the aurora product for why.
  */
 export function zonesForAurora(): Zone[] {
   return [
@@ -1226,8 +1218,7 @@ export function zonesForAurora(): Zone[] {
       state: NotificationStates.ALERT,
       message: 'Aurora likely'
     },
-    // No `upper`: probability tops out at 1, and the server's matcher is
-    // exclusive on upper, so the top band must be open-ended.
+    // No `upper`, for the reason given on zonesForKp's top band.
     {
       lower: 0.5,
       state: NotificationStates.WARN,

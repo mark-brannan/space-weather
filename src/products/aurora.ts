@@ -99,8 +99,8 @@ export const aurora: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    // Check for a position before spending ~145 KB of what may be a metered
-    // satellite link on a grid we cannot index into.
+    // Check for a position before spending what may be a metered satellite
+    // link on the largest payload here, for a grid we cannot index into.
     const position = vesselPosition(publisher)
     if (!position) {
       // Not an error: a GPS fix can take minutes after boot, and a position

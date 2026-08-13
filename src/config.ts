@@ -32,12 +32,8 @@ export const schema = {
       default: NoaaScaleValues.EXTREME,
       // Quietest first, so reading down the list is turning the plugin up.
       // "and above" is doing real work: it says which way the choice includes.
-      // The rates are geomagnetic-storm days per solar cycle over 11, rounded
-      // to something a person can picture. They are G-scale specific and this
-      // setting governs three scales, which is why the description says so.
-      // Don't claim the scales are comparable in either direction: R is close
-      // to G at levels 1 and 3, 17% below it at 2, and 87% below it at 4. The
-      // table is in docs/noaa-products.md.
+      // The rates in these titles are provisional -- read the note in
+      // docs/noaa-products.md before changing them or copying them anywhere.
       oneOf: [
         { const: 5, title: 'Extreme (5) — once every few years' },
         { const: 4, title: 'Severe (4) and above — a few times a year' },
@@ -49,6 +45,8 @@ export const schema = {
     auroraEnabled: {
       type: 'boolean',
       title: 'Publish aurora visibility at the vessel position',
+      // The one place a user is told what this costs, so the numbers live here
+      // rather than in a comment. Re-measure with scripts/measure-noaa.mjs.
       description:
         'Needs a vessel position. Off by default on bandwidth: the aurora grid' +
         ' is about 145 KB per fetch, roughly thirty times everything else this' +

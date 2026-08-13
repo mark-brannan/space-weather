@@ -107,7 +107,7 @@ function harness(payload: any, existing: Record<string, any> = {}) {
 describe('currentAlertNotifications', () => {
   it('reduces a 30-day archive to the handful of live conditions', () => {
     // The defect behind issue #45: every message in the payload became its own
-    // permanent notification. 118-200 messages per capture, all raised at once.
+    // permanent notification, the whole archive raised at once.
     for (const name of ALERT_FIXTURES) {
       const payload = fixtureJson(name)
       const { inForce } = select(name)
@@ -127,10 +127,55 @@ describe('currentAlertNotifications', () => {
     }
   })
 
+  it('pins the busiest moment each fixture reaches, and that none of it sounds', () => {
+    // docs/noaa-products.md quotes these two figures, and a number in a doc
+    // with nothing asserting it is precisely what this repo has already had
+    // drift on. Adding a fixture, or changing what counts as in force, should
+    // fail here so the doc gets corrected with the code.
+    //
+    // Evaluated at every issue instant rather than on a time grid: the in-force
+    // count can only rise when a message is issued and otherwise decays as
+    // messages expire, so the instants are exactly where any peak can occur.
+    const peaks: Record<string, number> = {
+      'alerts.2025_04_11.json': 8,
+      'alerts.2025_04_17.json': 9,
+      'alerts.2026_08_01.json': 11
+    }
+
+    for (const name of ALERT_FIXTURES) {
+      const payload = fixtureJson(name)
+      const instants = [
+        ...new Set(
+          payload.map((a: any) => new Date(a.issue_datetime + 'Z').getTime())
+        )
+      ].sort((a, b) => a - b)
+
+      let peak = 0
+      let audible = 0
+      for (const instant of instants) {
+        const now = new Date(instant)
+        const { inForce } = currentAlertNotifications(asOf(payload, now), {
+          now,
+          maxAgeMs: 24 * HOUR_MS,
+          alarmLevel: 5
+        })
+        peak = Math.max(peak, inForce.length)
+        audible = Math.max(
+          audible,
+          inForce.filter((a) => a.method.includes('sound')).length
+        )
+      }
+
+      expect(peak, name).toBe(peaks[name])
+      // The other half of the same documented row: an observed G4 is the worst
+      // any captured payload reaches, and G4 is visual-only at the default.
+      expect(audible, name).toBe(0)
+    }
+  })
+
   it('raises at most one notification per NOAA message code', () => {
-    // NOAA mints a new serial number every time it extends or continues a
-    // condition -- WARK04 appears 19 times in one capture -- so keying the path
-    // on the serial number made one ongoing warning into 19 permanent paths.
+    // WARK04 appears 19 times in one capture: keying the path on the serial
+    // number made one ongoing warning into 19 permanent paths.
     for (const name of ALERT_FIXTURES) {
       const { inForce } = select(name, { maxAgeMs: 30 * 24 * HOUR_MS })
       const codes = inForce.map((a) => a.code)
@@ -202,8 +247,8 @@ describe('currentAlertNotifications', () => {
   })
 
   it('gives an informational message no method at all', () => {
-    // This is the beeping in issue #45: ~110 of the 118 messages in a capture
-    // are below the threshold, and every one of them carried visual+sound.
+    // This is the beeping in issue #45: nearly every message in a capture is
+    // below the alarm level, and every one of them carried visual+sound.
     for (const name of ALERT_FIXTURES) {
       for (const alert of select(name).inForce) {
         if (alert.state === 'normal' || alert.state === 'alert') {
@@ -291,7 +336,7 @@ describe('currentAlertNotifications', () => {
       currentAlertNotifications(p, {
         now,
         maxAgeMs: 24 * HOUR_MS,
-        alertThreshold: 3
+        alarmLevel: 3
       }).inForce.map((a) => a.code)
 
     // ALTK07 was issued at 0510 and the last ALTK06 at 1358, both inside the
@@ -334,15 +379,14 @@ describe('currentAlertNotifications', () => {
   })
 
   it('leaves a shared prefix that is not a severity ladder alone', () => {
-    // ALTTP2 and ALTTP4 are Type II and Type IV radio bursts -- unrelated
-    // emissions, not rungs. Grouping them by prefix stood a live Type IV
-    // burst down when a Type II arrived 45 seconds later.
+    // ALTTP2 and ALTTP4 are unrelated emissions, not rungs; see
+    // SEVERITY_LADDERS for what that cost.
     const now = new Date('2026-07-30T18:00:00Z')
     const payload = asOf(fixtureJson('alerts.2026_08_01.json'), now)
     const codes = currentAlertNotifications(payload, {
       now,
       maxAgeMs: 24 * HOUR_MS,
-      alertThreshold: 3
+      alarmLevel: 3
     }).inForce.map((a) => a.code)
 
     expect(codes).toContain('ALTTP2')

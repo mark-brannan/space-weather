@@ -784,7 +784,7 @@
     const body = document.getElementById('auroraBody');
     const p = leafValue(aurora?.probability);
     if (p === null) {
-      body.innerHTML = `<div class="empty-state">Aurora is off by default (the OVATION payload is ~900 KB per fetch).
+      body.innerHTML = `<div class="empty-state">Aurora is off by default (the OVATION payload is ~145 KB per fetch).
         Enable it under <a href="../admin/#/apps/configuration/signalk-noaa-space-weather">plugin configuration</a>.</div>`;
       document.getElementById('tsAurora').textContent = '–';
       return;

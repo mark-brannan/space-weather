@@ -69,11 +69,12 @@ recover, and publishing half a payload as though it were whole is worse than
 skipping a poll.
 
 **`/products/alerts.json` is a rolling 30-day archive, not a list of current
-conditions.** 88 to 200 messages per payload, nearly all describing events that
-ended weeks ago, and NOAA mints a fresh serial number every time it extends or
-continues one condition. Publishing a notification per entry keyed on the
-serial number — which is what 0.11 and earlier did — raised ~120 permanent
-notifications at once and made a Pi 5 unusable (issue #45). So: one path per
+conditions.** A couple of hundred messages per payload (docs/noaa-products.md
+has the counts), nearly all describing events that ended weeks ago, and NOAA
+mints a fresh serial number every time it extends or continues one condition.
+Publishing a notification per entry keyed on the serial number — which is what
+0.11 and earlier did — raised a permanent notification for every one of them at
+once and made a Pi 5 unusable (issue #45). So: one path per
 **message code** under `ALERTS_BASE`, only while the message is in force, and
 withdrawn ones actively set back to `normal`. `currentAlertNotifications` in
 `parse.ts` owns all of that and is the thing to change; don't reintroduce a

@@ -14,10 +14,7 @@ import { matchZone } from './fixtures'
 const overTheWire = (zones: any[]) => JSON.parse(JSON.stringify(zones))
 
 describe('stateForScaleValue', () => {
-  it('keeps routine levels below the threshold out of alarm states', () => {
-    // NOAA's own frequency table: level 1 occurs on roughly a quarter of all
-    // days over a solar cycle, level 3 about monthly, level 5 four times per
-    // cycle. Anything alarming below the threshold would be constant noise.
+  it('keeps routine levels below the alarm level out of alarm states', () => {
     expect(stateForScaleValue(0)).toBe('nominal')
     expect(stateForScaleValue(1)).toBe('normal')
     expect(stateForScaleValue(2)).toBe('normal')
@@ -92,7 +89,7 @@ describe('zonesForScale', () => {
     }
   })
 
-  it('assigns the documented state to each level at the default threshold', () => {
+  it('assigns the documented state to each level at the default alarm level', () => {
     const zones = overTheWire(zonesForScale('G'))
     const stateFor = (value: number) => zones[matchZone(zones, value)].state
     expect([0, 1, 2, 3, 4, 5].map(stateFor)).toEqual([
@@ -141,9 +138,6 @@ describe('zonesForKp', () => {
   })
 
   it('still matches Kp 9 after serialisation', () => {
-    // Infinity is not representable in JSON and arrives at the server as null,
-    // which does not trigger the `upper = Infinity` destructuring default. The
-    // top zone therefore has to omit `upper` entirely.
     const zones = overTheWire(zonesForKp())
     const top = zones[zones.length - 1]
     expect('upper' in top).toBe(false)

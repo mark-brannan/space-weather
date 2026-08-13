@@ -182,20 +182,41 @@ the parser accept the old shape as well as the new one. `parseSolarWind` and
 
 ## `/products/alerts.json` is an archive, not current conditions
 
-88 to 200 messages per payload, nearly all describing events that ended weeks
+118 to 200 messages per payload, nearly all describing events that ended weeks
 ago, and NOAA mints a fresh serial number every time it extends or continues one
 condition — one ongoing K-index warning became 19 separate notification paths in
 a month. See [#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45).
 
-Message frequency at the default alarm level, measured against the captured
-fixtures: 4 notifications in force on an ordinary day, none audible; 8 during the
-April 2025 G4 storm, 1 audible.
+Counted 2026-08-13 over the three captured fixtures — `alerts.2025_04_11.json`
+(180 messages), `alerts.2025_04_17.json` (200) and `alerts.2026_08_01.json`
+(118). Re-count when a fixture is added; every figure below moved the last time
+one was.
+
+| At the default alarm level | In force | Audible |
+| --- | --- | --- |
+| At each fixture's capture time | 4, in all three | 0 |
+| Peak over each fixture's whole span | 8 / 9 / 11 | 0 |
+
+**Nothing in any captured payload is audible at the default**, including both
+April 2025 storms: they peaked at an observed G4, which is `warn` — visual only
+— until `alarmLevel` is lowered to 4. `test/alerts.test.ts` pins that at the
+16 April peak, where the default raises one visual notification and no sound.
+
+The busiest payload is `alerts.2026_08_01.json` at 11 simultaneous conditions,
+not either April storm; `MAX_ALERT_NOTIFICATIONS` is set well above it.
 
 NOAA also writes a scale as `G3 or greater` when it will not say how bad a storm
 will get. That is the level it stated, and grading it as 5 makes an uncertain
 forecast louder than a confirmed G4.
 
 ## Event frequency by scale
+
+**Provisional — a measured replacement is in progress.** Unlike everything else
+in this file, these are NOAA's published counts read off their page rather than
+anything measured here, and turning a per-cycle count into a rate by dividing by
+11 is currently being checked against measured medians from the GFZ Kp archive.
+Don't propagate these figures into new copies, and don't cite this table as a
+measurement — the rest of this file's rules about that apply doubly here.
 
 Read from [NOAA's scales page](https://www.swpc.noaa.gov/noaa-scales-explanation)
 on 2026-08-09. One cycle is 11 years. G and R are quoted as days per cycle; S is

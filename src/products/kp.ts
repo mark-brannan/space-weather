@@ -1,9 +1,8 @@
 /**
  * https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json
  *
- * Kp defines the G scale directly (G1 = Kp5 ... G5 = Kp9), and this feed is
- * 3-hourly out to three days versus one G value per forecast day in
- * noaa-scales.json — so it is the one that says *when*.
+ * This feed is 3-hourly out to three days, versus one G value per forecast day
+ * in noaa-scales.json — so it is the one that says *when*.
  */
 import { Settings } from '../config.js'
 import { KP_BASE } from '../paths.js'

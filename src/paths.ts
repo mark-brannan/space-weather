@@ -19,20 +19,17 @@ export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 /**
  * Alerts, watches and warnings, one leaf per NOAA message code (`WARK05`,
- * `ALTEF3`, ...). Before 0.12.0 these went straight under NOTIFICATIONS_BASE
- * keyed by NOAA's serial number, which minted a new permanent path for every
- * reissue of the same condition -- see `currentAlertNotifications` and issue
- * #45. A code names one condition, so the path count is bounded.
+ * `ALTEF3`, ...) rather than per serial number; `currentAlertNotifications`
+ * explains why, and `clearSerialNumberPaths` cleans up after the old scheme.
  */
 export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
 // A single "most recent Noon reading" value, not bucketed by observation
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'
 /**
- * The 27-day outlook. Its own base rather than a longer arm of KP_BASE: it is
- * a recurrence estimate at daily resolution, and reading it as a continuation
- * of the 3-hourly Kp forecast would overstate both its skill and its detail.
- * Nothing under here carries `zones`, so none of it raises a notification.
+ * The 27-day outlook. Its own base rather than a longer arm of KP_BASE, so it
+ * cannot be read as a continuation of the 3-hourly Kp forecast; the outlook27
+ * product says why that reading would overstate it.
  */
 export const OUTLOOK27_BASE = 'environment.noaa.swpc.outlook_27day'
 

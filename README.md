@@ -27,7 +27,7 @@ The plugin currently surfaces:
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
 * The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.outlook_27day` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
-* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is about 145 KB per fetch
+* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default on bandwidth, see [Configuration](#configuration)
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -54,31 +54,19 @@ So none of it carries `zones`, and **none of it will ever raise a notification o
 
 Every scale and Kp path except the 27-day outlook carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
 
-Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle:
+Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle, and what each level does at the default `alarmLevel` of 5:
 
-| Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) |
-| ----- | --------------- | ------------------ | ------------------- |
-| 1 (Minor)    | 900 days | 950 days | 50 events |
-| 2 (Moderate) | 360 days | 300 days | 25 events |
-| 3 (Strong)   | 130 days | 140 days | 10 events |
-| 4 (Severe)   | 60 days  | 8 days   | 3 events  |
-| 5 (Extreme)  | 4 days   | 1 day    | 1 event   |
+| Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) | At the default |
+| ----- | --------------- | ------------------ | ------------------- | -------------- |
+| 1 (Minor)    | 900 days | 950 days | 50 events | recorded |
+| 2 (Moderate) | 360 days | 300 days | 25 events | recorded |
+| 3 (Strong)   | 130 days | 140 days | 10 events | listed, silent |
+| 4 (Severe)   | 60 days  | 8 days   | 3 events  | popup |
+| 5 (Extreme)  | 4 days   | 1 day    | 1 event   | popup + sound |
 
-Radio blackouts run close to geomagnetic storms at levels 1 and 3, somewhat behind at 2, and far behind at 4 — 60 days a cycle against 8. Radiation storms are rarer than either at every level. The dropdown quotes the geomagnetic rates, since that is the scale a boat notices first.
+The three scales are not interchangeable; [docs/noaa-products.md](docs/noaa-products.md) compares them, and flags these rates as provisional pending a measured replacement. The settings dropdown quotes the geomagnetic figures, since that is the scale a boat notices first.
 
-`alarmLevel` picks which of those sounds an alarm. Everything quieter hangs below it: one level down shows a popup, two down is listed but silent, anything lower is recorded and nothing else.
-
-The default is 5, so a sound means an Extreme event — about once every few years. Turn it down and the whole ladder comes with it:
-
-| `alarmLevel` | Sounds | Popup | How often it sounds |
-| --- | --- | --- | --- |
-| 5 *(default)* | 5 | 4 | once every few years |
-| 4 | 4–5 | 3 | a few times a year |
-| 3 | 3–5 | 2 | about monthly |
-| 2 | 2–5 | 1 | a few times a month |
-| 1 | 1–5 | — | most weeks |
-
-Alarming on a level 1 would mean a noise every four or five days, forever, which is why the default sits where it does.
+`alarmLevel` moves that last column as a block. Set it to 3 and a Strong event sounds — as do Severe and Extreme — while Moderate shows a popup and Minor is listed but silent. Lower is always louder, and alarming on a level 1 would be near-constant noise, which is why the default sits where it does.
 
 NOAA writes `G3 or greater` when it won't say how bad a storm will get. That counts as G3 here. Treating it as G5 made an uncertain forecast louder than a confirmed G4, which is backwards.
 
@@ -95,7 +83,7 @@ notifications.noaa.swpc.alerts.ALTEF3    ALERT: Electron 2MeV Integral Flux exce
 
 Two things about this are worth knowing, because the obvious implementation of both is wrong and shipped that way until 0.12.0 ([#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45)):
 
-**NOAA's feed is a 30-day archive, not a list of live conditions.** Every payload carries 88–200 messages, nearly all describing events that ended weeks ago. Only those still in force are raised. Warnings and watches state their own expiry and are cleared when it passes; event summaries expire at the event's end time; plain alerts state no expiry, and a fixed 24 hours bounds those. In practice that means a handful of notifications — one to three on a quiet day, eight during the April 2025 G4 storm.
+**NOAA's feed is a 30-day archive, not a list of live conditions.** Every payload carries a couple of hundred messages, nearly all describing events that ended weeks ago. Only those still in force are raised. Warnings and watches state their own expiry and are cleared when it passes; event summaries expire at the event's end time; plain alerts state no expiry, and a fixed 24 hours bounds those. In practice that means a handful of notifications: see [docs/noaa-products.md](docs/noaa-products.md) for the counts measured against the captured payloads.
 
 **A message code is the condition; a serial number is just one telling of it.** NOAA issues a new serial every time it extends, continues or cancels a condition, so keying paths on the serial number turned a single ongoing warning into 19 permanent notifications in a month. Keying on the code means a reissue updates the path in place, a cancellation clears it, and the number of paths stays bounded no matter how long the server runs.
 
