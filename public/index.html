@@ -486,7 +486,7 @@
 </div>
 
 <script type="module">
-import { heroState, uncapitalise } from './hero.js';
+import { heroState, kpFloorForG, uncapitalise } from './hero.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -931,26 +931,30 @@ import { heroState, uncapitalise } from './hero.js';
       return x(prev + (ms - times[prev]) / span);
     }
 
-    // Kp 5-9 are NOAA's G1-G5 storm thresholds; each gets its own dotted,
-    // severity-colored line so the chart reads as "here's where G2 starts"
-    // rather than flagging only the single G1 line as before.
-    const gScaleColor = { 5: sev1, 6: sev3, 7: sev3, 8: sev4, 9: sev5 };
-    [0, 3, 5, 6, 7, 8, 9].forEach((v) => {
-      const gLevel = gScaleColor[v] ? v - 4 : null;
+    // Each G level gets its own dotted, severity-colored line so the chart
+    // reads as "here's where G2 starts" rather than flagging only G1. The
+    // lines sit at kpFloorForG, a third below the Kp each level is named
+    // after -- drawing them on the integers would have the chart grade a
+    // storm a level quieter than the banner above it.
+    const gScaleColor = [null, sev1, sev3, sev3, sev4, sev5];
+    const rules = [{ v: 0 }, { v: 3 }];
+    for (let g = 1; g <= 5; g++) rules.push({ v: kpFloorForG(g), g });
+    rules.forEach(({ v, g }) => {
+      const color = g ? gScaleColor[g] : null;
       ctx.beginPath();
       ctx.moveTo(padL, y(v));
       ctx.lineTo(cssW - padR, y(v));
-      ctx.strokeStyle = gScaleColor[v] || gridColor;
-      ctx.globalAlpha = gScaleColor[v] ? 0.55 : 0.5;
-      ctx.lineWidth = gScaleColor[v] ? 1.25 : 1;
-      ctx.setLineDash(gScaleColor[v] ? [4, 3] : []);
+      ctx.strokeStyle = color || gridColor;
+      ctx.globalAlpha = color ? 0.55 : 0.5;
+      ctx.lineWidth = color ? 1.25 : 1;
+      ctx.setLineDash(color ? [4, 3] : []);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = gScaleColor[v] || dimColor;
+      ctx.fillStyle = color || dimColor;
       ctx.font = "10px 'Space Mono', monospace";
       ctx.textBaseline = 'middle';
-      ctx.fillText(gLevel ? `G${gLevel}` : String(v), 4, y(v));
+      ctx.fillText(g ? `G${g}` : String(v), 4, y(v));
     });
 
     if (n === 0) return;
@@ -1056,7 +1060,7 @@ import { heroState, uncapitalise } from './hero.js';
     for (let i = 1; i < n; i++) if (series[i].kp > series[peakI].kp) peakI = i;
     ctx.beginPath();
     ctx.arc(x(peakI), y(series[peakI].kp), 4, 0, Math.PI * 2);
-    ctx.fillStyle = series[peakI].kp >= 5 ? sev5 : amber;
+    ctx.fillStyle = series[peakI].kp >= kpFloorForG(1) ? sev5 : amber;
     ctx.fill();
   }
 
@@ -1092,11 +1096,11 @@ import { heroState, uncapitalise } from './hero.js';
       const bars = [['Observed', observed], ['24h Peak', max24h], ['72h Peak', max72h]];
       const maxKp = 9;
       body.innerHTML = `
-        <div class="kp-threshold"><span>Kp 5 · G1 storm threshold</span></div>
+        <div class="kp-threshold"><span>Kp ${kpFloorForG(1).toFixed(2)} · G1 storm threshold</span></div>
         <div class="kp-bars">
           ${bars.map(([label, v]) => {
             const h = v === null ? 2 : Math.max(4, (v / maxKp) * 88);
-            const color = v === null ? 'var(--grid)' : v >= 5 ? 'var(--sev-4)' : 'var(--amber)';
+            const color = v === null ? 'var(--grid)' : v >= kpFloorForG(1) ? 'var(--sev-4)' : 'var(--amber)';
             return `<div class="kp-bar">
               <span class="n">${v === null ? '–' : v.toFixed(1)}</span>
               <div class="stem" style="height:${h}px;background:${color}"></div>

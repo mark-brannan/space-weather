@@ -501,7 +501,8 @@ describe('parseKpForecast', () => {
     expect(summary.observedTime).toBe('2026-08-01T06:00:00.000Z')
     expect(summary.max24h).toBeCloseTo(5.67, 5)
     expect(summary.max72h).toBeCloseTo(5.67, 5)
-    expect(summary.maxNoaaScale).toBe(1)
+    // 5.67 is 6-, the bottom of NOAA's Kp 6 band, so G2 rather than G1.
+    expect(summary.maxNoaaScale).toBe(2)
     expect(summary.nextStormTime).toBe('2026-08-02T06:00:00.000Z')
     expect(summary.nextStormKp).toBeCloseTo(5.67, 5)
   })

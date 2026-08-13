@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   STARTUP_GRACE_MS,
+  gScaleForKp,
   heroState,
+  kpFloorForG,
   timerFor,
   uncapitalise
 } from '../public/hero.js'
@@ -162,6 +164,28 @@ describe('heroState', () => {
   })
 })
 
+describe('kpFloorForG', () => {
+  it('puts each band a third below the Kp it is named after', () => {
+    // Exported because index.html draws the chart's threshold lines from it.
+    // The page used to carry its own copy on the integers, which put the
+    // chart's "G4 starts here" rule above the level its own banner reported.
+    expect([1, 2, 3, 4, 5].map(kpFloorForG)).toEqual([
+      5 - 1 / 3,
+      6 - 1 / 3,
+      7 - 1 / 3,
+      8 - 1 / 3,
+      9 - 1 / 3
+    ])
+  })
+
+  it('agrees with the G level the banner reads off the same value', () => {
+    for (let g = 1; g <= 5; g++) {
+      expect(gScaleForKp(kpFloorForG(g)), `G${g}`).toBe(g)
+      expect(gScaleForKp(kpFloorForG(g) - 1 / 3), `below G${g}`).toBe(g - 1)
+    }
+  })
+})
+
 describe('uncapitalise', () => {
   it('lowers an ordinary opening word', () => {
     expect(uncapitalise('Intermittent GNSS problems.')).toBe(
@@ -182,6 +206,18 @@ describe('timerFor', () => {
       kind: 'until-level',
       level: 4,
       at: new Date(NOW + 6 * HOUR).toISOString()
+    })
+  })
+
+  it('bands Kp on NOAA thirds, so 8- escalates a G3', () => {
+    // Kp 7.67 is 8-, the bottom of NOAA's Kp 8 band and so G4. The webapp
+    // mirrors kpFloorForG rather than importing it, and the two grading the
+    // same storm differently is what that mirror exists to avoid.
+    const timer = timerFor(series(7.67), 3, NOW)
+    expect(timer).toEqual({
+      kind: 'until-level',
+      level: 4,
+      at: new Date(NOW + 3 * HOUR).toISOString()
     })
   })
 

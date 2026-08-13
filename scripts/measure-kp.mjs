@@ -14,11 +14,10 @@
  * in G1+ through G5+ alike. That is what the "and above" in each dropdown label
  * means, and it is why each row is >= the one below it.
  *
- * Band floors are the plugin's, not NOAA's. `zonesForKp()` starts G_n at the
- * integer Kp n+4; NOAA's `G4 = Kp 8` covers the whole 8 band and so starts at
- * 8- = 7.667. The gap is worth about 30% at the top levels and is why these
- * numbers do not match NOAA's published figures. Quote what the plugin will do.
- * Tracked as issue #63.
+ * Band floors are NOAA's, and `kpFloorForG` in src/parse.ts is the same rule:
+ * G_n opens a third below the Kp it is named after, so `G4 = Kp 8` starts at
+ * 8- = 7.667. Keep the two in step, because the point of these rates is to
+ * quote what the plugin will do.
  */
 
 const SOURCE = 'https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt'
@@ -27,7 +26,7 @@ const SOURCE = 'https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt'
 const KP_COLUMNS = [7, 15]
 
 /** A day counts at level n if its worst Kp reached the bottom of that band. */
-const bandFloor = (level) => level + 4
+const bandFloor = (level) => level + 4 - 1 / 3
 
 const quantile = (sorted, q) => sorted[Math.floor(sorted.length * q)]
 

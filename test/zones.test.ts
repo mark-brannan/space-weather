@@ -129,12 +129,50 @@ describe('zonesForKp', () => {
       return zones[index].state
     }
     expect(stateFor(0)).toBe('nominal')
-    expect(stateFor(4.99)).toBe('nominal')
+    expect(stateFor(4.33)).toBe('nominal')
     expect(stateFor(5)).toBe('normal') // G1
     expect(stateFor(6.5)).toBe('normal') // G2
     expect(stateFor(7)).toBe('alert') // G3
     expect(stateFor(8)).toBe('warn') // G4
     expect(stateFor(9)).toBe('alarm') // G5
+  })
+
+  it('opens each band a third below the Kp NOAA names it after', () => {
+    // NOAA's `G4 = Kp 8` means the whole 8 band, so 8- belongs to G4 and the
+    // value below it to G3. The zone list is [below storm, G1..G5], so the
+    // matched index is the G level -- and unlike the state it tells G1 and G2
+    // apart, which at the default alarm level are both `normal`.
+    const zones = overTheWire(zonesForKp())
+    const bandFor = (kp: number) => matchZone(zones, kp)
+    // Each pair is a band floor and the highest Kp NOAA publishes below it.
+    expect(bandFor(4.33)).toBe(0)
+    expect(bandFor(4.667)).toBe(1)
+    expect(bandFor(5.33)).toBe(1)
+    expect(bandFor(5.667)).toBe(2)
+    expect(bandFor(6.33)).toBe(2)
+    expect(bandFor(6.667)).toBe(3)
+    expect(bandFor(7.33)).toBe(3)
+    expect(bandFor(7.667)).toBe(4)
+    expect(bandFor(8.33)).toBe(4)
+    expect(bandFor(8.667)).toBe(5)
+  })
+
+  it('bands a third however NOAA spells it', () => {
+    // The one value reaches us as 7.67 from the JSON products and 7.667 from
+    // the GFZ archive, so the floor cannot be rounded to either precision
+    // without excluding the other.
+    const zones = overTheWire(zonesForKp())
+    for (const [rounded, exact] of [
+      [4.67, 4.667],
+      [5.67, 5.667],
+      [6.67, 6.667],
+      [7.67, 7.667],
+      [8.67, 8.667]
+    ]) {
+      expect(matchZone(zones, rounded), `Kp ${rounded}`).toBe(
+        matchZone(zones, exact)
+      )
+    }
   })
 
   it('still matches Kp 9 after serialisation', () => {
@@ -156,16 +194,35 @@ describe('zonesForKp', () => {
 describe('gScaleForKp', () => {
   it.each([
     [0, 0],
-    [4.99, 0],
+    [4.33, 0],
+    [4.667, 1],
     [5, 1],
-    [5.67, 1],
+    [5.33, 1],
+    [5.667, 2],
     [6, 2],
+    [6.33, 2],
+    [6.667, 3],
     [7, 3],
+    [7.33, 3],
+    [7.667, 4],
     [8, 4],
+    [8.33, 4],
+    [8.667, 5],
     [9, 5],
     [12, 5]
   ])('Kp %s -> G%s', (kp, expected) => {
     expect(gScaleForKp(kp)).toBe(expected)
+  })
+
+  it('agrees with the zones for every Kp a NOAA feed can carry', () => {
+    // Two derivations of one banding: a value published as G4 must not land in
+    // the G3 zone, or the webapp and the notification disagree about the same
+    // storm.
+    const zones = overTheWire(zonesForKp())
+    for (let third = 0; third <= 27; third++) {
+      const kp = third / 3
+      expect(matchZone(zones, kp), `Kp ${kp}`).toBe(gScaleForKp(kp))
+    }
   })
 
   it('is defensive about non-numeric input', () => {

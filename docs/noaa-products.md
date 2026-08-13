@@ -256,6 +256,13 @@ So the dropdown quotes the measured record instead: geomagnetic storm days per
 year, counted from GFZ's Kp archive, 1932–2025, 94 complete years. Regenerate
 with `node scripts/measure-kp.mjs`.
 
+**These counts are one banding behind and read low.** They were taken while
+the plugin banded G on integer Kp; it now bands on NOAA's thirds, so every
+level takes in a third of a step more of the scale than the run below assumed
+and the true rates are higher. The gap was put at about 30% at the top levels
+while it was still open. Re-run the script and paste its table in; don't
+adjust these by hand, and don't quote them as current until you have.
+
 | Level and above | Median year | p10 | p90 | Worst year | Dropdown says |
 | --- | --- | --- | --- | --- | --- |
 | G1+ | 53 | 19 | 103 | 141 | most weeks |
@@ -273,11 +280,11 @@ G1+ days against the record's 53, so labels derived from it come out about half
 as loud as the truth. Cycle 22's median year had 81. Any window shorter than the
 full record is a cycle-strength sample, not a rate.
 
-The measured medians also run about half NOAA's per-cycle figures. Part of that
-is banding — NOAA's `G4 = Kp 8` means 8−, 8o, 8+, so it starts at 7.667 where
-this plugin's zones start at 8.0, worth about 30% at the top levels — and the
-rest is that NOAA's long-run average includes cycles stronger than any since.
-Both numbers are honest; they answer different questions.
+The measured medians also run about half NOAA's per-cycle figures. Banding is
+no longer part of that — the plugin bands where NOAA's scale page bands — so
+what is left is that NOAA's long-run average includes cycles stronger than any
+since, plus however much of the gap the pending re-measure closes. Both numbers
+are honest; they answer different questions.
 
 **These count storm *days*, and a label says "times".** A storm running across
 two UTC dates counts twice here and is one thing a boat experiences; several
@@ -287,20 +294,24 @@ plugin will actually make — and it washes out in the rounding at G1+ and G2+.
 At G4+ (median 2) and G5+ (median 0, worst year 3) it is the same order as the
 number itself, which is why those two labels are deliberately vague.
 
-Related, unfixed, and tracked as
-[#63](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/63): the
-plugin bands on integer Kp and NOAA bands on thirds, so every boundary sits a
-third of a step high here. A Kp of 8− lands in G3 here and in G4 at NOAA. It
-bites hardest at the top: `zonesForKp` gives G5 `lower: 9` and no `upper`, so
-G5 here is Kp ≥ 9.0 exactly, where NOAA's G5 also takes in 9− at 8.667 — the
-narrowest band in the table relative to its NOAA counterpart, and the one
-behind the "once or twice a decade" label. Don't read the G5+ row against
-NOAA's G5 figure without that in mind.
+**The bands are NOAA's, on Kp thirds.** Kp is reported in thirds and NOAA's
+`G4 = Kp 8` names the whole 8 band — 8−, 8o, 8+ — so G4 opens at 7.667 and G5
+at 8.667. `kpFloorForG` in `src/parse.ts` is the single definition; `zonesForKp`
+and `gScaleForKp` both ask it, so a value graded G4 here is graded G4 on
+spaceweather.gov. G5 still carries no `upper` key, for the reason given in
+`zonesForKp`.
+
+The floors are exact thirds rather than the 7.667 NOAA prints, because the same
+value arrives spelled 7.67 from the JSON products and 7.667 from the GFZ
+archive, and a floor rounded to either precision drops the other.
 
 ## Unmeasured
 
 Named so nobody cites this file for them:
 
+- the storm-day rates under the G banding the plugin now uses. The table above
+  was counted under the old integer banding and is an undercount. Re-run
+  `scripts/measure-kp.mjs` somewhere `kp.gfz.de` is reachable
 - whether any endpoint ever returns 304 at a longer gap than 300s — being
   collected at a twelve-hour gap for `/text/27-day-outlook.txt` under
   [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)

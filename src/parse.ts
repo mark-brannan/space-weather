@@ -37,8 +37,25 @@ export const NoaaScaleNames = Object.freeze([
 
 export const MAX_NOAA_SCALE = 5
 
-// G is defined directly in terms of Kp: G1 = Kp5 ... G5 = Kp9.
+// G is defined directly in terms of Kp: G1 = the Kp 5 band ... G5 = the Kp 9
+// band. Those name bands, not integers; `kpFloorForG` says where one opens.
 export const KP_FOR_G1 = 5
+
+/**
+ * The lowest Kp inside NOAA's G_n band.
+ *
+ * Kp is reported in thirds, and NOAA's `G4 = Kp 8` names the whole 8 band --
+ * 8-, 8o, 8+ -- which opens a third below the integer, at 7.667. Banding on
+ * the integer instead put every boundary a third of a step high, so a Kp of 8-
+ * read as G3 here while NOAA's own page called the same storm G4 (issue #63).
+ *
+ * An exact third rather than the 7.667 NOAA prints: the same value reaches us
+ * spelled 7.67 in the JSON products and 7.667 in the GFZ archive, and a floor
+ * rounded to either precision excludes a spelling that lands just under it.
+ */
+export function kpFloorForG(g: number): number {
+  return KP_FOR_G1 + g - 1 - 1 / 3
+}
 
 export type AlarmState =
   (typeof NotificationStates)[keyof typeof NotificationStates]
@@ -113,8 +130,9 @@ export function zonesForScale(
 
 /**
  * Signal K zones for a planetary K-index path (Kp 0-9), expressed through the
- * same G-scale severity mapping. Kp is a real number (e.g. 5.67), so the zone
- * boundaries are the G thresholds rather than unit-wide buckets.
+ * same G-scale severity mapping. Kp is a real number reported in thirds (e.g.
+ * 5.67), so the boundaries are `kpFloorForG` rather than unit-wide buckets and
+ * do not come out round.
  */
 export function zonesForKp(
   alarmLevel: number = NoaaScaleValues.EXTREME
@@ -122,15 +140,16 @@ export function zonesForKp(
   const zones: Zone[] = [
     {
       lower: 0,
-      upper: KP_FOR_G1,
+      upper: kpFloorForG(1),
       state: NotificationStates.NOMINAL,
       message: 'Kp below storm level'
     }
   ]
   for (let g = 1; g <= MAX_NOAA_SCALE; g++) {
     const zone: Zone = {
-      lower: KP_FOR_G1 + g - 1,
+      lower: kpFloorForG(g),
       state: stateForScaleValue(g, alarmLevel),
+      // The Kp quoted is the band NOAA names the level after, not the floor.
       message: `G${g} (${NoaaScaleNames[g]}) -- Kp ${KP_FOR_G1 + g - 1}`
     }
     // The top band deliberately carries no `upper` key. Kp saturates at 9 and
@@ -140,17 +159,25 @@ export function zonesForKp(
     // destructuring default and would leave G5 matching no zone at all.
     // Omitting the key serialises it away entirely, so the default applies.
     if (g < MAX_NOAA_SCALE) {
-      zone.upper = KP_FOR_G1 + g
+      zone.upper = kpFloorForG(g + 1)
     }
     zones.push(zone)
   }
   return zones
 }
 
-/** Kp to G scale value. Kp < 5 is no storm; Kp 5..9 maps to G1..G5. */
+/**
+ * Kp to G scale value: the highest band whose floor the value reached, and
+ * G0 (no storm) below G1's. Asking `kpFloorForG` rather than rounding keeps
+ * this and `zonesForKp` agreeing by construction, so a Kp published as G4
+ * cannot land in the G3 zone.
+ */
 export function gScaleForKp(kp: number): number {
-  if (!Number.isFinite(kp) || kp < KP_FOR_G1) return NoaaScaleValues.NONE
-  return Math.min(Math.floor(kp) - (KP_FOR_G1 - 1), MAX_NOAA_SCALE)
+  if (!Number.isFinite(kp)) return NoaaScaleValues.NONE
+  for (let g = MAX_NOAA_SCALE; g >= 1; g--) {
+    if (kp >= kpFloorForG(g)) return g
+  }
+  return NoaaScaleValues.NONE
 }
 
 /**
@@ -831,7 +858,8 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
 
   const max24h = maxKp(within(24))
   const max72h = maxKp(within(72))
-  const nextStorm = future.find((row) => row.kp >= KP_FOR_G1) ?? null
+  const nextStorm =
+    future.find((row) => row.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
 
   const seriesStart = nowMs - 24 * 3600 * 1000
   const seriesEnd = nowMs + 72 * 3600 * 1000
@@ -960,7 +988,8 @@ export function parse27DayOutlook(text: string): Outlook27 | null {
   // First day attaining the peak, not the last: for planning, the question is
   // when the disturbed stretch starts.
   const peak = days.reduce((best, day) => (day.kp > best.kp ? day : best))
-  const nextStorm = days.find((day) => day.kp >= KP_FOR_G1) ?? null
+  const nextStorm =
+    days.find((day) => day.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
 
   return {
     issued: parseIssueDate(text),
