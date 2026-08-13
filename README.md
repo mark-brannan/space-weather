@@ -54,7 +54,7 @@ So none of it carries `zones`, and **none of it will ever raise a notification o
 
 Every scale and Kp path except the 27-day outlook carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
 
-Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle, and what each level does at the default `alarmLevel` of 5:
+Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle, and what each level does at the defaults:
 
 | Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) | At the default |
 | ----- | --------------- | ------------------ | ------------------- | -------------- |
@@ -68,11 +68,15 @@ The three scales are not interchangeable; [docs/noaa-products.md](docs/noaa-prod
 
 Those are counts per cycle, which is how NOAA publishes them. The settings dropdown quotes something different — geomagnetic storm days in a **median year**, measured from the Kp archive — because dividing a per-cycle count by eleven describes an average cycle rather than the year you are living in, and runs about twice the rate an ordinary year actually sees. [`docs/noaa-products.md`](docs/noaa-products.md#event-frequency-by-scale) has the measured numbers, the method, and `scripts/measure-kp.mjs` regenerates them.
 
-`alarmLevel` moves that last column as a block. Set it to 3 and a Strong event sounds — as do Severe and Extreme — while Moderate shows a popup and Minor is listed but silent. Lower is always louder, and alarming on a level 1 would be near-constant noise, which is why the default sits where it does.
+Two settings move that last column, and each one names the level its own band starts at. `alarmLevel` (default 5) is where an event becomes visible **and audible**; `popupLevel` (default 4) is where it becomes visible and stays silent. Set the alarm to 3 and Strong, Severe and Extreme all sound. Set the alarm to "Never" and nothing sounds at all, while Extreme still pops up — the popup setting is untouched by it, which is the point of there being two.
+
+Lower is always louder in both, and alarming on a level 1 would be near-constant noise, which is why the defaults sit where they do.
+
+**Strong (3) and above is always listed**, whatever the two are set to. Turning this plugin down is a decision about being interrupted, and a listed notification interrupts nobody — it carries an empty `method` array, so it appears in the notification list and does nothing else. A G3 is a real storm, and there is no setting at which one should leave no trace.
 
 NOAA writes `G3 or greater` when it won't say how bad a storm will get. That counts as G3 here. Treating it as G5 made an uncertain forecast louder than a confirmed G4, which is backwards.
 
-Every notification follows that same ladder, whether it comes from a zone transition or a NOAA message. How bad the event is decides how loud it gets, and `alarmLevel` is the only setting that changes that. There is deliberately no separate "mute sounds" checkbox: it would silence every product at once, which is something to fix in your notification client, not here.
+Every notification follows that same ladder, whether it comes from a zone transition or a NOAA message. How bad the event is decides how loud it gets, and those two thresholds are the only settings that change it. There is deliberately no separate "mute sounds" checkbox: it would silence every product at once, which is something to fix in your notification client, not here.
 
 ### Alerts, watches and warnings
 
@@ -107,9 +111,10 @@ Tiles are drawn on demand from the same cached fetch the webapp reads — enabli
 
 ## Configuration
 
-Five settings, all optional, all with working defaults:
+Six settings, all optional, all with working defaults:
 
-* `alarmLevel` (default 5, "Extreme") — which NOAA level sounds an alarm, as a dropdown labelled with how often each one happens. Quieter states derive downward from it, and it is the only control over how loud this plugin gets. Applies to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
+* `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**, as a dropdown labelled with how often each one happens. "Never" removes the sound without hiding the storm.
+* `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
 * `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
@@ -119,7 +124,7 @@ On a server new enough to load it, these are edited on the plugin's own configur
 
 Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored.
 
-* `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way.
+* `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way. A config saved before `popupLevel` existed gets the band one below its alarm level, which is the ladder it already had.
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
 * `alertMaxAgeHours` — now a fixed 24 hours.
 * `observationsInterval` / `notificationsInterval` — now one `updateInterval`.

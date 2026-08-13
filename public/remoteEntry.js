@@ -30,9 +30,10 @@
 // React 19 compatibility. Taking it from the scope means this file has no
 // opinion about the version at all.
 import {
+  ALARM_NEVER,
   DEFAULTS,
-  ALARM_LEVEL_OPTIONS,
-  SCALE_NAMES,
+  LEVEL_OPTIONS,
+  levelOptionLabel,
   currentConditions,
   dailyKb,
   formatKb,
@@ -142,6 +143,25 @@ function createPanel(React) {
   const NoaaLink = ({ href, text }) =>
     h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text)
 
+  /** One NOAA-level threshold. Both of them offer the same choices. */
+  const LevelSelect = ({ id, value, onChange }) =>
+    h(
+      'select',
+      {
+        className: 'form-select mb-3',
+        id,
+        value,
+        onChange: (event) => onChange(Number(event.target.value))
+      },
+      LEVEL_OPTIONS.map((option) =>
+        h(
+          'option',
+          { key: option.value, value: option.value },
+          levelOptionLabel(option)
+        )
+      )
+    )
+
   const Check = ({ id, checked, onChange, label, help }) =>
     h(
       'div',
@@ -182,7 +202,7 @@ function createPanel(React) {
    * label all three scales -- see docs/noaa-products.md. The states and the
    * methods do apply to all of them, which is what the note underneath says.
    */
-  const Ladder = ({ alarmLevel }) =>
+  const Ladder = ({ alarmLevel, popupLevel }) =>
     h(
       'table',
       { className: 'table table-sm align-middle small mb-2' },
@@ -201,7 +221,7 @@ function createPanel(React) {
       h(
         'tbody',
         null,
-        ladderFor(alarmLevel).map((row) =>
+        ladderFor(alarmLevel, popupLevel).map((row) =>
           h(
             'tr',
             { key: row.level, className: ROW_CLASS[row.state] },
@@ -232,7 +252,7 @@ function createPanel(React) {
    * quiet: the card header immediately above this carries the plugin's status
    * and last error, which is the better place to learn that it is not working.
    */
-  const RightNow = ({ conditions, alarmLevel }) => {
+  const RightNow = ({ conditions, alarmLevel, popupLevel }) => {
     if (!conditions) return null
     const { levels, worst, observedKp, forecast } = conditions
     const observed = Object.keys(levels)
@@ -242,7 +262,7 @@ function createPanel(React) {
     // nothing whatever the alarm level, so quoting it says nothing about the
     // setting. On a quiet day the forecast below is the part worth reading.
     const inForce = worst && worst.level > 0
-    const verdict = inForce && verdictFor(worst.level, alarmLevel)
+    const verdict = inForce && verdictFor(worst.level, alarmLevel, popupLevel)
     return h(
       'div',
       { className: 'small mb-3' },
@@ -352,6 +372,29 @@ function createPanel(React) {
       setSettings((previous) => ({ ...previous, [key]: value }))
     }, [])
 
+    /**
+     * The popup band cannot be louder than the alarm, so moving either one past
+     * the other takes it along rather than refusing the change. Refusing would
+     * leave the select showing a value the plugin does not hold: `settingsFrom`
+     * clamps this same pair on the way in, whatever the panel saved.
+     *
+     * A popup of "Never" is exempt, in both directions, because it is quieter
+     * than every level rather than louder than the alarm. Dragging the alarm up
+     * to meet it would silence a plugin nobody asked to silence: turning off
+     * the silent popups would take the sound with it.
+     */
+    const setLevel = useCallback((key, value) => {
+      setSaved(false)
+      setSettings((previous) => {
+        const next = { ...previous, [key]: value }
+        if (next.popupLevel === ALARM_NEVER) return next
+        if (key === 'alarmLevel')
+          next.popupLevel = Math.min(next.popupLevel, value)
+        else next.alarmLevel = Math.max(next.alarmLevel, value)
+        return next
+      })
+    }, [])
+
     const onSubmit = useCallback(
       (event) => {
         event.preventDefault()
@@ -360,13 +403,13 @@ function createPanel(React) {
         // plugin would coerce it either way, but the saved configuration is
         // also what the generated form reads on a server without this panel.
         const next = panelSettings(settings)
-        // Everything the panel knows, every time: the schema's five keys are
+        // Everything the panel knows, every time: every key in the schema is
         // written explicitly so a configuration still carrying a superseded
         // one stops depending on the migration to mean what it says.
         save({ ...configuration, ...next })
-        // All five were just written explicitly, and `settingsFrom` reads those
-        // back unchanged, so there is nothing left for it to supply -- which is
-        // what the notice above is about.
+        // All of them were just written explicitly, and `settingsFrom` reads
+        // those back unchanged, so there is nothing left for it to supply --
+        // which is what the notice above is about.
         setRunning(next)
         setSaved(true)
         if (savedTimer.current) clearTimeout(savedTimer.current)
@@ -414,14 +457,30 @@ function createPanel(React) {
         {
           label: 'Sound an alarm at…',
           htmlFor: 'noaa-alarm-level',
+          help: 'Visible and audible, from this level up.'
+        },
+        h(LevelSelect, {
+          id: 'noaa-alarm-level',
+          value: settings.alarmLevel,
+          onChange: (value) => setLevel('alarmLevel', value)
+        })
+      ),
+
+      h(
+        Field,
+        {
+          label: 'Show a popup at…',
+          htmlFor: 'noaa-popup-level',
           help: h(
             'span',
             null,
-            'The states and methods apply to the G, S and R scales and to Kp.' +
-              ' The rates are geomagnetic storm days in a median year,' +
-              ' measured over 1932–2025; the other two scales differ, sharply' +
-              ' at 4 and 5, and every rate roughly doubles during the active' +
-              ' stretch of a solar cycle. ',
+            'Strong (3) and above is listed whatever these two are set to — a' +
+              ' storm that size should leave a trace even with the plugin' +
+              ' turned all the way down. The states and methods apply to the' +
+              ' G, S and R scales and to Kp. The rates are geomagnetic storm' +
+              ' days in a median year, measured over 1932–2025; the other two' +
+              ' scales differ, sharply at 4 and 5, and every rate roughly' +
+              ' doubles during the active stretch of a solar cycle. ',
             h(NoaaLink, {
               href: NOAA_SCALES_URL,
               text: 'How NOAA defines the scales'
@@ -431,27 +490,19 @@ function createPanel(React) {
         h(
           'div',
           null,
-          h(
-            'select',
-            {
-              className: 'form-select mb-3',
-              id: 'noaa-alarm-level',
-              value: settings.alarmLevel,
-              onChange: (event) => set('alarmLevel', Number(event.target.value))
-            },
-            ALARM_LEVEL_OPTIONS.map((option) =>
-              h(
-                'option',
-                { key: option.value, value: option.value },
-                `${SCALE_NAMES[option.value]} (${option.value})` +
-                  `${option.value < 5 ? ' and above' : ''} — ${option.rate}`
-              )
-            )
-          ),
-          h(Ladder, { alarmLevel: settings.alarmLevel }),
+          h(LevelSelect, {
+            id: 'noaa-popup-level',
+            value: settings.popupLevel,
+            onChange: (value) => setLevel('popupLevel', value)
+          }),
+          h(Ladder, {
+            alarmLevel: settings.alarmLevel,
+            popupLevel: settings.popupLevel
+          }),
           h(RightNow, {
             conditions,
-            alarmLevel: settings.alarmLevel
+            alarmLevel: settings.alarmLevel,
+            popupLevel: settings.popupLevel
           })
         )
       ),

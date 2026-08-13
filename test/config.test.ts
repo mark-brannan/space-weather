@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { schema, settingsFrom } from '../src/config'
+import { ALARM_NEVER } from '../src/parse'
 
 describe('alarmLevel', () => {
   const property: any = (schema.properties as any).alarmLevel
@@ -13,8 +14,17 @@ describe('alarmLevel', () => {
     expect(settingsFrom({ alarmLevel: 3 }).alarmLevel).toBe(3)
   })
 
-  it('offers one option per NOAA scale value, quietest first', () => {
-    expect(property.oneOf.map((o: any) => o.const)).toEqual([5, 4, 3, 2, 1])
+  it('offers never, then one option per NOAA scale value, quietest first', () => {
+    // ALARM_NEVER sits first because the list reads as a volume control: down
+    // the list is louder, and off is quieter than the quietest level.
+    expect(property.oneOf.map((o: any) => o.const)).toEqual([
+      ALARM_NEVER,
+      5,
+      4,
+      3,
+      2,
+      1
+    ])
   })
 
   it('matches by number, not string', () => {
@@ -36,6 +46,101 @@ describe('alarmLevel', () => {
     // hand-edited config and a level nothing can reach.
     for (const bad of [0, 7, 3.5, -1, 'loud', null])
       expect(settingsFrom({ alarmLevel: bad }).alarmLevel).toBe(5)
+  })
+})
+
+describe('popupLevel', () => {
+  const property: any = (schema.properties as any).popupLevel
+
+  it('defaults to 4, one below the alarm', () => {
+    expect(settingsFrom({}).popupLevel).toBe(4)
+    expect(property.default).toBe(4)
+  })
+
+  it('offers the same choices as the alarm level', () => {
+    // Both are thresholds on the same scale. Neither range is clipped: a popup
+    // at Minor is not a setting anyone should want, but it is a defensible
+    // thing to want, and clipping would also strand a config that asked for it.
+    expect(property.oneOf).toEqual((schema.properties as any).alarmLevel.oneOf)
+  })
+
+  it('uses popupLevel when present', () => {
+    expect(settingsFrom({ alarmLevel: 5, popupLevel: 2 }).popupLevel).toBe(2)
+  })
+
+  it('is never louder than the alarm', () => {
+    // Above the alarm it would name a band the alarm has already taken, so the
+    // setting would be inert while still reading as a choice.
+    expect(settingsFrom({ alarmLevel: 3, popupLevel: 5 }).popupLevel).toBe(3)
+    expect(settingsFrom({ alarmLevel: 1, popupLevel: 4 }).popupLevel).toBe(1)
+  })
+
+  it('follows a saved alarm level down when absent', () => {
+    // What the ladder did when there was only one setting, so a config saved
+    // before the split keeps the behaviour it already had.
+    expect(settingsFrom({ alarmLevel: 3 }).popupLevel).toBe(2)
+    expect(settingsFrom({ alarmLevel: 1 }).popupLevel).toBe(1)
+  })
+
+  it('gives a saved ALARM_NEVER the popup band it used to shift into', () => {
+    // 0.18 expressed "never sound" by sliding the whole ladder down one, so
+    // Extreme popped up. That is now said outright rather than derived.
+    const settings = settingsFrom({ alarmLevel: ALARM_NEVER })
+    expect(settings.alarmLevel).toBe(ALARM_NEVER)
+    expect(settings.popupLevel).toBe(5)
+  })
+
+  it('keeps an explicit Never whatever the alarm level is', () => {
+    // The one value above the alarm that is not a mistake: the others name a
+    // band the alarm has already taken and are inert by accident, this one asks
+    // for no popup band at all. Clamping it would redraw a chosen "Never" as a
+    // level on the next load, which is the bug the two thresholds exist to fix.
+    for (const alarmLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      expect(
+        settingsFrom({ alarmLevel, popupLevel: ALARM_NEVER }).popupLevel
+      ).toBe(ALARM_NEVER)
+  })
+
+  it('reads its own output back unchanged, for every pair', () => {
+    // What the panel saves is what `settingsFrom` produced, so anything it
+    // rewrites on a second pass is a value the user sees change under them.
+    for (const alarmLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      for (const popupLevel of [1, 2, 3, 4, 5, ALARM_NEVER]) {
+        const settings = settingsFrom({ alarmLevel, popupLevel })
+        expect(settingsFrom(settings)).toEqual(settings)
+      }
+  })
+
+  it('resolves an out-of-range saved value against the alarm level', () => {
+    for (const bad of [0, 7, 3.5, -1, 'loud', null])
+      expect(settingsFrom({ alarmLevel: 5, popupLevel: bad }).popupLevel).toBe(
+        4
+      )
+  })
+})
+
+describe('the schema survives the round trip the server puts it through', () => {
+  // The server stores the schema as JSON, and the Signal K plugin CI walks it
+  // rejecting anything JSON.stringify would drop or choke on. Its reachability
+  // check is by object identity, so two properties sharing one `oneOf` array
+  // read as a cycle even though nothing is circular and stringify copes -- and
+  // that failed every platform in the matrix once both thresholds offered the
+  // same choices. Cheaper to give each property its own copy than to argue.
+  const objects = (node: any, path: string, seen = new WeakSet()): string[] => {
+    if (node === null || typeof node !== 'object') return []
+    if (seen.has(node)) return [path]
+    seen.add(node)
+    return Object.entries(node).flatMap(([key, value]) =>
+      objects(value, `${path}.${key}`, seen)
+    )
+  }
+
+  it('reaches no object twice', () => {
+    expect(objects(schema, 'schema')).toEqual([])
+  })
+
+  it('holds nothing JSON.stringify would drop', () => {
+    expect(JSON.parse(JSON.stringify(schema))).toEqual(schema)
   })
 })
 

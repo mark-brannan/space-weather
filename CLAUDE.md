@@ -83,12 +83,11 @@ per-message loop in the product.
 **Every notification goes through `methodForState`.** It is the single policy
 for whether a state interrupts the user, and `zoneMethods` is derived from it
 so a NOAA level reads the same whether it arrives as a zone transition or as a
-message. **State is its only input**, and `alarmLevel` — which moves the whole
-ladder — is the only control over loudness. Don't add a per-method
-override: it mutes every product at once, it is a preference about the
-notification client rather than about space weather, and measured against the
-fixtures a pair of visual/sound checkboxes changed 0 of 4 notifications on a
-quiet day.
+message. **State is its only input**, and the two thresholds below are the only
+control over loudness. Don't add a per-method override: it mutes every product
+at once, it is a preference about the notification client rather than about
+space weather, and measured against the fixtures a pair of visual/sound
+checkboxes changed 0 of 4 notifications on a quiet day.
 
 **Zone metadata generates notifications.** The server (`signalk-server`
 `src/zones.ts`) watches any path with `meta.zones` and raises
@@ -109,14 +108,47 @@ mapping: 0 `nominal`, 1–2 `normal`, 3 `alert` with an **empty method array**, 
 `warn` (visual), 5 `alarm` (visual + sound). Do not make this louder without a
 frequency argument.
 
-**`alarmLevel` anchors on the alarm and derives the quiet states downward** —
-one below is `warn`, two below is `alert`. Do not flip that direction back.
-Deriving upward from a "worth your attention" pivot runs off the end of a
-five-level scale: the pivot at 4 could never reach `alarm`, and at 5 never even
-`warn`, so the two loudest-*sounding* choices in the dropdown were the two that
-silenced the plugin. `stateForScaleValue` carries the argument; `zones.test.ts`
-pins that no alarm level is unreachable and that lowering it is monotonically
-louder.
+**Loudness is two thresholds, each naming the level its own band opens at** —
+`alarmLevel` sounds, `popupLevel` is visible and silent. Both are boundaries,
+and that is the point of there being two: **a single anchor with the quieter
+rungs derived from it cannot be labelled honestly**, because whatever the
+dropdown claims, the level below it is doing something too. Every candidate
+wording for the old one-knob control was false somewhere — "Notify me from 5"
+notified from 3, and "Sound an alarm at…" named a sound the "Never" option had
+just removed (issue #71). Don't collapse them back into one.
+
+The two are ordered — `popupLevel` is never louder than `alarmLevel`, since
+above it the popup band would name levels the alarm has already taken — and
+`settingsFrom` clamps the pair on the way in whatever the panel saved. Both
+offer the full scale plus `ALARM_NEVER`. Neither range is clipped to the levels
+a skipper would sensibly pick: clipping would also strand an existing config
+that asked for something outside it.
+
+**`ALARM_NEVER` is exempt from that clamp on `popupLevel`**, and the panel does
+not drag the alarm up to meet it either. It is the one value above the alarm
+that is not a mistake: the rest are inert by accident, that one asks for no
+popup band at all. Clamping it redraws a chosen "Never" as a level on the next
+load — the exact dishonest control the split was for — and, below `ALERT_FLOOR`
+where the quiet rung follows the popup band down, it changes behaviour too.
+
+**`ALERT_FLOOR` is level 3, and nothing turns it off.** A G3 is several a year,
+so there is no setting at which one should leave no trace — and `alert` carries
+an empty method array, so being listed costs the user nothing but a line. The
+quiet rung also follows the popup band down below the floor, rather than
+leaving a gap of `normal` between two adjacent bands.
+
+`ALARM_NEVER` is a value one past the scale, so no level reaches that band: on
+`alarmLevel` it removes the sound, on `popupLevel` the popup. It is named
+"Never" in both dropdowns and needs no explanation of what still happens, which
+is exactly what the split bought — the other dropdown says so in its own words.
+
+Do not reintroduce a control that derives *upward* from a "worth your
+attention" pivot. That runs off the end of a five-level scale: the pivot at 4
+could never reach `alarm`, and at 5 never even `warn`, so the two
+loudest-*sounding* choices in the dropdown were the two that silenced the
+plugin. `stateForScaleValue` carries the argument, and `zones.test.ts` pins
+that no threshold pair silences the level it names and that lowering either one
+is monotonically louder.
 
 **Signal K wants SI units.** Solar wind speed in m/s (NOAA gives km/s), Bt and
 Bz in Tesla (NOAA gives nT), probabilities as 0–1 ratios with `units: "ratio"`

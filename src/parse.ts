@@ -25,6 +25,30 @@ export const NoaaScaleValues = Object.freeze({
   EXTREME: 5
 })
 
+/**
+ * A threshold one past the top of the scale, which is how "never" is expressed
+ * for either of them: `stateForScaleValue` compares against it unchanged, so no
+ * value reaches that band and the quieter ones still land. On `alarmLevel` it
+ * removes the sound; on `popupLevel` it removes the popup. Silencing the plugin
+ * by clamping everything to `normal` would have hidden a G5 outright.
+ *
+ * It is deliberately not a sixth NOAA level. Nothing publishes it, no zone
+ * carries it, and `NoaaScaleNames` is not indexed by it.
+ */
+export const ALARM_NEVER = 6
+
+/**
+ * The level from which an event is always at least listed, whatever the two
+ * thresholds are set to.
+ *
+ * A G3 is a real storm -- several a year, not several a day -- so there is no
+ * setting at which one should leave no trace at all. Turning the plugin down is
+ * a decision about being interrupted, and `alert` interrupts nobody:
+ * `methodForState` gives it an empty method array, so it appears in the
+ * notification list and does nothing else. Quietest is not the same as absent.
+ */
+export const ALERT_FLOOR = NoaaScaleValues.STRONG
+
 // Index by scale value 0-5.
 export const NoaaScaleNames = Object.freeze([
   'none',
@@ -75,29 +99,41 @@ export interface ValueUpdate {
 /**
  * Map a NOAA scale value (0-5) to a Signal K alarm state.
  *
- * `alarmLevel` is the level that sounds an alarm; the quieter states derive
- * *downward* from it — one below is `warn`, two below is `alert`, anything
- * under that is `normal`.
+ * Two thresholds, each naming the level its band opens at: `alarmLevel` sounds,
+ * `popupLevel` shows a popup without sounding. Both are boundaries, which is
+ * the point of there being two of them — a single anchor with the quieter rungs
+ * derived from it cannot be described by any honest label, because whatever the
+ * setting claims, the level below it is doing something too (issue #71).
  *
- * The direction matters and is the whole reason this reads the way it does.
- * Deriving upward from a "worth your attention" pivot instead runs off the end
- * of a five-level scale: with the pivot at 4 nothing can reach `alarm`, and at
- * 5 nothing can even reach `warn`, so the two loudest-sounding choices a user
- * could make were the two that silenced the plugin. Anchoring on the alarm
- * leaves the levels above the pivot to absorb that, so every setting is live
- * and turning the number down is monotonically louder.
+ * `popupLevel` defaults to one below the alarm, which is the ladder this
+ * function had when it took one argument, so a call site that has not been told
+ * about the second threshold keeps its old behaviour.
  *
- * Where the default sits is an argument about how often each level happens
- * rather than about this function; the settings dropdown carries those rates.
+ * Below the popup band, `ALERT_FLOOR` and the level immediately under the popup
+ * are both listed. The second of those is what keeps the bands adjacent when a
+ * user sets the popup below the floor: the quiet rung follows the popup down
+ * rather than leaving a gap of `normal` between them.
+ *
+ * Turning either number down is monotonically louder, and every value of either
+ * is live — no setting silences the level it names. That was not true of the
+ * arrangement this replaced twice over: deriving *upward* from a "worth your
+ * attention" pivot ran off the end of a five-level scale, so a pivot of 4 could
+ * never reach `alarm` and one of 5 could not even reach `warn`, making the two
+ * loudest-sounding choices the two that silenced the plugin.
+ *
+ * Where the defaults sit is an argument about how often each level happens
+ * rather than about this function; the settings dropdowns carry those rates.
  */
 export function stateForScaleValue(
   value: number,
-  alarmLevel: number = NoaaScaleValues.EXTREME
+  alarmLevel: number = NoaaScaleValues.EXTREME,
+  popupLevel: number = alarmLevel - 1
 ): AlarmState {
   if (value <= 0) return NotificationStates.NOMINAL
   if (value >= alarmLevel) return NotificationStates.ALARM
-  if (value === alarmLevel - 1) return NotificationStates.WARN
-  if (value === alarmLevel - 2) return NotificationStates.ALERT
+  if (value >= popupLevel) return NotificationStates.WARN
+  if (value >= Math.min(popupLevel - 1, ALERT_FLOOR))
+    return NotificationStates.ALERT
   return NotificationStates.NORMAL
 }
 
@@ -111,14 +147,15 @@ export function stateForScaleValue(
  */
 export function zonesForScale(
   letter: string,
-  alarmLevel: number = NoaaScaleValues.EXTREME
+  alarmLevel: number = NoaaScaleValues.EXTREME,
+  popupLevel: number = alarmLevel - 1
 ): Zone[] {
   const zones: Zone[] = []
   for (let value = 0; value <= MAX_NOAA_SCALE; value++) {
     zones.push({
       lower: value,
       upper: value + 1,
-      state: stateForScaleValue(value, alarmLevel),
+      state: stateForScaleValue(value, alarmLevel, popupLevel),
       message:
         value === 0
           ? `No ${letter} activity`
@@ -135,7 +172,8 @@ export function zonesForScale(
  * do not come out round.
  */
 export function zonesForKp(
-  alarmLevel: number = NoaaScaleValues.EXTREME
+  alarmLevel: number = NoaaScaleValues.EXTREME,
+  popupLevel: number = alarmLevel - 1
 ): Zone[] {
   const zones: Zone[] = [
     {
@@ -148,7 +186,7 @@ export function zonesForKp(
   for (let g = 1; g <= MAX_NOAA_SCALE; g++) {
     const zone: Zone = {
       lower: kpFloorForG(g),
-      state: stateForScaleValue(g, alarmLevel),
+      state: stateForScaleValue(g, alarmLevel, popupLevel),
       // The Kp quoted is the band NOAA names the level after, not the floor.
       message: `G${g} (${NoaaScaleNames[g]}) -- Kp ${KP_FOR_G1 + g - 1}`
     }
@@ -349,7 +387,8 @@ function alertValidUntil(message: string): Date | null {
  */
 export function parseAlert(
   alert: any,
-  alarmLevel: number = NoaaScaleValues.EXTREME
+  alarmLevel: number = NoaaScaleValues.EXTREME,
+  popupLevel: number = alarmLevel - 1
 ): ParsedAlert | null {
   if (!alert || typeof alert.message !== 'string') return null
 
@@ -407,7 +446,7 @@ export function parseAlert(
     state:
       cancelled || scaleValue === null
         ? NotificationStates.NORMAL
-        : stateForScaleValue(scaleValue, alarmLevel),
+        : stateForScaleValue(scaleValue, alarmLevel, popupLevel),
     issued,
     validUntil: alertValidUntil(alert.message),
     cancelled
@@ -466,6 +505,7 @@ export interface AlertSelectionOptions {
   /** Overrides {@link ALERT_MAX_AGE_MS}; tests only. */
   maxAgeMs?: number
   alarmLevel?: number
+  popupLevel?: number
   limit?: number
 }
 
@@ -503,6 +543,7 @@ export function currentAlertNotifications(
     now,
     maxAgeMs = ALERT_MAX_AGE_MS,
     alarmLevel = NoaaScaleValues.EXTREME,
+    popupLevel = alarmLevel - 1,
     limit = MAX_ALERT_NOTIFICATIONS
   } = options
 
@@ -510,7 +551,7 @@ export function currentAlertNotifications(
   let unparseable = 0
 
   for (const entry of payload) {
-    const parsed = parseAlert(entry, alarmLevel)
+    const parsed = parseAlert(entry, alarmLevel, popupLevel)
     if (!parsed) {
       unparseable++
       continue
