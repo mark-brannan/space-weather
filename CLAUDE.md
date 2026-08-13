@@ -150,13 +150,21 @@ conversions, boundaries — never display strings.
 npm install && npm run build && npm test
 ```
 
-There is a Signal K server already running in Docker on this machine at
-`localhost:3001`, installed from the published npm package — useful for
-read-only checks against real, released behavior (it's what backs any
-"browse the live server" research), but it runs whatever version is
-currently published, not this checkout's uncommitted changes. Don't
-restart, reconfigure, or write through it without checking who else might
-be using it first.
+A Docker Signal K installed from the published npm package backs any
+"browse the live server" research — read-only checks against real, released
+behavior, not this checkout's uncommitted changes. Don't restart,
+reconfigure, or write through it without checking who else might be using
+it first.
+
+**Ports 3000 and 3001 belong to `~/symphony`, and its compose files are the
+authority — read them, don't guess.** `compose-signalk.yml` publishes Signal K
+on **3000** (the SignalK convention; mDNS and clients default to it) and
+`compose-grafana.yml` publishes Grafana on **3001**. That allocation is
+deliberate and each file carries the reason inline. A running container can
+lag it — port bindings are fixed when a container is *created*, so a
+`docker start` on an old container keeps the old mapping and the live box
+disagrees with the committed intent until it is recreated. Trust the compose
+file over `docker ps`, and check both before concluding anything about a port.
 
 `~/signalk-server` and `~/.signalk` already exist on this machine and are
 meant to stay — **check for them before doing anything else here, don't
@@ -172,9 +180,11 @@ clone.
 
 **`~/.signalk` is the integration environment.** It is the default config
 directory, so plain `bin/signalk-server` uses it with no environment variables
-at all. **It listens on 3010**, set as `port` in its own `settings.json` — 3000
-is the signalk-server default and collides with too much else, so nothing here
-should be on it. `PORT` still overrides, which is what the `nmea-from-file`
+at all. **It listens on 3010**, set as `port` in its own `settings.json` —
+clear of both 3000 and 3001 whichever way symphony's stack is currently
+running, which is the whole point of picking it. 3000 is the signalk-server
+default and collides with too much else, so nothing here should be on it.
+`PORT` still overrides, which is what the `nmea-from-file`
 recipe below relies on. Feature work here is almost always additive —
 one more position source, one more chart provider, one more sample log — and
 a fresh scratch directory silently loses the settings that make the last
@@ -253,13 +263,14 @@ This plugin loads from `dist/`, so rebuild (`npm run build` or `npm run
 watch`, in this repo) and restart the server to pick up a change — and see
 the copy-versus-symlink note above before concluding the change didn't work.
 These are shared instances, not one per session: 3010 is the `~/.signalk`
-server and 3001 is a Docker container running the published package, both
-usually already up. Check before starting anything, the same way you'd check
-before touching a shared branch. Coordinate with a lock file: before starting
-a server or doing anything live against `:3001`, check for and create
-`~/.signalk/locks/dev-server.lock` or `docker-3001.lock` (one line: who, when,
-why) — remove it when done, and treat someone else's lock file as a hard stop,
-not a suggestion. The lock records who is using the server and why; it is not
+server, and the published-package Docker instance is whatever port symphony
+currently publishes Signal K on. Neither is reliably up — check what is
+actually listening before starting anything, the same way you'd check before
+touching a shared branch. Coordinate with a lock file: before starting a
+server or doing anything live against the Docker instance, check for and
+create `~/.signalk/locks/dev-server.lock` or `docker-signalk.lock` (one line:
+who, when, why) — remove it when done, and treat someone else's lock file as a
+hard stop, not a suggestion. The lock records who is using the server and why; it is not
 the place to write down which port a conflict pushed you onto. If a port
 collides, fix the port.
 
@@ -297,11 +308,13 @@ npx --prefix scripts/screenshots playwright install chromium
 SK_USERNAME=... SK_PASSWORD=... node scripts/screenshots/capture.mjs
 ```
 
-It defaults to the Docker instance on `localhost:3001`; `SK_URL` or `--url`
-points it at a dev server instead. `--only webapp,aurora-map` limits the run.
-Which one you want is a real choice: 3001 runs the published package, so its
-shots match what someone installing from the registry sees, while a dev server
-shows UI that has not shipped yet.
+It defaults to `http://localhost:3001`, hard-coded in `capture.mjs`; `SK_URL`
+or `--url` points it somewhere else. `--only webapp,aurora-map` limits the run.
+Which one you want is a real choice: the published package's shots match what
+someone installing from the registry sees, while a dev server shows UI that has
+not shipped yet. **Check what is on 3001 before trusting that default** — under
+symphony's committed allocation 3001 is Grafana, not Signal K, so the default
+needs to follow wherever the published-package instance actually lands.
 
 Four of the five shots need only a **readonly** login. Just `plugin-configuration`
 needs admin, because `/skServer/plugins` is admin-gated — with a readonly session
