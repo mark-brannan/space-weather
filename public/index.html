@@ -114,11 +114,13 @@
   }
   .span-12 { grid-column: span 12; }
   .span-8  { grid-column: span 8; }
+  .span-7  { grid-column: span 7; }
   .span-6  { grid-column: span 6; }
+  .span-5  { grid-column: span 5; }
   .span-4  { grid-column: span 4; }
   @media (max-width: 760px) {
     .grid { grid-template-columns: repeat(4, 1fr); }
-    .span-12, .span-8, .span-6, .span-4 { grid-column: span 4; }
+    .span-12, .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 4; }
   }
 
   .chip {
@@ -297,7 +299,11 @@
     background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
   }
 
-  .advisory-teaser { margin-top: 12px; font-size: 0.86rem; color: var(--text); }
+  /* line-height is explicit because the two-line trim measures against it. */
+  .advisory-teaser {
+    margin-top: 12px; font-size: 0.86rem; color: var(--text);
+    line-height: 1.45; overflow: hidden;
+  }
 
   .overlay {
     position: fixed; inset: 0; z-index: 100;
@@ -371,7 +377,7 @@
   </div>
 
   <div class="grid">
-    <div class="tile span-8 hero">
+    <div class="tile span-7 hero">
       <div>
         <span class="chip sev-0" id="heroChip">Loading</span>
         <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
@@ -380,7 +386,7 @@
       <div class="countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
     </div>
 
-    <div class="tile span-4">
+    <div class="tile span-5">
       <div class="map-header">
         <div>
           <span class="label">Advisory &middot; NOAA SWPC</span>
@@ -1107,6 +1113,29 @@ import { heroState, uncapitalise } from './hero.js';
   }
 
   let advisoryData = null;
+  // The teaser is a teaser -- the full bulletin is one tap away -- so it is
+  // trimmed to two lines to keep the tile off the rest of the page.
+  //
+  // Trimmed here rather than with `-webkit-line-clamp`, which appends the
+  // single-glyph "…". In this tile's monospace that ellipsis occupies one
+  // cell like any other character and reads as punctuation rather than as
+  // "there is more", so the omission goes unnoticed. Three periods take
+  // three cells and cannot be mistaken for the end of a sentence.
+  const CONTINUES = '...';
+  function trimToTwoLines(el, text) {
+    el.textContent = text;
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+    const maxHeight = lineHeight * 2 + 1;
+    if (el.scrollHeight <= maxHeight) return;
+    let lo = 0, hi = text.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      el.textContent = text.slice(0, mid).trimEnd() + CONTINUES;
+      if (el.scrollHeight <= maxHeight) lo = mid; else hi = mid - 1;
+    }
+    el.textContent = text.slice(0, lo).trimEnd() + CONTINUES;
+  }
+
   function renderAdvisory(advisory) {
     const teaser = document.getElementById('advisoryTeaser');
     const openBtn = document.getElementById('advisoryOpen');
@@ -1118,9 +1147,9 @@ import { heroState, uncapitalise } from './hero.js';
     }
     advisoryData = advisory;
     const date = shortDate(advisory.issued);
-    teaser.textContent = advisory.teaser
+    trimToTwoLines(teaser, advisory.teaser
       ? `${date} — ${advisory.teaser}`
-      : `${date} — ${advisory.idLine || 'Advisory issued'}`;
+      : `${date} — ${advisory.idLine || 'Advisory issued'}`);
     openBtn.disabled = false;
   }
 
