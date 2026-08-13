@@ -479,7 +479,8 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import { heroState, uncapitalise } from './hero.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -604,74 +605,133 @@
       month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
     });
   }
-  function fmtCountdown(iso) {
-    if (!iso) return null;
-    const ms = new Date(iso).getTime() - Date.now();
-    if (isNaN(ms) || ms <= 0) return null;
-    const totalMin = Math.floor(ms / 60000);
+  const SCALE_NOUNS = { G: 'Geomagnetic storm', S: 'Solar radiation storm', R: 'Radio blackout' };
+  // NOAA's own scale effects (spaceweather.gov/noaa-scales-explanation), cut
+  // to what changes a decision on a boat: position fixes and radio. Written
+  // sentence-first so the same clause reads as "Expect ..." for a forecast
+  // and "Also S4: ..." for a second scale in force, without a second table.
+  const IMPACTS = {
+    G3: 'Intermittent GNSS and low-frequency navigation problems, HF patchy.',
+    G4: 'GNSS degraded for hours, low-frequency navigation disrupted, HF sporadic.',
+    G5: 'GNSS degraded for days, low-frequency navigation out for hours, HF impossible in many areas for one to two days.',
+    R3: 'Wide-area HF blackout on the sunlit side for about an hour; low-frequency navigation degraded.',
+    R4: 'HF blackout across most of the sunlit side for one to two hours; low-frequency navigation errors.',
+    R5: 'Complete HF blackout on the sunlit side for hours; low-frequency and satellite navigation errors.',
+    S3: 'Degraded HF through the polar regions; navigation position errors likely.',
+    S4: 'HF blackout through the polar regions; increased navigation errors likely for several days.',
+    S5: 'Complete HF blackout possible through the polar regions; navigation extremely difficult.'
+  };
+  const impact = (letter, level) => IMPACTS[`${letter}${level}`] ?? '';
+
+  /** The hero's own big number: HH:MM, however many hours that is. */
+  function fmtSpan(ms) {
+    const totalMin = Math.max(0, Math.floor(ms / 60000));
     const h = Math.floor(totalMin / 60), m = totalMin % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
+  // Every state gets a real number here. An em-dash placeholder in a slot
+  // this size reads as a warning rather than as an absence, and the timer
+  // always has something honest to count: forward to the next change in
+  // conditions, or back to the last time we knew anything at all.
+  function renderTimer(timer, sev) {
+    const cd = document.getElementById('heroCountdown');
+    const cdLabel = document.getElementById('heroCountdownLabel');
+    const at = timer.at ? Date.parse(timer.at) : NaN;
+    const counting = {
+      'since-start': ['Since plugin start', () => Date.now() - at],
+      'since-update': ['Since last update', () => Date.now() - at],
+      'until-level': [`Until G${timer.level} window`, () => at - Date.now()],
+      'until-easing': ['Until easing', () => at - Date.now()],
+      // Deliberately 00:00 rather than a placeholder: the slot counts to the
+      // next thing that matters, and when nothing is forecast, that is what
+      // arrives. The label is what keeps it from reading as an expired clock.
+      'forecast-clear': ['No storm inbound', () => 0]
+    }[timer.kind];
 
-  function renderHero(scales, kp) {
-    const levels = [
-      ['G', leafValue(scales?.G)],
-      ['S', leafValue(scales?.S)],
-      ['R', leafValue(scales?.R)]
-    ].filter(([, v]) => v !== null);
-    let worstLetter = null, worst = -1;
-    for (const [letter, v] of levels) if (v > worst) { worst = v; worstLetter = letter; }
-    const maxScale = leafValue(kp?.['forecast.maxNoaaScale']);
-    if (maxScale !== null && maxScale > worst) { worst = maxScale; worstLetter = 'G'; }
+    // Having no forecast at all is not the same claim as "no storm is
+    // coming", so it does not get the quiet colour: this is a gap in what we
+    // know, and it reads like the stale and no-data states for that reason.
+    const missing = !counting || isNaN(at);
+    const colour = missing ? 'sev-4' : sev;
+    cd.style.color = `var(--${colour})`;
+    cd.style.textShadow = `0 0 24px color-mix(in srgb, var(--${colour}) 40%, transparent)`;
+    if (missing) {
+      cd.childNodes[0].textContent = 'No data';
+      cdLabel.textContent = 'No forecast to count';
+      return;
+    }
+    cd.childNodes[0].textContent = fmtSpan(counting[1]());
+    cdLabel.textContent = counting[0];
+  }
+
+  function renderHero(scales, peak24h, kp, status) {
+    const state = heroState({
+      observed: {
+        G: leafValue(scales?.G),
+        S: leafValue(scales?.S),
+        R: leafValue(scales?.R)
+      },
+      peak24h: {
+        G: leafValue(peak24h?.G),
+        S: leafValue(peak24h?.S),
+        R: leafValue(peak24h?.R)
+      },
+      series: leafValue(kp?.['forecast.series']),
+      observedAt: leafTime(scales?.G) || leafTime(scales?.time),
+      startedAt: status?.startedAt,
+      staleAfterMs: STALE_MS
+    });
 
     const chip = document.getElementById('heroChip');
     const headline = document.getElementById('heroHeadline');
     const sub = document.getElementById('heroSub');
+    const level = (n) => `<em style="color:var(--amber);font-style:normal">${n}</em>`;
+    let timerSev = 'sev-1';
 
-    // A gauge showing a normal-looking number is not proof the plugin is
-    // still updating -- Signal K leaves a value exactly where it was last
-    // published. Flag that distinctly from genuinely-quiet, so "nothing's
-    // happening" and "this stopped updating hours ago" don't look identical.
-    const scalesTime = leafTime(scales?.G) || leafTime(scales?.time);
-    const stale = worst >= 0 && isStale(scalesTime);
-
-    if (worst < 0) {
+    if (state.kind === 'starting') {
       chip.className = 'chip sev-0'; chip.textContent = 'No Data';
       headline.textContent = 'Waiting for the first observation cycle.';
-      sub.textContent = '';
-    } else if (stale) {
+      sub.textContent = 'Nothing received since the plugin started.';
+      timerSev = 'sev-0';
+    } else if (state.kind === 'silent') {
+      chip.className = 'chip sev-4'; chip.textContent = 'No Data';
+      headline.textContent = `No data since the plugin started at ${fmtTime(state.startedAt)}.`;
+      sub.textContent = 'Nothing has been received since then. Check the server log.';
+      timerSev = 'sev-4';
+    } else if (state.kind === 'stale') {
+      // A value sits at whatever it last was; a quiet reading and a plugin
+      // that died look identical. Stale means we do not know, which is not
+      // the same claim as an all-clear.
       chip.className = 'chip sev-4'; chip.textContent = 'Stale Data';
-      headline.textContent = `Last update was ${fmtTime(scalesTime)}.`;
-      sub.textContent = 'This could be genuinely quiet weather, or the plugin may have stopped updating -- check the server log.';
-    } else if (worst <= 2) {
+      headline.textContent = `No update since ${fmtTime(state.observedAt)}.`;
+      sub.textContent = 'This is not an all-clear. Check the server log.';
+      timerSev = 'sev-4';
+    } else if (state.kind === 'storm') {
+      setChip(chip, state.level, `${state.letter}${state.level} · ${sevWord(state.level)}`);
+      headline.innerHTML = `${SCALE_NOUNS[state.letter]} at level ${level(state.letter + state.level)}.`;
+      sub.textContent = [
+        impact(state.letter, state.level),
+        ...state.also.map((other) => `Also ${other.letter}${other.level}: ${uncapitalise(impact(other.letter, other.level))}`)
+      ].join(' ');
+      timerSev = sevClass(state.timer.kind === 'until-level' ? state.timer.level : state.level);
+    } else if (state.kind === 'brewing') {
+      setChip(chip, state.level, `G${state.level} forecast`);
+      headline.textContent = 'Storm’s A-Brewin’!';
+      sub.textContent = `Expect ${uncapitalise(impact('G', state.level))}`;
+      timerSev = sevClass(state.level);
+    } else if (state.kind === 'all-clear') {
+      chip.className = 'chip sev-1'; chip.textContent = 'All Clear';
+      headline.textContent = 'Space weather is quiet.';
+      sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.`;
+    } else {
       chip.className = 'chip sev-1'; chip.textContent = 'Quiet';
       headline.textContent = 'Space weather is quiet.';
-      sub.textContent = 'No storm scale has reached "strong" in the current observation or 72-hour forecast.';
-    } else {
-      setChip(chip, worst, `${worstLetter}${worst} · ${sevWord(worst)}`);
-      const noun = worstLetter === 'G' ? 'Geomagnetic storm'
-        : worstLetter === 'S' ? 'Solar radiation storm'
-        : 'Radio blackout';
-      headline.innerHTML = `${noun} at level <em style="color:var(--amber);font-style:normal">${worstLetter}${worst}</em>.`;
-      sub.textContent = worstLetter === 'G'
-        ? 'Elevated GNSS error and HF disruption risk at high latitude are possible.'
-        : worstLetter === 'S'
-        ? 'Elevated HF disruption risk at high latitude, particularly over the poles.'
-        : 'Degraded or blacked-out HF radio on the sunlit side is possible.';
+      sub.textContent = state.peak
+        ? `Peak ${state.peak.letter}${state.peak.level} in the last 24 hours. Nothing at G3 or above forecast through 72 hours.`
+        : 'Nothing above background in the last 24 hours, none forecast through 72 hours.';
     }
 
-    const nextStormTime = leafValue(kp?.['forecast.nextStormTime']);
-    const nextStormKp = leafValue(kp?.['forecast.nextStormKp']);
-    const countdown = fmtCountdown(nextStormTime);
-    const cd = document.getElementById('heroCountdown');
-    const cdLabel = document.getElementById('heroCountdownLabel');
-    if (countdown) {
-      cd.childNodes[0].textContent = countdown;
-      cdLabel.textContent = `Until Kp ${nextStormKp?.toFixed?.(1) ?? nextStormKp} storm`;
-    } else {
-      cd.childNodes[0].textContent = '—';
-      cdLabel.textContent = 'No storm forecast in 72h';
-    }
+    renderTimer(state.timer, timerSev);
   }
 
   // "M1.4" -> class letter in the rounded face, magnitude in the numeral
@@ -1259,10 +1319,11 @@
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory;
+    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status;
     try {
-      [scalesLatest, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory] = await Promise.all([
+      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
@@ -1270,7 +1331,8 @@
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
         getJson('/signalk/v1/api/vessels/self/name'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
-        getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook')
+        getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
+        getJson('/signalk/v1/api/signalk-noaa-space-weather/status')
       ]);
     } catch (err) {
       // Every getJson call above hits this same server, so one 401 means
@@ -1296,7 +1358,7 @@
       'forecast.series': kpRaw.forecast?.series
     } : null;
 
-    renderHero(scalesLatest, kp);
+    renderHero(scalesLatest, scalesPeak24h, kp, status);
     renderScales(scalesLatest, xrayFlare, scalesForecast);
     renderAurora(aurora);
     renderWind(wind);
