@@ -55,8 +55,8 @@ Everything else is small enough that it has never mattered; the remaining
 observation and forecast endpoints together come to about 5 KB per poll.
 
 `/text/27-day-outlook.txt` was measured 2026-08-12, separately from the run
-above and after it, by the same method. 451 B every eight hours is about 1.4 KB
-a day, which is why `outlook27` has no setting.
+above and after it, by the same method. At `outlook27`'s daily interval that is
+451 B a day, about 3 KB a week, which is why it has no setting.
 
 **Consequence.** Only aurora is worth a setting (`auroraEnabled`,
 `auroraInterval`). At the default two-hour interval it is about 1.7 MB a day,
@@ -79,6 +79,28 @@ Measured 2026-08-09, 15 samples one minute apart, comparing a hash of each body.
 slower only means staler data, so the interval is not worth explaining to a
 user. `updateInterval`'s description says what it covers and what it costs, and
 nothing about cadence.
+
+## `/text/27-day-outlook.txt` is issued weekly, not daily
+
+Observed 2026-08-13. The endpoint served `:Issued: 2026 Aug 10 0153 UTC`
+unchanged from 2026-08-12 through 2026-08-13, and `/text/weekly.txt` ("Weekly
+Highlights and Forecasts") carries the **identical** issue timestamp — the
+27-day table is part of that bulletin. 2026 Aug 10 was a Monday, which matches
+the independent note in `src/products/advisory.ts` that every captured advisory
+fixture is issued on a Monday between 0100 and 0400 UTC.
+
+**This is one issue, seen twice.** It establishes that the product is weekly
+rather than daily; it does *not* establish that Monday ~0153 UTC holds week to
+week. `scripts/watch-27day.mjs` is accumulating that, one issue per week, into
+`examples/` — see the Unmeasured list below for what is still open.
+
+**Consequence.** `outlook27` polls once a day and does not chase the issue
+time. Sleeping until just before it and then polling tightly, the way
+`advisory` does, costs roughly four times the bytes to buy same-morning pickup
+of a product whose value is entirely at the far end of its window. Consecutive
+issues overlap by 20 of their 27 days, and the first three days — where being
+a day late would actually matter — are covered far better by `kp` and
+`scales`.
 
 ## Conditional GET never saves anything
 
@@ -208,3 +230,8 @@ Named so nobody cites this file for them:
 - content cadence for `/json/ovation_aurora_latest.json`,
   `/text/advisory-outlook.txt` and `/text/27-day-outlook.txt` — all three were
   in the size and conditional-GET runs but not the 15-minute cadence watch
+- whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
+  how tightly the issue time clusters. One issue observed so far;
+  `scripts/watch-27day.mjs` is collecting the rest
+- how much two consecutive weekly issues differ across the 20 days their
+  windows overlap. The same watch will answer it, since it keeps each issue

@@ -15,9 +15,12 @@
  * alerts that are worth interrupting for. This is data to look at, not to be
  * woken by.
  *
- * Reissued once a day, so like f107 it takes a fixed cadence rather than
- * `updateInterval`: polling faster than the data moves is bandwidth for
- * nothing, and a dial for it is a knob nobody would ever have cause to turn.
+ * Issued weekly, not daily: the table is part of NOAA's Weekly Highlights and
+ * Forecasts bulletin and carries that bulletin's issue timestamp. So it takes
+ * a fixed cadence rather than `updateInterval` -- polling faster than the data
+ * moves is bandwidth for nothing, and a dial for it is a knob nobody would
+ * ever have cause to turn. See docs/noaa-products.md for the observed day and
+ * time, and for how far that has actually been checked.
  */
 import { OUTLOOK27_BASE } from '../paths.js'
 import { NoaaScaleValues, parse27DayOutlook } from '../parse.js'
@@ -25,14 +28,16 @@ import { Meta } from '../publisher.js'
 import { Product } from './types.js'
 
 /**
- * Three times a day against a daily reissue. Slower than the other products
- * because the data is: NOAA issues this once, and the far end of the window
- * barely moves between issues, so a poll that lands eight hours late costs
- * nothing anyone could see. Not slower still — once a day would phase-drift
- * against NOAA's issue time and leave the outlook most of a day stale for no
- * further saving worth having.
+ * Once a day against a weekly issue, which is deliberately unsynchronised
+ * with it. Chasing the issue time -- sleeping until just before it, then
+ * polling tightly, the way `advisory` does -- would cost about four times the
+ * bytes to buy same-morning pickup of a product whose value is entirely at
+ * the far end of its window. A day late means holding the previous issue for
+ * one day in seven, and consecutive issues overlap by 20 of their 27 days.
+ * Where staleness would actually matter is the next 72 hours, and `kp` and
+ * `scales` already cover that at far higher resolution and skill.
  */
-const INTERVAL_MINUTES = 480
+const INTERVAL_MINUTES = 1440
 
 /**
  * Well past the reissue interval. A stale outlook is still the best available
