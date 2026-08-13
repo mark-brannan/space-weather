@@ -256,42 +256,36 @@ So the dropdown quotes the measured record instead: geomagnetic storm days per
 year, counted from GFZ's Kp archive, 1932–2025, 94 complete years. Regenerate
 with `node scripts/measure-kp.mjs`.
 
-**These counts are one banding behind and read low.** They were taken while
-the plugin banded G on integer Kp; it now bands on NOAA's thirds, so every
-level takes in a third of a step more of the scale than the run below assumed
-and the true rates are higher. The gap was put at about 30% at the top levels
-while it was still open. Re-run the script and paste its table in; don't
-adjust these by hand, and don't quote them as current until you have.
-
 | Level and above | Median year | p10 | p90 | Worst year | Dropdown says |
 | --- | --- | --- | --- | --- | --- |
-| G1+ | 53 | 19 | 103 | 141 | most weeks |
-| G2+ | 20 | 4 | 44 | 62 | a couple of times a month |
-| G3+ | 7 | 0 | 18 | 27 | several times a year |
-| G4+ | 2 | 0 | 6 | 13 | once or twice a year |
-| G5+ | 0 | 0 | 1 | 3 | once or twice a decade |
+| G1+ | 72 | 30 | 133 | 164 | most weeks |
+| G2+ | 27 | 8 | 61 | 85 | a couple of times a month |
+| G3+ | 10 | 1 | 25 | 39 | several times a year |
+| G4+ | 3 | 0 | 9 | 18 | once or twice a year |
+| G5+ | 0 | 0 | 3 | 7 | several times a decade |
 
 p90 sits at roughly twice the median at every level, which is the "active
 stretch" the description mentions. Cycle 25's started around 2023 and should run
 to about 2028.
 
-**Don't fit this to one cycle.** Cycle 24 is the trap: its median year had 23
-G1+ days against the record's 53, so labels derived from it come out about half
-as loud as the truth. Cycle 22's median year had 81. Any window shorter than the
-full record is a cycle-strength sample, not a rate.
+**Don't fit this to one cycle.** Cycle 24 is the trap: its median year had 30
+G1+ days against the record's 72, so labels derived from it come out about half
+as loud as the truth. Cycle 22's median year had 104. Any window shorter than
+the full record is a cycle-strength sample, not a rate.
 
-The measured medians also run about half NOAA's per-cycle figures. Banding is
-no longer part of that — the plugin bands where NOAA's scale page bands — so
-what is left is that NOAA's long-run average includes cycles stronger than any
-since, plus however much of the gap the pending re-measure closes. Both numbers
-are honest; they answer different questions.
+The measured medians still run a little over half NOAA's per-cycle figures —
+52–57% of them, against about 40% under the old banding — comparing each row
+with NOAA's days summed from that level up and divided by 11. Banding is no
+longer part of that — the plugin bands where NOAA's scale page bands — so what
+is left is that NOAA's long-run average includes cycles stronger than any since.
+Both numbers are honest; they answer different questions.
 
 **These count storm *days*, and a label says "times".** A storm running across
 two UTC dates counts twice here and is one thing a boat experiences; several
 transitions inside one date count once. The error runs in the safe direction —
 days over-count occasions, so a label promises slightly more noise than the
 plugin will actually make — and it washes out in the rounding at G1+ and G2+.
-At G4+ (median 2) and G5+ (median 0, worst year 3) it is the same order as the
+At G4+ (median 3) and G5+ (median 0, worst year 7) it is the same order as the
 number itself, which is why those two labels are deliberately vague.
 
 **The bands are NOAA's, on Kp thirds.** Kp is reported in thirds and NOAA's
@@ -309,9 +303,6 @@ archive, and a floor rounded to either precision drops the other.
 
 Named so nobody cites this file for them:
 
-- the storm-day rates under the G banding the plugin now uses. The table above
-  was counted under the old integer banding and is an undercount. Re-run
-  `scripts/measure-kp.mjs` somewhere `kp.gfz.de` is reachable
 - whether any endpoint ever returns 304 at a longer gap than 300s — being
   collected at a twelve-hour gap for `/text/27-day-outlook.txt` under
   [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)

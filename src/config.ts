@@ -36,7 +36,7 @@ export const schema = {
       // "and above" is doing real work: it says which way the choice includes.
       // Rates and their provenance are in docs/noaa-products.md.
       oneOf: [
-        { const: 5, title: 'Extreme (5) — once or twice a decade' },
+        { const: 5, title: 'Extreme (5) — several times a decade' },
         { const: 4, title: 'Severe (4) and above — once or twice a year' },
         { const: 3, title: 'Strong (3) and above — several times a year' },
         {
