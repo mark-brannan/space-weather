@@ -115,6 +115,8 @@ Five settings, all optional, all with working defaults:
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 
+On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same five settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
+
 Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored.
 
 * `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way.
