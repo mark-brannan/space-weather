@@ -152,20 +152,27 @@ export function methodForState(state) {
 }
 
 /**
- * Geomagnetic storm days in a median year at each level *and above*, from the
- * measured table in docs/noaa-products.md, re-counted under NOAA's banding. The
- * alarm-level dropdown quotes the same figures, so both move together.
+ * How often an event at each level *and above* happens, in words, from the
+ * measured table in docs/noaa-products.md re-counted under NOAA's banding.
+ * Both controls quote these, so they move together.
  *
- * The G figures, because the dropdown quotes G and one cadence cannot label
- * three scales; the panel says so where it shows them. Regenerate with
+ * Words rather than the day counts they came from. The counts are geomagnetic
+ * storm days in a median year, and at that resolution Extreme rounds to zero --
+ * a number that reads as "never" for the level the alarm defaults to. The
+ * phrasing also carries the uncertainty the archive actually supports: "once or
+ * twice a year" is honest where "3" is not. docs/noaa-products.md keeps the
+ * figures, with the method that makes them mean something; regenerate them with
  * scripts/measure-kp.mjs.
+ *
+ * The G figures, because one cadence cannot label three scales; the panel says
+ * so where it shows them.
  */
-export const STORM_DAYS_PER_YEAR = Object.freeze({
-  1: 72,
-  2: 27,
-  3: 10,
-  4: 3,
-  5: 0
+export const RATE = Object.freeze({
+  1: 'most weeks',
+  2: 'a couple of times a month',
+  3: 'several times a year',
+  4: 'once or twice a year',
+  5: 'several times a decade'
 })
 
 /** Mirrors `ALARM_NEVER` in src/parse.ts. */
@@ -177,12 +184,11 @@ export const ALARM_NEVER = 6
  * up, which puts "Never" at the top. It carries no rate: it has no frequency.
  */
 export const LEVEL_OPTIONS = Object.freeze([
+  // ALARM_NEVER carries no rate: it does not happen at a frequency.
   { value: ALARM_NEVER },
-  { value: 5, rate: 'several times a decade' },
-  { value: 4, rate: 'once or twice a year' },
-  { value: 3, rate: 'several times a year' },
-  { value: 2, rate: 'a couple of times a month' },
-  { value: 1, rate: 'most weeks' }
+  ...[5, 4, 3, 2, 1].map((value) =>
+    Object.freeze({ value, rate: RATE[value] })
+  )
 ])
 
 /** What a state does to a notification client, in the words a user would use. */
@@ -209,10 +215,121 @@ export function ladderFor(alarmLevel, popupLevel) {
       state,
       method: methodForState(state),
       effect: EFFECT[state],
-      stormDaysPerYear: STORM_DAYS_PER_YEAR[level]
+      // The same words the fallback dropdown uses, so a user who has seen one
+      // control recognises the other. They carry their own uncertainty --
+      // "once or twice", "several" -- which the measured day counts cannot: a
+      // bare 3 claims a precision the Kp archive does not support, and at
+      // Extreme the median year rounds to 0, which reads as "never" for the
+      // one level this whole screen exists to get right.
+      rate: RATE[level]
     })
   }
   return rows
+}
+
+/**
+ * The two boundaries, loudest first, as the ladder draws them.
+ *
+ * A threshold names the level its band opens at, so its line rests on the
+ * *bottom* edge of that level's row -- the band is everything above the line.
+ * `ALARM_NEVER` puts it above the top row instead, where the band is empty:
+ * "Never" is reached by running out of storms rather than by being a level.
+ */
+export const BOUNDARIES = Object.freeze([
+  Object.freeze({ key: 'alarmLevel', kind: 'sound' }),
+  Object.freeze({ key: 'popupLevel', kind: 'popup' })
+])
+
+/**
+ * Where a boundary's line sits: the level whose row it rests under, or null
+ * for the line above the whole ladder.
+ */
+export function lineUnder(level) {
+  return level === ALARM_NEVER ? null : level
+}
+
+/**
+ * What a grip says about itself. Both halves are literal -- neither borrows the
+ * other's words -- so a screen reader hears the same thing the ladder shows.
+ */
+export function gripLabel(kind, level) {
+  if (level === ALARM_NEVER)
+    return kind === 'sound' ? 'never sounds' : 'never pops up'
+  const verb = kind === 'sound' ? 'sounds' : 'pops up'
+  return `${verb} from ${SCALE_NAMES[level]} (${level})`
+}
+
+/**
+ * One threshold moved, with the other taken along if it has to be.
+ *
+ * Mirrors the clamp in `settingsFrom`, including its exemption: a popup of
+ * `ALARM_NEVER` is quieter than every level rather than louder than the alarm,
+ * so it neither drags the alarm up nor gets dragged down by it. Taking the
+ * alarm along would silence a plugin the user had only asked to stop popping
+ * up.
+ */
+export function withLevel(settings, key, value) {
+  const next = { ...settings, [key]: value }
+  if (next.popupLevel === ALARM_NEVER) return next
+  if (key === 'alarmLevel') next.popupLevel = Math.min(next.popupLevel, value)
+  else next.alarmLevel = Math.max(next.alarmLevel, value)
+  return next
+}
+
+/** The quietest level either threshold offers. Neither range is clipped. */
+export const MINOR = 1
+
+/**
+ * Where an arrow key puts a boundary, or null for a key the grip does not
+ * claim -- which is what lets Tab and the rest reach the form around it.
+ *
+ * Up is quieter. The line rises, the band above it loses its bottom row, and
+ * one more level stops interrupting. Home and End are the ends of the range the
+ * grip reports through `aria-valuemin` and `aria-valuemax`, so the numbers a
+ * screen reader announces and the keys that reach them agree.
+ */
+export function stepLevel(current, key) {
+  if (key === 'ArrowUp' || key === 'ArrowRight')
+    return Math.min(ALARM_NEVER, current + 1)
+  if (key === 'ArrowDown' || key === 'ArrowLeft')
+    return Math.max(MINOR, current - 1)
+  if (key === 'Home') return MINOR
+  if (key === 'End') return ALARM_NEVER
+  return null
+}
+
+/**
+ * The level whose edge a pointer is nearest, given each level's edge in the
+ * same coordinates. Snapping to the nearest rather than the one under the
+ * cursor is what lets a grip reach the line above the top row at all.
+ */
+export function nearestLevel(edges, y) {
+  let best = null
+  let bestGap = Infinity
+  for (const [level, at] of Object.entries(edges)) {
+    const gap = Math.abs(at - y)
+    if (gap < bestGap) {
+      bestGap = gap
+      best = Number(level)
+    }
+  }
+  return best
+}
+
+/**
+ * The quiet rung in words, read back off the ladder rather than derived a
+ * second time -- so the sentence cannot claim something the table under it
+ * contradicts. `ALERT_FLOOR` puts levels here that neither threshold names,
+ * which is exactly why it is worth saying out loud.
+ */
+export function quietRule(alarmLevel, popupLevel) {
+  const listed = ladderFor(alarmLevel, popupLevel)
+    .filter((row) => row.state === 'alert')
+    .map((row) => `${SCALE_NAMES[row.level]} (${row.level})`)
+    .reverse()
+  if (listed.length === 0) return 'Nothing is listed quietly.'
+  const verb = listed.length === 1 ? 'is' : 'are'
+  return `${listed.join(', ')} ${verb} listed quietly — no popup, no sound.`
 }
 
 /**

@@ -113,8 +113,10 @@ Tiles are drawn on demand from the same cached fetch the webapp reads — enabli
 
 Six settings, all optional, all with working defaults:
 
-* `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**, as a dropdown labelled with how often each one happens. "Never" removes the sound without hiding the storm.
-* `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
+* `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**. "Never" removes the sound without hiding the storm.
+* `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along, except a "Never" popup, which leaves the alarm where it is. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
+
+In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
 * `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.

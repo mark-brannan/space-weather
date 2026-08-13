@@ -31,16 +31,22 @@
 // opinion about the version at all.
 import {
   ALARM_NEVER,
+  BOUNDARIES,
   DEFAULTS,
-  LEVEL_OPTIONS,
-  levelOptionLabel,
+  MINOR,
   currentConditions,
   dailyKb,
   formatKb,
+  gripLabel,
   ladderFor,
+  lineUnder,
+  nearestLevel,
   panelSettings,
+  quietRule,
   settingsDiffer,
+  stepLevel,
   verdictFor,
+  withLevel,
   DAYS_PER_MONTH
 } from './config-panel.js'
 
@@ -143,25 +149,6 @@ function createPanel(React) {
   const NoaaLink = ({ href, text }) =>
     h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text)
 
-  /** One NOAA-level threshold. Both of them offer the same choices. */
-  const LevelSelect = ({ id, value, onChange }) =>
-    h(
-      'select',
-      {
-        className: 'form-select mb-3',
-        id,
-        value,
-        onChange: (event) => onChange(Number(event.target.value))
-      },
-      LEVEL_OPTIONS.map((option) =>
-        h(
-          'option',
-          { key: option.value, value: option.value },
-          levelOptionLabel(option)
-        )
-      )
-    )
-
   const Check = ({ id, checked, onChange, label, help }) =>
     h(
       'div',
@@ -193,54 +180,207 @@ function createPanel(React) {
     nominal: 'table-success'
   }
 
+  /** The colours the two lines and their grips are drawn in. */
+  const EDGE = {
+    sound: 'var(--bs-danger)',
+    popup: 'var(--bs-warning-text-emphasis)'
+  }
+
   /**
-   * The whole consequence of the setting above, redrawn as it changes: one
-   * setting decides four outcomes across five levels, and read as a sentence
-   * that has to be reassembled in the head before it can be judged.
+   * One boundary's grip: a slider whose value is a NOAA level.
    *
-   * Rows are geomagnetic because the rates are, and no single cadence can
-   * label all three scales -- see docs/noaa-products.md. The states and the
-   * methods do apply to all of them, which is what the note underneath says.
+   * It is `role="slider"` rather than a button because that is what it is --
+   * the value is on a scale, the arrow keys move it, and a screen reader reads
+   * out where the line sits instead of "button, sound". `aria-valuetext` is
+   * what makes that legible: 5 on its own says nothing about what happens at 5.
    */
-  const Ladder = ({ alarmLevel, popupLevel }) =>
+  const Grip = ({ kind, level, above, onStep, onDragStart }) =>
     h(
+      'span',
+      {
+        role: 'slider',
+        tabIndex: 0,
+        'aria-label': kind === 'sound' ? 'Sound an alarm at' : 'Show a popup at',
+        'aria-valuemin': MINOR,
+        'aria-valuemax': ALARM_NEVER,
+        'aria-valuenow': level,
+        // 5 on its own says nothing about what happens at 5, so the grip
+        // announces the sentence rather than the number.
+        'aria-valuetext': gripLabel(kind, level),
+        title: gripLabel(kind, level),
+        className:
+          'badge rounded-pill bg-body border border-2 position-absolute' +
+          ' user-select-none',
+        style: {
+          borderColor: EDGE[kind],
+          color: EDGE[kind],
+          cursor: 'grab',
+          // The grip straddles the line, so half of it hangs into the next row.
+          // Table row backgrounds paint in document order and would cover that
+          // half; a positioned element with a z-index paints above all of them.
+          zIndex: 2,
+          // Otherwise a vertical drag on a touchscreen scrolls the page, and
+          // the browser cancels the pointer sequence out from under the drag.
+          touchAction: 'none',
+          // A lane per kind, so two lines landing on one row sit side by side
+          // instead of on top of each other, and neither grip moves sideways
+          // as it moves up and down.
+          left: kind === 'sound' ? '0.25rem' : '5.25rem',
+          // Centred on the line, which is the row edge it is drawn against.
+          ...(above
+            ? { top: 0, transform: 'translateY(-50%)' }
+            : { bottom: 0, transform: 'translateY(50%)' })
+        },
+        onKeyDown: (event) => {
+          const next = stepLevel(level, event.key)
+          // Anything the grip does not claim -- Tab above all -- has to keep
+          // working, or the boundary becomes a keyboard trap.
+          if (next === null) return
+          event.preventDefault()
+          onStep(next)
+        },
+        onPointerDown: onDragStart
+      },
+      kind
+    )
+
+  /**
+   * The ladder, and the control. Every row is a consequence of the two lines
+   * drawn across it, so the table that showed the setting now *is* the setting:
+   * there is nothing on screen that is not either a decision or its result.
+   *
+   * A line rests on the bottom edge of the row its band opens at, drawn as that
+   * row's bottom border -- so the browser places it, and nothing here measures
+   * a row height or listens for a resize. `ALARM_NEVER` has no row, so its line
+   * is the top border of the first one, where the band above it is empty.
+   *
+   * Rows are geomagnetic because the rates are, and no single cadence can label
+   * all three scales -- see docs/noaa-products.md. The states and the methods
+   * do apply to all of them, which is what the note underneath says.
+   */
+  const Ladder = ({ settings, onChange }) => {
+    const body = useRef(null)
+
+    /**
+     * Drag: snap the line to whichever edge the pointer is nearest. The row
+     * geometry is read once, at pointerdown, because the ladder redraws under
+     * the cursor as the value changes and re-measuring mid-drag would chase
+     * its own tail.
+     */
+    const onDragStart = useCallback(
+      (kind, key) => (event) => {
+        if (event.button !== undefined && event.button !== 0) return
+        event.preventDefault()
+        const rows = [...(body.current?.children ?? [])]
+        if (rows.length === 0) return
+        const edges = {}
+        for (const row of rows) {
+          const box = row.getBoundingClientRect()
+          const level = Number(row.dataset.level)
+          edges[level] = box.bottom
+          if (level === 5) edges[ALARM_NEVER] = box.top
+        }
+        const move = (moved) => onChange(key, nearestLevel(edges, moved.clientY))
+        const done = () => {
+          window.removeEventListener('pointermove', move)
+          window.removeEventListener('pointerup', done)
+          window.removeEventListener('pointercancel', done)
+        }
+        window.addEventListener('pointermove', move)
+        window.addEventListener('pointerup', done)
+        window.addEventListener('pointercancel', done)
+      },
+      [onChange]
+    )
+
+    const { alarmLevel, popupLevel } = settings
+    return h(
       'table',
       { className: 'table table-sm align-middle small mb-2' },
+      // The instruction goes in the caption rather than in the gutter's own
+      // header, where it would set that column's width from its longest word
+      // and wrap the whole header row to two lines.
+      h(
+        'caption',
+        { className: 'caption-top pt-0' },
+        'Drag a line, or focus one and use the arrow keys.'
+      ),
       h(
         'thead',
         null,
         h(
           'tr',
           null,
+          // The gutter the grips sit in: wide enough for two lanes of pill.
+          // Its name is there but not drawn -- a column reached by header
+          // navigation needs one, and on screen the grips are self-evidently
+          // what the column is for.
+          h(
+            'th',
+            { scope: 'col', style: { width: '11rem' } },
+            h('span', { className: 'visually-hidden' }, 'Thresholds')
+          ),
           h('th', { scope: 'col' }, 'Level'),
           h('th', { scope: 'col' }, 'Notification'),
           h('th', { scope: 'col' }, 'What you get'),
-          h('th', { scope: 'col', className: 'text-end' }, 'Days a year')
+          h('th', { scope: 'col' }, 'How often')
         )
       ),
       h(
         'tbody',
-        null,
-        ladderFor(alarmLevel, popupLevel).map((row) =>
-          h(
+        { ref: body },
+        ladderFor(alarmLevel, popupLevel).map((row) => {
+          // A line rests under the row its band opens at. ALARM_NEVER has no
+          // row, so it rests above the top one, where the band is empty.
+          const under = BOUNDARIES.filter(
+            (b) => lineUnder(settings[b.key]) === row.level
+          )
+          const over =
+            row.level === 5
+              ? BOUNDARIES.filter((b) => settings[b.key] === ALARM_NEVER)
+              : []
+          // The border goes on the cells rather than the row: Bootstrap draws
+          // table borders cell by cell, and a border on the `tr` loses to it.
+          const cell = {
+            borderBottom:
+              under.length > 0 ? `2px solid ${EDGE[under[0].kind]}` : undefined,
+            borderTop:
+              over.length > 0 ? `2px solid ${EDGE[over[0].kind]}` : undefined
+          }
+          return h(
             'tr',
-            { key: row.level, className: ROW_CLASS[row.state] },
-            h(
-              'th',
-              { scope: 'row', className: 'fw-semibold' },
-              `G${row.level} ${row.name}`
-            ),
-            h('td', { className: 'font-monospace' }, row.state),
-            h('td', null, row.effect),
+            {
+              key: row.level,
+              'data-level': row.level,
+              className: ROW_CLASS[row.state]
+            },
             h(
               'td',
-              { className: 'text-end font-monospace' },
-              row.stormDaysPerYear
-            )
+              { className: 'position-relative', style: cell },
+              [...under, ...over].map((boundary) =>
+                h(Grip, {
+                  key: boundary.kind,
+                  kind: boundary.kind,
+                  level: settings[boundary.key],
+                  above: settings[boundary.key] === ALARM_NEVER,
+                  onStep: (next) => onChange(boundary.key, next),
+                  onDragStart: onDragStart(boundary.kind, boundary.key)
+                })
+              )
+            ),
+            h(
+              'th',
+              { scope: 'row', className: 'fw-semibold', style: cell },
+              `G${row.level} ${row.name}`
+            ),
+            h('td', { className: 'font-monospace', style: cell }, row.state),
+            h('td', { style: cell }, row.effect),
+            h('td', { style: cell }, row.rate)
           )
-        )
+        })
       )
     )
+  }
 
   /**
    * Where the sky is on the ladder above, right now. "Extreme (5)" is an
@@ -385,14 +525,7 @@ function createPanel(React) {
      */
     const setLevel = useCallback((key, value) => {
       setSaved(false)
-      setSettings((previous) => {
-        const next = { ...previous, [key]: value }
-        if (next.popupLevel === ALARM_NEVER) return next
-        if (key === 'alarmLevel')
-          next.popupLevel = Math.min(next.popupLevel, value)
-        else next.alarmLevel = Math.max(next.alarmLevel, value)
-        return next
-      })
+      setSettings((previous) => withLevel(previous, key, value))
     }, [])
 
     const onSubmit = useCallback(
@@ -455,30 +588,16 @@ function createPanel(React) {
       h(
         Field,
         {
-          label: 'Sound an alarm at…',
-          htmlFor: 'noaa-alarm-level',
-          help: 'Visible and audible, from this level up.'
-        },
-        h(LevelSelect, {
-          id: 'noaa-alarm-level',
-          value: settings.alarmLevel,
-          onChange: (value) => setLevel('alarmLevel', value)
-        })
-      ),
-
-      h(
-        Field,
-        {
-          label: 'Show a popup at…',
-          htmlFor: 'noaa-popup-level',
+          label: 'When to interrupt you',
           help: h(
             'span',
             null,
-            'Strong (3) and above is listed whatever these two are set to — a' +
-              ' storm that size should leave a trace even with the plugin' +
-              ' turned all the way down. The states and methods apply to the' +
-              ' G, S and R scales and to Kp. The rates are geomagnetic storm' +
-              ' days in a median year, measured over 1932–2025; the other two' +
+            quietRule(settings.alarmLevel, settings.popupLevel),
+            ' Strong (3) and above is listed whatever the two lines are set' +
+              ' to — a storm that size should leave a trace even with the' +
+              ' plugin turned all the way down. The states and methods apply' +
+              ' to the G, S and R scales and to Kp. How often is geomagnetic,' +
+              ' counted from the Kp archive over 1932–2025; the other two' +
               ' scales differ, sharply at 4 and 5, and every rate roughly' +
               ' doubles during the active stretch of a solar cycle. ',
             h(NoaaLink, {
@@ -490,15 +609,7 @@ function createPanel(React) {
         h(
           'div',
           null,
-          h(LevelSelect, {
-            id: 'noaa-popup-level',
-            value: settings.popupLevel,
-            onChange: (value) => setLevel('popupLevel', value)
-          }),
-          h(Ladder, {
-            alarmLevel: settings.alarmLevel,
-            popupLevel: settings.popupLevel
-          }),
+          h(Ladder, { settings, onChange: setLevel }),
           h(RightNow, {
             conditions,
             alarmLevel: settings.alarmLevel,

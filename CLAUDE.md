@@ -142,6 +142,31 @@ leaving a gap of `normal` between two adjacent bands.
 "Never" in both dropdowns and needs no explanation of what still happens, which
 is exactly what the split bought — the other dropdown says so in its own words.
 
+**In the panel the two thresholds are lines drawn across the ladder, not
+dropdowns.** A threshold is a boundary, so it is drawn as one: the line rests on
+the bottom edge of the row its band opens at, and the band is everything above
+it. `ALARM_NEVER` rests above the top row, where the band is empty — "Never" is
+reached by running out of storms rather than by picking a word for it. The table
+that showed the consequence of the setting *is* the setting, so nothing on
+screen is neither a decision nor a result of one.
+
+Two things about that are load-bearing. **The line is a CSS border on the cells
+of its row**, so the browser places it and nothing measures a row height or
+listens for a resize; it goes on the cells rather than the `tr` because
+Bootstrap draws table borders cell by cell and a border on the row loses to it.
+And **the grips sit in a lane per kind**, so two lines landing on one row sit
+side by side rather than on top of each other, and neither grip slides sideways
+as it moves up and down.
+
+The grips are `role="slider"` with `aria-valuetext`, because the value is on a
+scale and "5" on its own says nothing about what happens at 5. `stepLevel`
+returns `null` for any key the grip does not claim, which is what keeps Tab
+working — a boundary that swallowed it would be a keyboard trap. The dropdowns
+still exist in the JSON schema and are what a server renders when the panel
+fails to load, so both controls have to resolve a pair the same way:
+`withLevel` is the panel's clamp and `config-panel.test.ts` pins that nothing it
+can produce is a pair `settingsFrom` would rewrite.
+
 Do not reintroduce a control that derives *upward* from a "worth your
 attention" pivot. That runs off the end of a five-level scale: the pivot at 4
 could never reach `alarm`, and at 5 never even `warn`, so the two

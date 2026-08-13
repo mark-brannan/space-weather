@@ -7,17 +7,21 @@ import {
   DAYS_PER_MONTH,
   DEFAULTS,
   OTHER_WIRE_KB,
-  STORM_DAYS_PER_YEAR,
+  RATE,
   currentConditions,
   dailyKb,
   formatKb,
   gScaleForKp,
   ladderFor,
+  lineUnder,
   methodForState,
+  nearestLevel,
   panelSettings,
   settingsDiffer,
   stateForScaleValue,
-  verdictFor
+  stepLevel,
+  verdictFor,
+  withLevel
 } from '../public/config-panel.js'
 import { schema, settingsFrom } from '../src/config'
 import {
@@ -169,6 +173,122 @@ describe('panelSettings', () => {
     expect(panelSettings(saved).alarmLevel).toBe(DEFAULTS.alarmLevel)
     expect(settingsFrom(saved).alarmLevel).toBe(3)
     expect(settingsDiffer(panelSettings(saved), settingsFrom(saved))).toBe(true)
+  })
+})
+
+describe('moving a boundary line', () => {
+  const pairs = THRESHOLDS.flatMap((alarmLevel) =>
+    THRESHOLDS.map((popupLevel) => ({ alarmLevel, popupLevel }))
+  )
+
+  it('never produces a pair the plugin would rewrite', () => {
+    // The strong property, and the reason this is worth its own function: a
+    // grip that could put the panel in a state `settingsFrom` pulls back would
+    // show the user a ladder the plugin is not running.
+    for (const pair of pairs)
+      for (const key of ['alarmLevel', 'popupLevel'])
+        for (const value of THRESHOLDS) {
+          const moved = withLevel(pair, key, value)
+          expect(settingsFrom(moved)).toMatchObject(moved)
+        }
+  })
+
+  it('puts the moved threshold exactly where it was asked to go', () => {
+    // The other one may follow; the one under the pointer never argues back.
+    for (const pair of pairs)
+      for (const key of ['alarmLevel', 'popupLevel'])
+        for (const value of THRESHOLDS)
+          expect(withLevel(pair, key, value)[key]).toBe(value)
+  })
+
+  it('lets a Never popup keep the alarm where it is', () => {
+    // Both directions: choosing it, and moving the alarm afterwards. Dragging
+    // the alarm up to meet it would silence a plugin the user had only asked
+    // to stop popping up.
+    expect(
+      withLevel({ alarmLevel: 5, popupLevel: 4 }, 'popupLevel', ALARM_NEVER)
+    ).toEqual({ alarmLevel: 5, popupLevel: ALARM_NEVER })
+    expect(
+      withLevel({ alarmLevel: 5, popupLevel: ALARM_NEVER }, 'alarmLevel', 3)
+    ).toEqual({ alarmLevel: 3, popupLevel: ALARM_NEVER })
+  })
+
+  it('takes the other line along rather than refusing the move', () => {
+    expect(
+      withLevel({ alarmLevel: 5, popupLevel: 4 }, 'alarmLevel', 2)
+    ).toEqual({ alarmLevel: 2, popupLevel: 2 })
+    expect(
+      withLevel({ alarmLevel: 3, popupLevel: 2 }, 'popupLevel', 5)
+    ).toEqual({ alarmLevel: 5, popupLevel: 5 })
+  })
+
+  it('leaves the rest of the settings alone', () => {
+    const settings = { alarmLevel: 5, popupLevel: 4, updateInterval: 30 }
+    expect(withLevel(settings, 'alarmLevel', 3).updateInterval).toBe(30)
+  })
+})
+
+describe('driving a boundary from the keyboard', () => {
+  it('is quieter upward and louder downward', () => {
+    // Up raises the line, so the band above it loses its bottom row and one
+    // more level stops interrupting.
+    expect(stepLevel(3, 'ArrowUp')).toBe(4)
+    expect(stepLevel(3, 'ArrowDown')).toBe(2)
+    expect(stepLevel(3, 'ArrowRight')).toBe(4)
+    expect(stepLevel(3, 'ArrowLeft')).toBe(2)
+  })
+
+  it('stops at the ends of the range the grip reports', () => {
+    expect(stepLevel(ALARM_NEVER, 'ArrowUp')).toBe(ALARM_NEVER)
+    expect(stepLevel(1, 'ArrowDown')).toBe(1)
+    expect(stepLevel(3, 'Home')).toBe(1)
+    expect(stepLevel(3, 'End')).toBe(ALARM_NEVER)
+  })
+
+  it('reaches every level, including the two below the alert floor', () => {
+    // Unlikely settings, not forbidden ones: restricting the control to 3-5
+    // would strand a saved config that asked for something quieter.
+    const walked = [ALARM_NEVER]
+    while (walked[0] > 1) walked.unshift(stepLevel(walked[0], 'ArrowDown'))
+    expect(walked).toEqual([1, 2, 3, 4, 5, ALARM_NEVER])
+  })
+
+  it('claims no other key, so the grip is not a keyboard trap', () => {
+    for (const key of ['Tab', 'Enter', ' ', 'a', 'Escape', 'PageUp'])
+      expect(stepLevel(3, key)).toBeNull()
+  })
+})
+
+describe('dragging a boundary line', () => {
+  // Rows are laid out top to bottom, loudest first, so a level's edge is the
+  // bottom of its row and ALARM_NEVER's is the top of the first one.
+  const edges = { [ALARM_NEVER]: 0, 5: 20, 4: 40, 3: 60, 2: 80, 1: 100 }
+
+  it('snaps to the nearest edge rather than the row under the pointer', () => {
+    // Nearest is what lets a grip reach the line above the top row at all --
+    // there is no row above it to be inside of.
+    expect(nearestLevel(edges, 0)).toBe(ALARM_NEVER)
+    expect(nearestLevel(edges, -30)).toBe(ALARM_NEVER)
+    expect(nearestLevel(edges, 21)).toBe(5)
+    expect(nearestLevel(edges, 29)).toBe(5)
+    expect(nearestLevel(edges, 31)).toBe(4)
+    expect(nearestLevel(edges, 400)).toBe(1)
+  })
+
+  it('reaches every level the keyboard does', () => {
+    for (const [level, at] of Object.entries(edges))
+      expect(nearestLevel(edges, at)).toBe(Number(level))
+  })
+})
+
+describe('where a boundary line is drawn', () => {
+  it('rests under the row its band opens at', () => {
+    for (const level of [1, 2, 3, 4, 5]) expect(lineUnder(level)).toBe(level)
+  })
+
+  it('has no row of its own at Never', () => {
+    // Which is what puts it above the ladder, where the band is empty.
+    expect(lineUnder(ALARM_NEVER)).toBeNull()
   })
 })
 
@@ -326,16 +446,18 @@ describe('ladderFor', () => {
     }
   })
 
-  it('carries a rate for every level, rarer as the level rises', () => {
-    const rows = ladderFor(5)
-    for (const row of rows) {
-      expect(row.stormDaysPerYear).toBe(STORM_DAYS_PER_YEAR[row.level])
-    }
-    for (let level = 2; level <= 5; level++) {
-      expect(STORM_DAYS_PER_YEAR[level]).toBeLessThan(
-        STORM_DAYS_PER_YEAR[level - 1]
+  it('carries a rate for every level', () => {
+    for (const row of ladderFor(5)) expect(row.rate).toBe(RATE[row.level])
+  })
+
+  it('quotes the same rate the fallback dropdown quotes', () => {
+    // The ladder and the dropdown are the same choice to a user, who may well
+    // see either -- the panel is not guaranteed to load. Two lists of words
+    // would drift; one list read twice cannot.
+    for (const option of LEVEL_OPTIONS)
+      expect(option.rate).toBe(
+        option.value === ALARM_NEVER ? undefined : RATE[option.value]
       )
-    }
   })
 })
 
