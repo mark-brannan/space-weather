@@ -87,6 +87,30 @@ describe('heroState', () => {
     ])
   })
 
+  it('does not read the Kp forecast as an easing time for another scale', () => {
+    // The series is geomagnetic. An R4 with a quiet sky ahead must not
+    // produce a time at which the radio blackout supposedly eases.
+    const result = state({
+      observed: { R: 4, G: 0, S: 0 },
+      series: series(2, 2, 2)
+    })
+    expect(result.letter).toBe('R')
+    expect(result.timer.kind).toBe('forecast-clear')
+  })
+
+  it('still counts an inbound G storm while another scale leads', () => {
+    const result = state({
+      observed: { R: 4, G: 0, S: 0 },
+      series: series(2, 8, 8)
+    })
+    expect(result.letter).toBe('R')
+    expect(result.timer).toEqual({
+      kind: 'until-level',
+      level: 4,
+      at: new Date(NOW + 6 * HOUR).toISOString()
+    })
+  })
+
   it('does not list a scale below the level worth surfacing', () => {
     const result = state({ observed: { G: 3, S: 2, R: 1 } })
     expect(result.also).toEqual([])

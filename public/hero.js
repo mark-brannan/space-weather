@@ -83,7 +83,11 @@ function forecastPoints(series, nowMs) {
  *
  * `currentLevel` is the geomagnetic level in force now, so that a storm
  * already running counts to the level above it (the actionable change) and
- * falls back to counting to the drop.
+ * falls back to counting to the drop. It has to be the *geomagnetic* level
+ * even when another scale leads the banner: `series` is the Kp forecast and
+ * describes nothing else. Comparing an R or S level against it reads an
+ * easing time out of a forecast that never mentioned radio blackouts, and
+ * raises the escalation bar high enough to drop a real inbound G storm.
  */
 export function timerFor(series, currentLevel, nowMs) {
   const ahead = forecastPoints(series, nowMs)
@@ -147,7 +151,7 @@ export function heroState(input, now = Date.now()) {
     }
   }
 
-  const timer = timerFor(series, lead.level, now)
+  const timer = timerFor(series, observed?.G ?? 0, now)
 
   if (lead.level >= NOTABLE) {
     return {

@@ -639,7 +639,10 @@ import { heroState, uncapitalise } from './hero.js';
   // this size reads as a warning rather than as an absence, and the timer
   // always has something honest to count: forward to the next change in
   // conditions, or back to the last time we knew anything at all.
-  function renderTimer(timer, sev) {
+  // `gOnly` says another scale is leading the banner, so the clock -- which
+  // only ever reads the Kp forecast -- has to name the scale it speaks for.
+  // "No storm inbound" under an R4 headline would read as a contradiction.
+  function renderTimer(timer, sev, gOnly) {
     const cd = document.getElementById('heroCountdown');
     const cdLabel = document.getElementById('heroCountdownLabel');
     const at = timer.at ? Date.parse(timer.at) : NaN;
@@ -647,11 +650,11 @@ import { heroState, uncapitalise } from './hero.js';
       'since-start': ['Since plugin start', () => Date.now() - at],
       'since-update': ['Since last update', () => Date.now() - at],
       'until-level': [`Until G${timer.level} window`, () => at - Date.now()],
-      'until-easing': ['Until easing', () => at - Date.now()],
+      'until-easing': [gOnly ? 'Until G eases' : 'Until easing', () => at - Date.now()],
       // Deliberately 00:00 rather than a placeholder: the slot counts to the
       // next thing that matters, and when nothing is forecast, that is what
       // arrives. The label is what keeps it from reading as an expired clock.
-      'forecast-clear': ['No storm inbound', () => 0]
+      'forecast-clear': [gOnly ? 'No G storm inbound' : 'No storm inbound', () => 0]
     }[timer.kind];
 
     // Having no forecast at all is not the same claim as "no storm is
@@ -737,7 +740,7 @@ import { heroState, uncapitalise } from './hero.js';
         : 'Nothing above background in the last 24 hours, none forecast through 72 hours.';
     }
 
-    renderTimer(state.timer, timerSev);
+    renderTimer(state.timer, timerSev, state.kind === 'storm' && state.letter !== 'G');
   }
 
   // "M1.4" -> class letter in the rounded face, magnitude in the numeral
