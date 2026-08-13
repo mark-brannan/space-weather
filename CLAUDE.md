@@ -312,13 +312,15 @@ npx --prefix scripts/screenshots playwright install chromium
 SK_USERNAME=... SK_PASSWORD=... node scripts/screenshots/capture.mjs
 ```
 
-It defaults to `http://localhost:3001`, hard-coded in `capture.mjs`; `SK_URL`
-or `--url` points it somewhere else. `--only webapp,aurora-map` limits the run.
-Which one you want is a real choice: the published package's shots match what
-someone installing from the registry sees, while a dev server shows UI that has
-not shipped yet. **Check what is on 3001 before trusting that default** — under
-symphony's committed allocation 3001 is Grafana, not Signal K, so the default
-needs to follow wherever the published-package instance actually lands.
+It defaults to the dev server on `http://localhost:3010`, hard-coded in
+`capture.mjs`; `SK_URL` or `--url` points it somewhere else. `--only
+webapp,aurora-map` limits the run. Which one you want is a real choice, and the
+default takes the side of feature work: shots are part of the change that alters
+the UI, so capturing them against the published package means a PR that rewrote
+a panel ships a picture of the old one. Point `--url` at the published-package
+Docker instance when the point is to match what a registry installer sees
+instead — and read symphony's compose files for its port rather than assuming
+one.
 
 Four of the five shots need only a **readonly** login. Just `plugin-configuration`
 needs admin, because `/skServer/plugins` is admin-gated — with a readonly session
