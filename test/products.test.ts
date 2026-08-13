@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
 import { f107 } from '../src/products/f107'
 import { kp } from '../src/products/kp'
+import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import { fixture, fixtureJson } from './fixtures'
@@ -215,6 +216,78 @@ describe('f107 product', () => {
   it('publishes nothing rather than an error-free silent gap when no Noon entry exists', async () => {
     const h = harness({ '/json/f107_cm_flux.json': [] })
     await f107.refresh(h.ctx as any)
+    expect(h.published).toEqual([])
+    expect(h.errors.length).toBe(1)
+  })
+})
+
+const OUTLOOK27_ENDPOINT = '/text/27-day-outlook.txt'
+
+describe('outlook27 product', () => {
+  const stubbed = () =>
+    harness({ [OUTLOOK27_ENDPOINT]: fixture('27-day-outlook.2026_08_12.txt') })
+
+  it('publishes the summary and the daily series from a captured payload', async () => {
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKp')).toBe(5)
+    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKpTime')).toBe(
+      '2026-08-11T00:00:00.000Z'
+    )
+    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxNoaaScale')).toBe(
+      1
+    )
+    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormTime')).toBe(
+      '2026-08-11T00:00:00.000Z'
+    )
+    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormKp')).toBe(5)
+    expect(
+      h.valueAt('environment.noaa.swpc.outlook_27day.series')
+    ).toHaveLength(27)
+  })
+
+  it('timestamps the delta with the issue time, not the fetch time', async () => {
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+    expect(h.published[0].timestamp).toBe('2026-08-10T01:53:00.000Z')
+  })
+
+  it('raises no notification for any of it', async () => {
+    // The whole design decision of this product: 27-day data is a recurrence
+    // estimate, and the server raises a notification off any path carrying
+    // meta.zones. A G1 day falls inside the window roughly monthly -- this
+    // fixture has two -- so zoning it would fire on low-skill data and dilute
+    // the 3-day alerts. Nothing here gets zones, and nothing publishes under
+    // notifications.
+    for (const meta of outlook27.metadata!(settingsFrom({}))) {
+      expect(meta.value.zones, meta.path).toBeUndefined()
+    }
+
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+    for (const path of h.paths()) {
+      expect(path.startsWith('notifications.')).toBe(false)
+    }
+  })
+
+  it('describes every path it publishes', async () => {
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+    const described = outlook27.metadata!(settingsFrom({})).map((m) => m.path)
+    for (const path of h.paths()) expect(described).toContain(path)
+  })
+
+  it('has a hard-coded interval, not one driven by settings', () => {
+    expect(outlook27.intervalMinutes(settingsFrom({ updateInterval: 5 }))).toBe(
+      240
+    )
+  })
+
+  it('publishes nothing when the table cannot be read', async () => {
+    const h = harness({ [OUTLOOK27_ENDPOINT]: ':Issued: 2026 Aug 10 0153 UTC' })
+    await outlook27.refresh(h.ctx as any)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })

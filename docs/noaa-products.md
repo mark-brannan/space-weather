@@ -35,6 +35,7 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 | `/json/f107_cm_flux.json` | `f107` | three readings a day; only "Noon" is used |
 | `/json/ovation_aurora_latest.json` | `aurora` | the only large payload |
 | `/text/advisory-outlook.txt` | `advisory` | weekly bulletin, plain text |
+| `/text/27-day-outlook.txt` | `outlook27` | daily rows for one solar rotation, plain text |
 
 ## Payload size
 
@@ -48,9 +49,14 @@ roughly ten times.
 | `/products/alerts.json` | ~5 KB | 53 KB |
 | `/json/ovation_aurora_latest.json` | ~145 KB | ~898 KB |
 | `/text/advisory-outlook.txt` | ~1.6 KB | — |
+| `/text/27-day-outlook.txt` | 451 B | 1606 B |
 
 Everything else is small enough that it has never mattered; the remaining
 observation and forecast endpoints together come to about 5 KB per poll.
+
+`/text/27-day-outlook.txt` was measured 2026-08-12, separately from the run
+above and after it, by the same method. 451 B every four hours is about 2.7 KB
+a day, which is why `outlook27` has no setting.
 
 **Consequence.** Only aurora is worth a setting (`auroraEnabled`,
 `auroraInterval`). At the default two-hour interval it is about 1.7 MB a day,
@@ -76,8 +82,9 @@ nothing about cadence.
 
 ## Conditional GET never saves anything
 
-Measured 2026-08-09. All nine endpoints, baseline `ETag` and `Last-Modified`
-echoed back as `If-None-Match` / `If-Modified-Since`, probed twice.
+Measured 2026-08-09, except `/text/27-day-outlook.txt` on 2026-08-12 by the
+same method. Baseline `ETag` and `Last-Modified` echoed back as
+`If-None-Match` / `If-Modified-Since`, probed twice.
 
 | Endpoint | +150s | +300s |
 | --- | --- | --- |
@@ -90,6 +97,7 @@ echoed back as `If-None-Match` / `If-Modified-Since`, probed twice.
 | `/json/goes/primary/xray-flares-latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/json/ovation_aurora_latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/text/advisory-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/27-day-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 
 **Zero 304s, on any endpoint, at either gap** — including four whose bodies were
 byte-identical to the baseline. The ETag is shaped `<size>-<mtime>`:
@@ -197,6 +205,6 @@ Named so nobody cites this file for them:
 
 - whether any endpoint ever returns 304 at a longer gap than 300s
 - whether `Cache-Control: max-age=60` is honoured by any intermediary
-- content cadence for `/json/ovation_aurora_latest.json` and
-  `/text/advisory-outlook.txt` — both were in the size and conditional-GET runs
-  but not the 15-minute cadence watch
+- content cadence for `/json/ovation_aurora_latest.json`,
+  `/text/advisory-outlook.txt` and `/text/27-day-outlook.txt` — all three were
+  in the size and conditional-GET runs but not the 15-minute cadence watch

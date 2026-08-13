@@ -26,6 +26,7 @@ The plugin currently surfaces:
 * NOAA SWPC Alerts, Warnings, and Watches as signalk notifications, one per message code under `notifications.noaa.swpc.alerts` (e.g. `alerts.WARK05`), carrying only the conditions currently in force — see [Alerts, watches and warnings](#alerts-watches-and-warnings)
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
+* The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.outlook_27day` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
 * Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default, since the payload is about 145 KB per fetch
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
@@ -34,9 +35,17 @@ NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar rad
 
 The G scale is defined directly in terms of Kp (G1 = Kp5 through G5 = Kp9). NOAA's `noaa-scales.json` gives one G value per forecast *day*; the planetary K-index forecast gives a value every three hours out to three days. It is the feed that tells you **when**, which is the part you can actually plan a passage around.
 
+### The 27-day outlook
+
+Everything else here stops at 72 hours. The 27-day outlook runs a full solar rotation at one row per UTC day, which is the only thing in the plugin that speaks to *next week* — whether a passage a fortnight out is likely to fall in a disturbed stretch.
+
+It buys that horizon by being a **recurrence** forecast. 27 days is the solar rotation period, so the outlook is largely the last rotation repeated, on the assumption that the same coronal holes come back around. It has far less skill than the 3-day products and gives a whole-day maximum rather than a time.
+
+So none of it carries `zones`, and **none of it will ever raise a notification or sound an alarm**. A G1 day turns up somewhere in a 27-day window roughly monthly; alarming on that would fire constantly on low-confidence data and drown out the 3-day alerts that are worth waking up for. Read the outlook; be woken by the Kp forecast.
+
 ### Alarm zones
 
-Every scale and Kp path carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
+Every scale and Kp path except the 27-day outlook carries Signal K [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or Freeboard colours itself with no extra configuration.
 
 Zones also cause the server to raise notifications on your behalf, so the default is deliberately quiet. NOAA's published event frequencies over an 11-year solar cycle:
 
@@ -141,6 +150,7 @@ Five settings were removed in 0.13.0. Configs that set the old keys still work �
 Note that the outlook advisory is not available as json, so the plugin is doing some parsing of raw text.
 
 * <https://services.swpc.noaa.gov/text/advisory-outlook.txt>
+* <https://services.swpc.noaa.gov/text/27-day-outlook.txt>
 * <https://services.swpc.noaa.gov/text/current-space-weather-indices.txt>
 * <https://services.swpc.noaa.gov/text/3-day-forecast.txt>
 

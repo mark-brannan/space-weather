@@ -3,6 +3,7 @@ import {
   NoaaScaleValues,
   firstJsonValue,
   getAlertLevel,
+  parse27DayOutlook,
   parseAdvisoryOutlook,
   parseAlert,
   parseF107,
@@ -17,6 +18,7 @@ import {
   ADVISORY_FIXTURES,
   ALERT_FIXTURES,
   KP_FORECAST_FIXTURES,
+  OUTLOOK27_FIXTURES,
   SCALES_FIXTURES,
   fixture,
   fixtureJson
@@ -637,6 +639,94 @@ describe('parseKpForecast', () => {
       expect(summary.observed).toBeNull()
       expect(summary.max72h).toBeNull()
     }
+  })
+})
+
+describe('parse27DayOutlook', () => {
+  const captured = () => parse27DayOutlook(fixture(OUTLOOK27_FIXTURES[0]))
+
+  it('reads one row per day of the solar rotation, skipping the header', () => {
+    const outlook = captured()
+    expect(outlook?.days).toHaveLength(27)
+    expect(outlook?.days[0]).toEqual({
+      time: '2026-08-10T00:00:00.000Z',
+      f107: 90,
+      aIndex: 12,
+      kp: 4
+    })
+    expect(outlook?.days[26].time).toBe('2026-09-05T00:00:00.000Z')
+  })
+
+  it('parses every captured outlook', () => {
+    for (const name of OUTLOOK27_FIXTURES) {
+      const outlook = parse27DayOutlook(fixture(name))
+      expect(outlook?.days.length, name).toBeGreaterThan(0)
+      for (const day of outlook!.days) {
+        expect(Number.isFinite(day.kp), name).toBe(true)
+        expect(Number.isFinite(day.f107), name).toBe(true)
+        expect(Number.isFinite(day.aIndex), name).toBe(true)
+      }
+    }
+  })
+
+  it('reads the issue date', () => {
+    expect(captured()?.issued?.toISOString()).toBe('2026-08-10T01:53:00.000Z')
+  })
+
+  it('reports the peak on its first day, not its last', () => {
+    // Kp 5 appears twice in this fixture, on 11 Aug and again on 19 Aug. The
+    // useful answer for planning is when the disturbed stretch starts.
+    const outlook = captured()
+    expect(outlook?.maxKp).toBe(5)
+    expect(outlook?.maxKpTime).toBe('2026-08-11T00:00:00.000Z')
+    expect(outlook?.maxNoaaScale).toBe(NoaaScaleValues.MINOR)
+  })
+
+  it('finds the first day reaching storm level', () => {
+    const outlook = captured()
+    expect(outlook?.nextStormTime).toBe('2026-08-11T00:00:00.000Z')
+    expect(outlook?.nextStormKp).toBe(5)
+  })
+
+  it('leaves the storm fields null when the window stays quiet', () => {
+    const outlook = parse27DayOutlook('2026 Aug 10 90 12 4\n')
+    expect(outlook?.nextStormTime).toBeNull()
+    expect(outlook?.nextStormKp).toBeNull()
+    expect(outlook?.maxKp).toBe(4)
+  })
+
+  it('accepts an ISO date column', () => {
+    const outlook = parse27DayOutlook('2026-08-10      90     12     4\n')
+    expect(outlook?.days[0]).toEqual({
+      time: '2026-08-10T00:00:00.000Z',
+      f107: 90,
+      aIndex: 12,
+      kp: 4
+    })
+  })
+
+  it('keeps reading a row that grows a fourth column', () => {
+    const outlook = parse27DayOutlook('2026 Aug 10   90   12   4   whatever\n')
+    expect(outlook?.days[0].kp).toBe(4)
+  })
+
+  it('sorts rows into date order', () => {
+    const outlook = parse27DayOutlook(
+      '2026 Aug 12 92 10 3\n2026 Aug 10 90 12 4\n2026 Aug 11 90 20 5\n'
+    )
+    expect(outlook?.days.map((d) => d.f107)).toEqual([90, 90, 92])
+    expect(outlook?.maxKpTime).toBe('2026-08-11T00:00:00.000Z')
+  })
+
+  it('returns null rather than an empty table', () => {
+    // The product logs an error on null. An outlook with no rows published as
+    // an empty series would look like a quiet 27 days.
+    expect(parse27DayOutlook('')).toBeNull()
+    expect(
+      parse27DayOutlook('#  Date   10.7 cm   A Index   Kp Index\n')
+    ).toBeNull()
+    expect(parse27DayOutlook('2026 Foo 10 90 12 4\n')).toBeNull()
+    expect(parse27DayOutlook('2026 Aug 10 x y z\n')).toBeNull()
   })
 })
 

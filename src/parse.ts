@@ -923,6 +923,98 @@ function parseUtcTimestamp(raw: any): Date | null {
   return isNaN(parsed.getTime()) ? null : parsed
 }
 
+export interface Outlook27Day {
+  /** Start of the UTC day the row describes, as an ISO instant. */
+  time: string
+  f107: number
+  aIndex: number
+  /** The *largest* Kp expected that day, not a daily mean. */
+  kp: number
+}
+
+export interface Outlook27 {
+  issued: Date | null
+  days: Outlook27Day[]
+  maxKp: number | null
+  maxKpTime: string | null
+  maxNoaaScale: number | null
+  nextStormTime: string | null
+  nextStormKp: number | null
+}
+
+/**
+ * Parse https://services.swpc.noaa.gov/text/27-day-outlook.txt
+ *
+ * One row per UTC day for a full solar rotation: Radio Flux 10.7cm, Planetary
+ * A Index, and the largest Kp expected that day.
+ *
+ * 27 days *is* the solar rotation period, which is the whole basis of the
+ * product: it assumes the same coronal holes come back around, so it is a
+ * recurrence estimate rather than a physics-driven forecast the way the
+ * 3-day products are. Treat it as a planning horizon, not as the Kp forecast
+ * with a longer tail -- it carries neither that skill nor its 3-hourly
+ * resolution, and this plugin deliberately hangs no notification off it.
+ */
+export function parse27DayOutlook(text: string): Outlook27 | null {
+  const days: Outlook27Day[] = []
+  for (const line of text.replace(/\r\n/g, '\n').split('\n')) {
+    const row = outlookRow(line)
+    if (row) days.push(row)
+  }
+  if (days.length === 0) return null
+
+  days.sort((a, b) => (a.time < b.time ? -1 : 1))
+  // First day attaining the peak, not the last: for planning, the question is
+  // when the disturbed stretch starts.
+  const peak = days.reduce((best, day) => (day.kp > best.kp ? day : best))
+  const nextStorm = days.find((day) => day.kp >= KP_FOR_G1) ?? null
+
+  return {
+    issued: parseIssueDate(text),
+    days,
+    maxKp: peak.kp,
+    maxKpTime: peak.time,
+    maxNoaaScale: gScaleForKp(peak.kp),
+    nextStormTime: nextStorm ? nextStorm.time : null,
+    nextStormKp: nextStorm ? nextStorm.kp : null
+  }
+}
+
+/**
+ * One data row of the outlook table, or null for anything else in the file.
+ *
+ * Tokenised rather than matched as a whole line, so a fourth column or a
+ * change of spacing does not silently empty the table -- both of this
+ * plugin's other long-lived parsers have had to absorb a NOAA shape change.
+ * The ISO date form is accepted for the same reason; NOAA writes
+ * `2026 Aug 10` today.
+ */
+function outlookRow(line: string): Outlook27Day | null {
+  const trimmed = line.trim()
+  if (trimmed === '' || trimmed.startsWith('#') || trimmed.startsWith(':')) {
+    return null
+  }
+
+  const tokens = trimmed.split(/\s+/)
+  const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(tokens[0])
+  const dateTokens = isoDate ? 1 : 3
+  if (tokens.length < dateTokens + 3) return null
+
+  const [f107, aIndex, kp] = tokens
+    .slice(dateTokens, dateTokens + 3)
+    .map(Number)
+  if (![f107, aIndex, kp].every(Number.isFinite)) return null
+
+  const at = new Date(
+    isoDate
+      ? tokens[0] + 'T00:00:00Z'
+      : tokens.slice(0, 3).join(' ') + ' 00:00 UTC'
+  )
+  if (isNaN(at.getTime())) return null
+
+  return { time: at.toISOString(), f107, aIndex, kp }
+}
+
 export interface SolarWind {
   speed: number | null
   bt: number | null

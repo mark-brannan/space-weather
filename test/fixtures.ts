@@ -44,6 +44,8 @@ export const ADVISORY_FIXTURES = [
 
 export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']
 
+export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']
+
 export const KP_FORECAST_FIXTURES = [
   'noaa-planetary-k-index-forecast.2025_04_10.json',
   'noaa-planetary-k-index-forecast.2025_04_11.json',

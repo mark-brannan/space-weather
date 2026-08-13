@@ -28,6 +28,13 @@ export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
 // A single "most recent Noon reading" value, not bucketed by observation
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'
+/**
+ * The 27-day outlook. Its own base rather than a longer arm of KP_BASE: it is
+ * a recurrence estimate at daily resolution, and reading it as a continuation
+ * of the 3-hourly Kp forecast would overstate both its skill and its detail.
+ * Nothing under here carries `zones`, so none of it raises a notification.
+ */
+export const OUTLOOK27_BASE = 'environment.noaa.swpc.outlook_27day'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]
