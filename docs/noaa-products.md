@@ -91,8 +91,8 @@ fixture is issued on a Monday between 0100 and 0400 UTC.
 
 **This is one issue, seen twice.** It establishes that the product is weekly
 rather than daily; it does *not* establish that Monday ~0153 UTC holds week to
-week. `scripts/watch-27day.mjs` is accumulating that, one issue per week, into
-`examples/` — see the Unmeasured list below for what is still open.
+week. A separate watch outside this repo is collecting that, one issue per
+week — see the Unmeasured list below for what is still open.
 
 **Consequence.** `outlook27` polls once a day and does not chase the issue
 time. Sleeping until just before it and then polling tightly, the way
@@ -231,7 +231,6 @@ Named so nobody cites this file for them:
   `/text/advisory-outlook.txt` and `/text/27-day-outlook.txt` — all three were
   in the size and conditional-GET runs but not the 15-minute cadence watch
 - whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
-  how tightly the issue time clusters. One issue observed so far;
-  `scripts/watch-27day.mjs` is collecting the rest
+  how tightly the issue time clusters. One issue observed so far
 - how much two consecutive weekly issues differ across the 20 days their
-  windows overlap. The same watch will answer it, since it keeps each issue
+  windows overlap
