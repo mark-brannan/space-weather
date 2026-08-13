@@ -1122,6 +1122,16 @@ import { heroState, uncapitalise } from './hero.js';
   // "there is more", so the omission goes unnoticed. Three periods take
   // three cells and cannot be mistaken for the end of a sentence.
   const CONTINUES = '...';
+  // NOAA writes these bulletins in long sentences, so a cut lands mid-word far
+  // more often than not, and a broken word reads as a corrupted feed rather
+  // than as an omission. Back up to the last space instead -- unless the cut
+  // is inside the only word there is, where a hard cut beats an empty teaser.
+  function cutAt(text, end) {
+    if (end >= text.length) return text.trimEnd();
+    const kept = text.slice(0, end);
+    const lastSpace = kept.search(/\s+\S*$/);
+    return (lastSpace > 0 ? kept.slice(0, lastSpace) : kept).trimEnd();
+  }
   function trimToTwoLines(el, text) {
     el.textContent = text;
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
@@ -1130,10 +1140,10 @@ import { heroState, uncapitalise } from './hero.js';
     let lo = 0, hi = text.length;
     while (lo < hi) {
       const mid = Math.ceil((lo + hi) / 2);
-      el.textContent = text.slice(0, mid).trimEnd() + CONTINUES;
+      el.textContent = cutAt(text, mid) + CONTINUES;
       if (el.scrollHeight <= maxHeight) lo = mid; else hi = mid - 1;
     }
-    el.textContent = text.slice(0, lo).trimEnd() + CONTINUES;
+    el.textContent = cutAt(text, lo) + CONTINUES;
   }
 
   function renderAdvisory(advisory) {
