@@ -911,6 +911,16 @@ import { heroState, uncapitalise } from './hero.js';
     const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
     const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
     const nowI = nowIndex < 0 ? n - 1 : nowIndex;
+    // The x scale is by index, not by time, so a date boundary has to be
+    // placed between two points rather than at one.
+    const times = series.map((p) => Date.parse(p.time));
+    function xAtTime(ms) {
+      if (!(ms > times[0]) || !(ms < times[n - 1])) return null;
+      const next = times.findIndex((t) => t >= ms);
+      const prev = next - 1;
+      const span = times[next] - times[prev] || 1;
+      return x(prev + (ms - times[prev]) / span);
+    }
 
     // Kp 5-9 are NOAA's G1-G5 storm thresholds; each gets its own dotted,
     // severity-colored line so the chart reads as "here's where G2 starts"
@@ -935,6 +945,39 @@ import { heroState, uncapitalise } from './hero.js';
     });
 
     if (n === 0) return;
+
+    // UTC midnights, not "24 hours from now": NOAA's own bins and its 3-day
+    // forecast are UTC-day aligned, and so is the Storm Scales table beside
+    // this chart -- a boundary drawn anywhere else would disagree with both.
+    const MIDNIGHT_LABEL = { timeZone: 'UTC', day: '2-digit', month: 'short' };
+    for (let t = Date.UTC(
+      new Date(times[0]).getUTCFullYear(),
+      new Date(times[0]).getUTCMonth(),
+      new Date(times[0]).getUTCDate() + 1
+    ); t < times[n - 1]; t += 24 * 3600 * 1000) {
+      const px = xAtTime(t);
+      if (px === null) continue;
+      ctx.beginPath();
+      ctx.moveTo(px, padT);
+      ctx.lineTo(px, padT + plotH);
+      ctx.strokeStyle = gridColor;
+      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.font = "9px 'Space Mono', monospace";
+      ctx.fillStyle = dimColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(
+        new Date(t).toLocaleDateString('en-GB', MIDNIGHT_LABEL).toUpperCase(),
+        px + 3,
+        padT + plotH - 1
+      );
+      ctx.textBaseline = 'middle';
+    }
 
     if (nowI < n - 1) {
       const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
@@ -969,13 +1012,35 @@ import { heroState, uncapitalise } from './hero.js';
       ctx.stroke();
     }
 
+    // Where measurement stops and prediction starts. Dotted, and dashed the
+    // same way as the G-threshold lines, so it reads as an annotation rather
+    // than as another data series -- solid, it looked like part of the plot.
     ctx.beginPath();
     ctx.moveTo(x(nowI), padT);
     ctx.lineTo(x(nowI), padT + plotH);
     ctx.strokeStyle = dimColor;
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = "9px 'Space Mono', monospace";
+    ctx.fillStyle = dimColor;
+    ctx.textBaseline = 'top';
+    // Flip the label to the left of the line once the split sits near the
+    // right edge, so it never runs off the canvas.
+    const labelW = ctx.measureText('NOW').width;
+    const labelRight = x(nowI) + 4 + labelW > cssW - padR;
+    const labelX = x(nowI) + (labelRight ? -4 - labelW : 4);
+    // The G-threshold lines run behind this; knock them out so the label
+    // stays legible wherever the split happens to fall.
+    ctx.fillStyle = styles.getPropertyValue('--panel').trim();
+    ctx.fillRect(labelX - 2, padT, labelW + 4, 10);
+    ctx.fillStyle = dimColor;
+    ctx.textAlign = 'left';
+    ctx.fillText('NOW', labelX, padT + 1);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     ctx.globalAlpha = 1;
 
     let peakI = 0;
