@@ -27,7 +27,7 @@ The plugin currently surfaces:
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
 * The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.outlook_27day` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
-* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — off by default on bandwidth, see [Configuration](#configuration)
+* Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — not fetched on a schedule by default, on bandwidth, and fetchable on demand from the webapp even then, see [Configuration](#configuration)
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -105,6 +105,8 @@ Add that in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin)
 
 Tiles are drawn on demand from the same cached fetch the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grid is 1°; beyond that there is nothing more to show.
 
+Each tile carries `Last-Modified` from the fetch behind it, so a client can tell how old the oval is. That matters with `auroraEnabled` off, where the grid only moves when someone asks for one: the plugin serves the last one it has and lets you judge it, rather than picking an expiry on your behalf.
+
 ### Planned
 
 * Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
@@ -118,7 +120,7 @@ Six settings, all optional, all with working defaults:
 
 In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
-* `auroraEnabled` (default off) — publishes `aurora.probability`. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position.
+* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 
@@ -181,7 +183,9 @@ The banner answers one question — is anything happening right now? — and a q
 | ![Quiet after a storm](docs/screenshots/hero-all-clear.png) | ![Stale data](docs/screenshots/hero-stale.png) |
 | Quiet, and specific about what the last 24 hours actually held. | No update in three hours. Not an all-clear — go look at the server log. |
 
-The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a **Refresh** button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
+The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
+
+That button works whether or not `auroraEnabled` is on, and with it off — where it reads **Fetch once** — pressing it is the only thing that ever fetches the grid. So the aurora is available on a boat that has decided not to spend 145 KB every couple of hours on it: leave the recurring fetch off, and ask for a reading on the night you want one. Nothing else on the page reaches NOAA; the map draws from whatever the plugin last cached, and the periodic poll only reads your own server.
 
 ![The aurora map](docs/screenshots/aurora-map.png)
 

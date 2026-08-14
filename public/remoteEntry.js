@@ -451,7 +451,9 @@ function createPanel(React) {
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
       row(
-        settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (off)',
+        // Zero a day, but not zero: the webapp can still be asked for a grid,
+        // and a bill that reads "off" would be understating what a press costs.
+        settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (on demand only)',
         day.aurora
       ),
       row(
@@ -622,15 +624,16 @@ function createPanel(React) {
         id: 'noaa-aurora-enabled',
         checked: settings.auroraEnabled,
         onChange: (value) => set('auroraEnabled', value),
-        label: "Fetch NOAA's aurora forecast grid",
+        label: "Keep NOAA's aurora forecast grid up to date",
         help: h(
           'span',
           null,
-          'Draws the aurora map in this plugin\u2019s webapp, serves it as chart' +
-            ' overlay tiles, and publishes the probability at the vessel' +
-            ' position. Off by default on bandwidth: it is the one large' +
-            ' payload this plugin fetches. Nothing is fetched until the' +
-            ' vessel has a position. ',
+          'Fetches the grid on the interval below, publishing the probability' +
+            ' at the vessel position and keeping the chart overlay tiles' +
+            ' current. Off by default on bandwidth: it is the one large' +
+            ' payload this plugin fetches. With it off the webapp can still' +
+            ' fetch the grid once, when you ask it to. Nothing is fetched' +
+            ' until the vessel has a position. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
         )
       }),

@@ -487,6 +487,7 @@
 
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
+import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -849,12 +850,23 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
     setTimestamp(document.getElementById('tsScales'), leafTime(scales?.G) || leafTime(scales?.time));
   }
 
-  function renderAurora(aurora) {
+  function renderAurora(aurora, scheduled, intervalMinutes, running) {
     const body = document.getElementById('auroraBody');
     const p = leafValue(aurora?.probability);
-    if (p === null) {
-      body.innerHTML = `<div class="empty-state">Aurora is off by default (the OVATION payload is ~145 KB per fetch).
-        Enable it under <a href="../admin/#/apps/configuration/signalk-noaa-space-weather">plugin configuration</a>.</div>`;
+    const state = auroraCardState({ probability: p, scheduled, running });
+    if (state !== 'value') {
+      // "Nothing yet" is three different situations, and what separates them
+      // is whether waiting, or pressing, will ever produce anything.
+      const EMPTY = {
+        waiting: `Waiting for the first aurora fetch${intervalMinutes ? `, then every ${intervalMinutes} min` : ''}.
+          Nothing is fetched until the vessel has a position.`,
+        idle: `Automatic aurora updates are off &mdash; the OVATION grid is ~145 KB a fetch.
+          <b>Fetch once</b> above whenever you want a reading, or turn updates on under
+          <a href="../admin/#/apps/configuration/signalk-noaa-space-weather">plugin configuration</a>.`,
+        stopped: `The plugin is not running, so there is nothing to fetch with.
+          Start it under <a href="../admin/#/apps/configuration/signalk-noaa-space-weather">plugin configuration</a>.`
+      };
+      body.innerHTML = `<div class="empty-state">${EMPTY[state]}</div>`;
       document.getElementById('tsAurora').textContent = '–';
       return;
     }
@@ -877,7 +889,9 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
       <div class="aurora-detail">
         <span>Observed <b>${fmtTime(leafValue(aurora?.observationTime))}</b></span>
         <span>Forecast <b>${fmtTime(leafValue(aurora?.forecastTime))}</b></span>
-      </div>`;
+      </div>
+      ${scheduled ? '' : `<div class="empty-state" style="margin-top:2px;padding:0;background:none;font-size:0.68rem;">
+        Automatic updates are off &mdash; fetched only when asked.</div>`}`;
     setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
   }
 
@@ -1204,6 +1218,10 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
   const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error | no-position
+  // Whether the plugin is fetching aurora on its own schedule, from the status
+  // route. Only changes what this page says and offers -- the fetch itself is
+  // allowed either way, and the server is the one that decides that.
+  let auroraScheduled = false
 
   function lonScaleFactor(centerLat) {
     // Longitude degrees compress toward the poles; scale the window's
@@ -1345,27 +1363,45 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
       canvas._position = lastPosition
       drawAuroraMap(canvas, entry.grid, lastPosition)
       document.getElementById('mapRefresh').addEventListener('click', () => handleAuroraRefreshClick(document.getElementById('mapRefresh')))
+      labelAuroraButtons()
     } catch (err) {
       mapState = 'error'
       if (err instanceof AuthRequiredError) {
         document.getElementById('authBanner').classList.add('show')
       }
-      const message = err && err.notCached
-        ? String(err.message)
+      // Nothing cached is the one failure that re-reading cannot fix -- the
+      // old Retry here asked the same question of the same empty directory,
+      // for as long as anyone was willing to press it. Fetching is what that
+      // state actually needs, and is available whatever the schedule says.
+      const notCached = !!(err && err.notCached)
+      const message = notCached
+        ? 'No aurora grid has been fetched yet.'
         : err instanceof AuthRequiredError
           ? 'Not logged in to this Signal K server.'
           : `Could not load the aurora data from the server (${String((err && err.message) || err)}).`
       body.innerHTML = `
         <div class="empty-state">${message}
-        <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">Retry</button></div>`
-      document.getElementById('mapRetry').addEventListener('click', loadAuroraMap)
+        <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">${notCached ? 'Fetch now' : 'Retry'}</button></div>`
+      const retry = document.getElementById('mapRetry')
+      if (notCached) {
+        retry.title = 'Fetches the aurora grid from NOAA now (~145 KB).'
+        retry.addEventListener('click', () => handleAuroraRefreshClick(retry))
+      } else {
+        retry.addEventListener('click', loadAuroraMap)
+      }
     }
   }
 
-  // Manual "refresh now": forces the plugin to fetch NOAA off its schedule,
+  // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
   // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
   // by both the ring tile's own button and the map's, since a fresh fetch
   // updates the same underlying data both read.
+  //
+  // Works with automatic updates switched off, which is the case it mostly
+  // exists for: that setting is about what the plugin spends on its own, and
+  // a press is not the plugin's own initiative. Nothing on this page reaches
+  // NOAA without one -- the poll below only reads the server, and the map is
+  // drawn from whatever the plugin last cached.
   const AURORA_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-refresh'
 
   async function forceAuroraRefresh() {
@@ -1375,32 +1411,74 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
     if (!res.ok) {
       const err = new Error((body && body.error) || `Server responded ${res.status}`)
       err.status = res.status
+      err.retryAfterSeconds = retryAfterSeconds(res.headers.get('Retry-After'))
       throw err
     }
     return body
   }
 
+  // One short label per refusal, because they ask for different things: two of
+  // them are a wait, one is a login, one is a server that isn't running and one
+  // is NOAA being unreachable. The full sentence goes on the button's title so
+  // the label can stay the width of a button.
+  function refreshFailureLabel(failure) {
+    switch (failure.kind) {
+      case 'auth': return 'Not logged in'
+      case 'cooldown': return failure.retryAfterSeconds ? `Wait ${failure.retryAfterSeconds}s` : 'Too soon'
+      case 'no-position': return 'No position'
+      case 'stopped': return 'Plugin stopped'
+      case 'upstream': return 'NOAA error'
+      default: return 'Fetch failed'
+    }
+  }
+
+  // A first fetch and a refresh are the same request, but not the same act:
+  // with updates off, pressing this is the only thing that will ever produce a
+  // reading, and it spends a payload the owner has explicitly declined to
+  // spend on a schedule. Say so before it is pressed rather than after.
+  function labelAuroraButton(button) {
+    // Never over a fetch in flight, and never over the few seconds a refusal
+    // is on the button: the page re-polls on a timer, and a label that only
+    // survives until the next poll is one the reader can miss entirely.
+    if (!button || button.disabled || button.dataset.holding) return
+    button.textContent = auroraScheduled ? 'Refresh' : 'Fetch once'
+    button.title = auroraScheduled
+      ? 'Fetch the aurora grid now instead of waiting for the next update (~145 KB).'
+      : 'Automatic updates are off. Fetches the aurora grid once, now (~145 KB).'
+  }
+
+  function labelAuroraButtons() {
+    labelAuroraButton(document.getElementById('auroraRefresh'))
+    labelAuroraButton(document.getElementById('mapRefresh'))
+  }
+
   async function handleAuroraRefreshClick(button) {
     const original = button.textContent
+    const originalTitle = button.title
     button.disabled = true
-    button.textContent = 'Refreshing…'
+    button.textContent = 'Fetching…'
     try {
       await forceAuroraRefresh()
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
       if (mapState !== 'idle') await loadAuroraMap() // re-reads the fresh cache for any state but idle (never opened)
     } catch (err) {
-      if (err instanceof AuthRequiredError) {
-        document.getElementById('authBanner').classList.add('show')
-        button.textContent = 'Not logged in'
-      } else {
-        button.textContent = (err && err.status === 429) ? 'Too soon' : 'Refresh failed'
-      }
+      const failure = refreshFailure(err instanceof AuthRequiredError ? { auth: true } : err)
+      if (failure.kind === 'auth') document.getElementById('authBanner').classList.add('show')
+      button.textContent = refreshFailureLabel(failure)
+      button.title = String((err && err.message) || 'The fetch failed.')
       button.disabled = false
-      setTimeout(() => { button.textContent = original }, 3000)
+      button.dataset.holding = 'failure'
+      setTimeout(() => {
+        button.textContent = original
+        button.title = originalTitle
+        delete button.dataset.holding
+        labelAuroraButton(button)
+      }, 4000)
       return
     }
     button.textContent = original
     button.disabled = false
+    labelAuroraButton(button)
   }
 
   document.getElementById('auroraRefresh').addEventListener('click', () =>
@@ -1469,9 +1547,14 @@ import { heroState, kpFloorForG, uncapitalise } from './hero.js';
       'forecast.series': kpRaw.forecast?.series
     } : null;
 
+    // `settings` is what the plugin resolved, not what was saved, so a config
+    // that never set auroraEnabled reads as the default it is actually running.
+    auroraScheduled = status?.settings?.auroraEnabled === true;
+
     renderHero(scalesLatest, scalesPeak24h, kp, status);
     renderScales(scalesLatest, xrayFlare, scalesForecast);
-    renderAurora(aurora);
+    renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status);
+    labelAuroraButtons();
     renderWind(wind);
     renderKp(kp);
     renderAdvisory(advisory);

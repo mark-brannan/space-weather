@@ -79,7 +79,7 @@ export const schema = {
     },
     auroraEnabled: {
       type: 'boolean',
-      title: "Fetch NOAA's aurora forecast grid",
+      title: "Keep NOAA's aurora forecast grid up to date",
       // A user reading this form is being told what the setting costs, so the
       // measured numbers live here rather than in a comment. Per *fetch*, and
       // no daily figure: what a day costs depends on `auroraInterval`, and a
@@ -87,12 +87,14 @@ export const schema = {
       // for the servers that render the panel. Re-measure with
       // scripts/measure-noaa.mjs.
       description:
-        'Draws the aurora map in this plugin\u2019s webapp, serves it as chart' +
-        ' overlay tiles, and publishes the probability at the vessel position.' +
+        'Fetches the grid on the interval below, publishing the probability at' +
+        ' the vessel position and keeping the chart overlay tiles current.' +
         ' Off by default on bandwidth: about 145 KB per fetch, roughly thirty' +
         ' times everything else this plugin downloads put together, so the' +
-        ' interval below sets what it costs a day. Nothing is fetched until' +
-        ' the vessel has a position.',
+        ' interval below sets what it costs a day. This only governs the' +
+        ' recurring fetch \u2014 with it off, the webapp can still fetch the' +
+        ' grid once, when you ask it to. Nothing is fetched until the vessel' +
+        ' has a position.',
       default: false
     },
     auroraInterval: {
