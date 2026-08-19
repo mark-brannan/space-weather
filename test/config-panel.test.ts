@@ -165,6 +165,56 @@ describe('panelSettings', () => {
     }
   })
 
+  // What the panel saves replaces the saved configuration rather than patching
+  // it, so this is exactly what ends up in the file on disk.
+  describe('as the whole saved configuration', () => {
+    // Every removed and superseded key this plugin has ever had, alongside the
+    // current ones an install of that vintage would also be carrying.
+    const stale = {
+      sendAdvisoryOutlook: true,
+      alarmLevel: 5,
+      auroraEnabled: false,
+      auroraInterval: 480,
+      updateInterval: 60,
+      minScaleAlert: 3,
+      zoneAlertThreshold: 3,
+      observationsInterval: 60,
+      notificationsInterval: 60,
+      notificationVisual: true,
+      notificationSound: true,
+      alertMaxAgeHours: 24,
+      sendAlertsWatchesWarnings: true
+    }
+
+    it('carries nothing the schema does not declare', () => {
+      // A key the plugin no longer reads that survived a save would sit in the
+      // file for the life of the install, where the next person to open it
+      // cannot tell it from a setting in force.
+      expect(Object.keys(panelSettings(stale)).sort()).toEqual(
+        Object.keys(schema.properties).sort()
+      )
+    })
+
+    it('leaves the plugin running exactly what it was running', () => {
+      // What makes dropping the rest safe: a superseded key only ever spoke for
+      // one of the keys the panel writes explicitly, so `settingsFrom` reads
+      // the same settings whether or not the old one is still there.
+      for (const configuration of [
+        stale,
+        // The superseded keys alone, with nothing current to defer to -- where
+        // the migration in `settingsFrom` is the only thing keeping the
+        // install's own cadence and threshold.
+        { minScaleAlert: 1, observationsInterval: 15 },
+        { zoneAlertThreshold: 2, notificationsInterval: 20 }
+      ]) {
+        const saved = panelSettings(configuration)
+        expect(settingsFrom({ ...configuration, ...saved })).toEqual(
+          settingsFrom(saved)
+        )
+      }
+    })
+  })
+
   it('leaves a superseded key to the plugin rather than translating it', () => {
     // `zoneAlertThreshold` migrates to alarmLevel 3 in settingsFrom. The panel
     // must not do that itself -- it shows the saved side, and the status route

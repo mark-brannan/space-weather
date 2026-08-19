@@ -126,7 +126,7 @@ In the plugin's own configuration screen these two are lines you drag across the
 
 On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same five settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
 
-Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored.
+Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored — and the plugin's own configuration screen writes the six current keys and nothing else, so saving once clears the old ones out of the file. It cannot change what the plugin is running: every current key is written explicitly, so a dropped key had nothing left to say.
 
 * `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way. A config saved before `popupLevel` existed gets the band one below its alarm level, which is the ladder it already had.
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).

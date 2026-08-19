@@ -538,10 +538,14 @@ function createPanel(React) {
         // plugin would coerce it either way, but the saved configuration is
         // also what the generated form reads on a server without this panel.
         const next = panelSettings(settings)
-        // Everything the panel knows, every time: every key in the schema is
-        // written explicitly so a configuration still carrying a superseded
-        // one stops depending on the migration to mean what it says.
-        save({ ...configuration, ...next })
+        // The whole configuration, not a patch over the saved one. Every key in
+        // the schema is written explicitly here, which is what makes dropping
+        // the rest safe: a superseded key only ever spoke for one of these, and
+        // the key that superseded it is now saying so itself, so `settingsFrom`
+        // reads the same settings either way. Carrying them forward kept a dead
+        // key in the file for the life of the install, where the next person to
+        // open it cannot tell it from a setting in force.
+        save(next)
         // All of them were just written explicitly, and `settingsFrom` reads
         // those back unchanged, so there is nothing left for it to supply --
         // which is what the notice above is about.
@@ -550,7 +554,7 @@ function createPanel(React) {
         if (savedTimer.current) clearTimeout(savedTimer.current)
         savedTimer.current = setTimeout(() => setSaved(false), 4000)
       },
-      [configuration, save, settings]
+      [save, settings]
     )
 
     const differs = useMemo(
