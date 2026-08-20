@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
+import { Client } from '../src/noaa/client'
+import { ValueUpdate } from '../src/parse'
+import { Meta, Publisher } from '../src/publisher'
+import { ProductContext } from '../src/products/types'
 import { f107 } from '../src/products/f107'
 import { kp } from '../src/products/kp'
 import { outlook27 } from '../src/products/outlook27'
@@ -12,35 +16,53 @@ import { fixture, fixtureJson } from './fixtures'
  * client and a fake publisher, with no server, no timers and no network. Each
  * of these drives the real refresh path over a captured payload and asserts on
  * what would reach Signal K.
+ *
+ * The stubs satisfy Client and Publisher rather than being cast at the call
+ * site. A cast on `refresh(ctx)` accepts whatever the stubs happen to be, so a
+ * product reaching for something they don't have -- `dataDirPath`, a second
+ * argument to `client.text` -- would surface as an undefined at runtime; typed
+ * stubs put that in the editor instead. `tsconfig.json` excludes `test/`, so
+ * this is not yet enforced by `npm run build`.
  */
 function harness(responses: Record<string, any>) {
-  const published: { values: any[]; timestamp: string }[] = []
-  const metas: any[] = []
+  const published: { values: ValueUpdate[]; timestamp: string }[] = []
+  const metas: Meta[] = []
   const errors: string[] = []
 
-  const publisher = {
-    meta: (m: any[]) => metas.push(...m),
-    values: (values: any[], timestamp: string) =>
-      published.push({ values, timestamp }),
-    value(path: string, value: any, timestamp: string) {
+  const publisher: Publisher = {
+    meta: (m) => metas.push(...m),
+    values: (values, timestamp) => published.push({ values, timestamp }),
+    value(path, value, timestamp) {
       this.values([{ path, value }], timestamp)
     },
     selfPath: () => undefined,
     status: () => {},
     fail: () => {},
-    error: (m: string, ...a: any[]) => errors.push(`${m} ${a.join(' ')}`),
-    debug: () => {}
+    error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
+    debug: () => {},
+    // No product exercised here persists a file, and a stub handing back a
+    // real directory would let one start doing so without a test noticing.
+    dataDirPath: () => {
+      throw new Error('dataDirPath is not stubbed')
+    }
   }
 
-  const client = {
-    json: async (subPath: string) => {
+  const client: Client = {
+    json: async (subPath) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       return responses[subPath]
     },
-    text: async (subPath: string) => {
+    text: async (subPath) => {
       if (!(subPath in responses)) throw new Error(`unstubbed ${subPath}`)
       return responses[subPath]
     }
+  }
+
+  const ctx: ProductContext = {
+    client,
+    publisher,
+    settings: settingsFrom({}),
+    stopped: () => false
   }
 
   const flat = () => published.flatMap((p) => p.values)
@@ -50,12 +72,7 @@ function harness(responses: Record<string, any>) {
     metas,
     errors,
     published,
-    ctx: {
-      client,
-      publisher,
-      settings: settingsFrom({}),
-      stopped: () => false
-    },
+    ctx,
     valueAt: (path: string) => flat().find((v) => v.path === path)?.value,
     paths: () => flat().map((v) => v.path)
   }
@@ -69,7 +86,7 @@ describe('scales product', () => {
       '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
       [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
     })
-    await scales.refresh(h.ctx as any)
+    await scales.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(
@@ -99,7 +116,7 @@ describe('scales product', () => {
       '/products/noaa-scales.json': {},
       [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
     })
-    await scales.refresh(h.ctx as any)
+    await scales.refresh(h.ctx)
     expect(h.errors.length).toBeGreaterThan(0)
   })
 
@@ -108,7 +125,7 @@ describe('scales product', () => {
       '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
       [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
     })
-    await scales.refresh(h.ctx as any)
+    await scales.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBe('B3.3')
@@ -119,7 +136,7 @@ describe('scales product', () => {
       '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json')
       // FLARE_ENDPOINT deliberately unstubbed -- the client throws
     })
-    await scales.refresh(h.ctx as any)
+    await scales.refresh(h.ctx)
 
     expect(
       h.valueAt('environment.noaa.swpc.scales.observations.latest.G')
@@ -143,7 +160,7 @@ describe('kp product', () => {
         'noaa-planetary-k-index-forecast.2026_08_01.json'
       )
     })
-    await kp.refresh(h.ctx as any)
+    await kp.refresh(h.ctx)
     vi.useRealTimers()
 
     expect(h.errors).toEqual([])
@@ -177,7 +194,7 @@ describe('solar wind product', () => {
         'solar-wind-mag-field.2026_08_01.json'
       )
     })
-    await solarWind.refresh(h.ctx as any)
+    await solarWind.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(h.valueAt('environment.noaa.swpc.solar_wind.speed')).toBe(287000)
@@ -192,7 +209,7 @@ describe('solar wind product', () => {
       '/products/summary/solar-wind-speed.json': [],
       '/products/summary/solar-wind-mag-field.json': []
     })
-    await solarWind.refresh(h.ctx as any)
+    await solarWind.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })
@@ -203,7 +220,7 @@ describe('f107 product', () => {
     const h = harness({
       '/json/f107_cm_flux.json': fixtureJson('f107_cm_flux.2026_08_06.json')
     })
-    await f107.refresh(h.ctx as any)
+    await f107.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(h.valueAt('environment.noaa.swpc.f107')).toBe(108)
@@ -215,7 +232,7 @@ describe('f107 product', () => {
 
   it('publishes nothing rather than an error-free silent gap when no Noon entry exists', async () => {
     const h = harness({ '/json/f107_cm_flux.json': [] })
-    await f107.refresh(h.ctx as any)
+    await f107.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })
@@ -229,7 +246,7 @@ describe('outlook27 product', () => {
 
   it('publishes the summary and the daily series from a captured payload', async () => {
     const h = stubbed()
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxKp')).toBe(
@@ -254,7 +271,7 @@ describe('outlook27 product', () => {
 
   it('timestamps the delta with the issue time, not the fetch time', async () => {
     const h = stubbed()
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
     expect(h.published[0].timestamp).toBe('2026-08-10T01:53:00.000Z')
   })
 
@@ -270,7 +287,7 @@ describe('outlook27 product', () => {
     }
 
     const h = stubbed()
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
     for (const path of h.paths()) {
       expect(path.startsWith('notifications.')).toBe(false)
     }
@@ -278,7 +295,7 @@ describe('outlook27 product', () => {
 
   it('describes every path it publishes', async () => {
     const h = stubbed()
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
     const described = outlook27.metadata!(settingsFrom({})).map((m) => m.path)
     for (const path of h.paths()) expect(described).toContain(path)
   })
@@ -292,7 +309,7 @@ describe('outlook27 product', () => {
     // overwrite the 3-hourly forecast with a recurrence estimate.
     const kpPaths = kp.metadata!(settingsFrom({})).map((m) => m.path)
     const h = stubbed()
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
 
     expect(h.paths().length).toBeGreaterThan(0)
     for (const path of h.paths()) {
@@ -316,7 +333,7 @@ describe('outlook27 product', () => {
 
   it('publishes nothing when the table cannot be read', async () => {
     const h = harness({ [OUTLOOK27_ENDPOINT]: ':Issued: 2026 Aug 10 0153 UTC' })
-    await outlook27.refresh(h.ctx as any)
+    await outlook27.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
   })
