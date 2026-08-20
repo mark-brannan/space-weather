@@ -121,6 +121,29 @@
   @media (max-width: 760px) {
     .grid { grid-template-columns: repeat(4, 1fr); }
     .span-12, .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 4; }
+
+    /* First pass at issue #36: shrink only the statusbar and hero tile for
+       kiosk/tablet screens. The rest of the layout is still being explored
+       in a separate design tool, so it stays untouched here. */
+    .shell { padding: 10px 12px 16px; }
+    .statusbar { padding: 6px 10px; gap: 4px 14px; margin-bottom: 8px; }
+    .statusbar h1 { font-size: 0.82rem; }
+    .statusbar .val { font-size: 0.82rem; }
+    .tile.hero { padding: 12px 14px; gap: 12px; }
+    .hero .headline { font-size: clamp(1.1rem, 5vw, 1.5rem); line-height: 1.1; margin: 4px 0 6px; }
+    .hero .sub { font-size: 0.8rem; }
+    .hero .countdown { font-size: clamp(1.4rem, 8vw, 2rem); }
+    .hero .countdown .unit { font-size: 0.56rem; margin-top: 2px; }
+
+    /* Below the breakpoint, the headline and countdown compete for the same
+       row on a knife's edge: whether the flex box wraps or shrinks depends on
+       exact text length, and at ~320-420px it was shrinking the countdown to
+       the point of overflowing the tile's `overflow: hidden` and vanishing
+       entirely -- confirmed by screenshotting both this branch and main at
+       320/375/420/500px with real hero text. Forcing the stack removes the
+       ambiguity instead of chasing the exact width it tips over at. */
+    .tile.hero { flex-direction: column; align-items: flex-start; }
+    .hero .countdown { text-align: left; }
   }
 
   .chip {
