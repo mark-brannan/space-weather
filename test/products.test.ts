@@ -232,19 +232,23 @@ describe('outlook27 product', () => {
     await outlook27.refresh(h.ctx as any)
 
     expect(h.errors).toEqual([])
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKp')).toBe(5)
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxKpTime')).toBe(
-      '2026-08-11T00:00:00.000Z'
+    expect(h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxKp')).toBe(
+      5
     )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.maxNoaaScale')).toBe(
-      1
-    )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormTime')).toBe(
-      '2026-08-11T00:00:00.000Z'
-    )
-    expect(h.valueAt('environment.noaa.swpc.outlook_27day.nextStormKp')).toBe(5)
     expect(
-      h.valueAt('environment.noaa.swpc.outlook_27day.series')
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxKpTime')
+    ).toBe('2026-08-11T00:00:00.000Z')
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.maxNoaaScale')
+    ).toBe(1)
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.nextStormTime')
+    ).toBe('2026-08-11T00:00:00.000Z')
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.nextStormKp')
+    ).toBe(5)
+    expect(
+      h.valueAt('environment.noaa.swpc.kp.forecast.outlook27.series')
     ).toHaveLength(27)
   })
 
@@ -277,6 +281,27 @@ describe('outlook27 product', () => {
     await outlook27.refresh(h.ctx as any)
     const described = outlook27.metadata!(settingsFrom({})).map((m) => m.path)
     for (const path of h.paths()) expect(described).toContain(path)
+  })
+
+  it('shares the Kp forecast subtree without colliding with it', async () => {
+    // The outlook hangs off the Kp forecast so that all three horizons answer
+    // "what is the worst Kp coming" from one place. That only holds while the
+    // two products' leaves stay disjoint, and four of them -- maxNoaaScale,
+    // nextStormTime, nextStormKp and series -- are spelled identically in
+    // both, separated only by the `outlook27` node. Drop that node and they
+    // overwrite the 3-hourly forecast with a recurrence estimate.
+    const kpPaths = kp.metadata!(settingsFrom({})).map((m) => m.path)
+    const h = stubbed()
+    await outlook27.refresh(h.ctx as any)
+
+    expect(h.paths().length).toBeGreaterThan(0)
+    for (const path of h.paths()) {
+      expect(
+        path.startsWith('environment.noaa.swpc.kp.forecast.outlook27.'),
+        path
+      ).toBe(true)
+      expect(kpPaths, path).not.toContain(path)
+    }
   })
 
   it('polls no more than once a day, whatever the settings say', () => {

@@ -27,11 +27,19 @@ export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'
 /**
- * The 27-day outlook. Its own base rather than a longer arm of KP_BASE, so it
- * cannot be read as a continuation of the 3-hourly Kp forecast; the outlook27
- * product says why that reading would overstate it.
+ * The 27-day outlook: a third horizon for the same index, so a named subtree of
+ * the Kp forecast rather than a base of its own. Asking "what is the worst Kp
+ * coming" should not require knowing which NOAA product answered.
+ *
+ * A subtree, and deliberately not siblings of `max24h`/`max72h`, because the
+ * two are not the same kind of data -- one is a 3-hourly sample, the other a
+ * whole-day maximum from a recurrence estimate. Flattened into one namespace
+ * they read as interchangeable, and the two `series` invite being spliced into
+ * a single array, which misrepresents both. Naming the node makes reading the
+ * outlook as a continuation of the 3-day forecast a deliberate act rather than
+ * an accident; the outlook27 product says why that reading would overstate it.
  */
-export const OUTLOOK27_BASE = 'environment.noaa.swpc.outlook_27day'
+export const OUTLOOK27_BASE = `${KP_BASE}.forecast.outlook27`
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]
