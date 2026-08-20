@@ -1,0 +1,22 @@
+{
+  // Type-checks the test tree, which tsconfig.json deliberately excludes: the
+  // build compiles src/ into dist/ and tests are not shipped. Without this the
+  // suite's types are never checked by anything -- vitest transpiles through
+  // esbuild and does not typecheck -- so a stub that has drifted from the
+  // interface it stands in for only shows up as an undefined at runtime.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    // Bundler resolution rather than the build's nodenext, because it is what
+    // vitest actually does: the test files import '../src/parse', with no
+    // extension, and resolving them the way the runner resolves them is the
+    // point. Under nodenext every one of those is a TS2835, which would make
+    // this check a 47-error rewrite of every import in the suite rather than a
+    // check of anything.
+    "moduleResolution": "bundler",
+    "module": "esnext"
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

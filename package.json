@@ -1,6 +1,6 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "description": "Find out about geomagnetic storms, radio blackouts, aurora visibility, and more using data from the NOAA Space Weather Prediction Center (SWPC). Includes a webapp for visualization.",
   "type": "module",
   "displayName": "NOAA Space Weather",
@@ -26,6 +26,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "prebuild": "node scripts/sync-icon.mjs",
     "build": "tsc",
+    "typecheck": "tsc -p tsconfig.test.json",
     "watch": "npm run build -- -w",
     "test": "vitest run",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",

@@ -20,9 +20,8 @@ import { fixture, fixtureJson } from './fixtures'
  * The stubs satisfy Client and Publisher rather than being cast at the call
  * site. A cast on `refresh(ctx)` accepts whatever the stubs happen to be, so a
  * product reaching for something they don't have -- `dataDirPath`, a second
- * argument to `client.text` -- would surface as an undefined at runtime; typed
- * stubs put that in the editor instead. `tsconfig.json` excludes `test/`, so
- * this is not yet enforced by `npm run build`.
+ * argument to `client.text` -- would surface as an undefined at runtime.
+ * `npm run typecheck` fails on it instead.
  */
 function harness(responses: Record<string, any>) {
   const published: { values: ValueUpdate[]; timestamp: string }[] = []

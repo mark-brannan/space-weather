@@ -144,8 +144,11 @@ describe('currentAlertNotifications', () => {
 
     for (const name of ALERT_FIXTURES) {
       const payload = fixtureJson(name)
+      // Set<number>, not an inferred Set: fixtureJson returns `any`, so the
+      // mapped array carries no element type and the spread would widen to
+      // unknown[] -- which typechecks nowhere the instants are used as times.
       const instants = [
-        ...new Set(
+        ...new Set<number>(
           payload.map((a: any) => new Date(a.issue_datetime + 'Z').getTime())
         )
       ].sort((a, b) => a - b)
