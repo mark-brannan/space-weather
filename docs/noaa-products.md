@@ -299,6 +299,83 @@ The floors are exact thirds rather than the 7.667 NOAA prints, because the same
 value arrives spelled 7.67 from the JSON products and 7.667 from the GFZ
 archive, and a floor rounded to either precision drops the other.
 
+## Candidate endpoints for the ham-radio initiative (#81, #83, #84)
+
+Measured 2026-08-20, before any parser exists for these — the repo rule for
+adding a data source. None of these are in `ENDPOINTS` in
+`scripts/measure-noaa.mjs` yet; they were probed one-off, same method (wire
+size with `Accept-Encoding: gzip`, a conditional-GET pair at +150s/+300s).
+Dated fixtures are captured into `examples/`.
+
+### D-RAP global frequencies (#81)
+
+`/text/drap_global_frequencies.txt` is a fixed ASCII grid: 90 latitude rows
+(89° to −89°, step −2°) by 90 longitude columns (−178° to 178°, step 4°) —
+8100 points, each the highest-affected frequency in MHz. Wire 3.3 KB, decoded
+41.5 KB, gzip. Conditional GET: content changed and a new ETag at both +150s
+and +300s — no 304 was returned at either measured gap, matching the
+realistic-interval behaviour documented above, and it changes faster than the
+15-minute cadence watch above would even resolve.
+Fixture: `examples/drap-global-frequencies.2026_08_20.txt`.
+
+### WWV geophysical alert (#84)
+
+`/text/wwv.txt` is tiny — wire 0.3 KB, decoded 0.6 KB — and already carries
+the exact phrase the issue asks for: solar flux, "estimated planetary
+A-index", and the current planetary K-index, plus a plain-English 24h-past /
+24h-next summary. Conditional GET: content identical, new ETag, at both
+probes — consistent with its own text stating one issue time, and unlike
+D-RAP nothing here moves inside a 5-minute window. No separate A-index product
+is needed; `wwv.txt` covers it. Fixture: `examples/wwv.2026_08_20.txt`.
+
+### Sunspot number (#84)
+
+The issue's own candidates turned out not to fit. `/json/solar-cycle/observed-solar-cycle-indices.json`
+and `/json/solar-cycle/sunspots.json` are **monthly**, not daily —
+`"time-tag": "2026-07"`, not a date — so neither answers "today's sunspot
+number". `/json/solar-cycle/swpc_observed_ssn.json` is genuinely daily, back
+to 1996, but has no windowed variant: 9822 records, ~474 KB decoded, the
+whole history on every poll for one number.
+
+`/text/daily-solar-indices.txt` (NOAA's `DSD.txt`) is the right fit: the last
+30 days only, plain text, wire 0.8 KB / decoded 2.9 KB, with a "SESC Sunspot
+Number" column alongside the 10.7cm flux already published as `f107`. Same
+shape and cadence as `advisory-outlook.txt`, so the existing text-parsing
+pattern applies directly. Conditional GET: content identical, new ETag, at
+both probes — issued once daily (`:Issued: 0225 UT 20 Aug 2026`), matching
+`f107`'s and `kp`'s own no-change-in-15-minutes result above. Fixture:
+`examples/daily-solar-indices.2026_08_20.txt`.
+
+### GOES X-ray and proton flux time series (#83)
+
+Both products are published in matching `-6-hour`, `-1-day` and `-3-day`
+windows, one satellite (18, the current GOES primary) at capture time.
+
+| Endpoint | Wire (gzip) | Decoded | Records |
+| --- | --- | --- | --- |
+| `xrays-6-hour.json` | 26.0 KB | 159.7 KB | ~716 |
+| `xrays-1-day.json` | 103.9 KB | 642.0 KB | 2876 |
+| `xrays-3-day.json` | 308.8 KB | 1928.0 KB | 8636 |
+| `integral-protons-6-hour.json` | 7.9 KB | 58.6 KB | ~568 |
+| `integral-protons-1-day.json` | 30.7 KB | 236.7 KB | 2296 |
+| `integral-protons-3-day.json` | 91.8 KB | 711.6 KB | 6904 |
+
+X-ray records interleave two energy channels (`0.05-0.4nm`, `0.1-0.8nm`) at
+roughly 1-minute cadence each; proton records interleave eight (`>=1 MeV`
+through `>=500 MeV`) at roughly 5-minute cadence each. Conditional GET on the
+`-6-hour` variants: content changed and a new ETag at both +150s and +300s —
+expected, since the series is still being appended to at 1-minute cadence.
+
+**Consequence.** The `-6-hour` variant is the right poll target, as the issue
+guessed: `-1-day` is ~4× the bytes for the same latest value, `-3-day` is
+~12×. A Signal K path publishes only the newest record per channel, so the
+window only needs to be wide enough to seed a web app sparkline, not to answer
+"what is it now" — that argues for `-6-hour` over either wider variant.
+Fixtures are `examples/xrays-6-hour.2026_08_20.json` and
+`examples/integral-protons-6-hour.2026_08_20.json`; the `-1-day`/`-3-day`
+variants were measured for wire cost only, not fixture-captured — they are
+overlapping windows of the same data, not a different shape to pin.
+
 ## Unmeasured
 
 Named so nobody cites this file for them:
