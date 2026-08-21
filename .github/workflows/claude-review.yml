@@ -34,6 +34,62 @@ jobs:
         with:
           fetch-depth: 0
 
+      # This runner has no dotfiles: AGENTS.md's "Open loops" section points
+      # at ~/.claude/CLAUDE.md's standing orders (mark-brannan/dotfiles#15),
+      # which is exactly the file that doesn't exist here without this step.
+      # Pinned to the commit that merged #15, not `main` -- a later dotfiles
+      # commit (or a compromised one) must not be able to silently change
+      # what this reviewer treats as its own instructions. Bump the SHA
+      # through a reviewed change here when the standing orders move.
+      #
+      # Best-effort and all-or-nothing: fetch into a temp dir with timeouts
+      # and only install once both files land, so a stalled request can't
+      # eat the job's 20-minute budget and a partial fetch can't leave one
+      # file updated and the other stale. Either both files land or neither
+      # does -- the reviewer just runs without the extra context.
+      - name: Sync standing orders from dotfiles
+        run: |
+          dotfiles_sha=bcf104bc877bb14d11cd8fea1eabdd3b04d65289
+          raw_base="https://raw.githubusercontent.com/mark-brannan/dotfiles/$dotfiles_sha/.claude"
+          tmp_dir="$(mktemp -d)"
+          backup_dir="$(mktemp -d)"
+          cleanup() { rm -rf "$tmp_dir" "$backup_dir"; }
+          trap cleanup EXIT
+
+          mkdir -p "$HOME/.claude/rules"
+
+          if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
+               "$raw_base/CLAUDE.md" -o "$tmp_dir/CLAUDE.md" &&
+             curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
+               "$raw_base/rules/code.md" -o "$tmp_dir/code.md" &&
+             [ -s "$tmp_dir/CLAUDE.md" ] && [ -s "$tmp_dir/code.md" ]; then
+            # Both files are fetched and verified non-empty before either live
+            # file is touched. Back up whatever is already there so a failure
+            # partway through the install can be undone instead of leaving one
+            # file updated and the other stale.
+            [ -f "$HOME/.claude/CLAUDE.md" ] && cp "$HOME/.claude/CLAUDE.md" "$backup_dir/CLAUDE.md"
+            [ -f "$HOME/.claude/rules/code.md" ] && cp "$HOME/.claude/rules/code.md" "$backup_dir/code.md"
+
+            if mv "$tmp_dir/CLAUDE.md" "$HOME/.claude/CLAUDE.md" &&
+               mv "$tmp_dir/code.md" "$HOME/.claude/rules/code.md"; then
+              : # both installed
+            else
+              echo "::warning::install of dotfiles standing orders failed partway, restoring previous state"
+              if [ -f "$backup_dir/CLAUDE.md" ]; then
+                mv "$backup_dir/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+              else
+                rm -f "$HOME/.claude/CLAUDE.md"
+              fi
+              if [ -f "$backup_dir/code.md" ]; then
+                mv "$backup_dir/code.md" "$HOME/.claude/rules/code.md"
+              else
+                rm -f "$HOME/.claude/rules/code.md"
+              fi
+            fi
+          else
+            echo "::warning::couldn't fetch dotfiles standing orders, reviewing without them"
+          fi
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
