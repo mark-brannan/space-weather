@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   NoaaScaleValues,
+  drapFrequencyAt,
   firstJsonValue,
   getAlertLevel,
   parse27DayOutlook,
   parseAdvisoryOutlook,
   parseAlert,
   parseDailySolarIndices,
+  parseDrapGrid,
   parseF107,
   parseGoesFlux,
   parseGeophysicalAlert,
@@ -830,6 +832,82 @@ describe('parseGoesFlux', () => {
         expect(value === null || Number.isFinite(value)).toBe(true)
       }
     }
+  })
+})
+
+describe('parseDrapGrid', () => {
+  it('reads the valid time and grid dimensions from a captured payload', () => {
+    const grid = parseDrapGrid(
+      fixture('drap-global-frequencies.2026_08_20.txt')
+    )
+    expect(grid?.validTime).toBe('2026-08-20T04:42:00.000Z')
+    expect(grid?.latitudes.length).toBe(90)
+    expect(grid?.longitudes.length).toBe(90)
+    expect(grid?.latitudes[0]).toBe(89)
+    expect(grid?.longitudes[0]).toBe(-178)
+    for (const row of grid!.frequenciesMHz) {
+      expect(row.length).toBe(90)
+    }
+  })
+
+  it('returns null on input with no grid', () => {
+    expect(parseDrapGrid('nothing to see here')).toBeNull()
+    expect(parseDrapGrid('')).toBeNull()
+  })
+
+  it('reads a CRLF payload the same as LF', () => {
+    // A Windows checkout serves this fixture with \r\n line endings; a
+    // trailing \r landing inside the last numeric column used to fail
+    // Number.isFinite for the whole grid. Normalize first: the fixture may
+    // already be CRLF depending on the checkout this test itself runs on.
+    const lf = fixture('drap-global-frequencies.2026_08_20.txt').replace(
+      /\r\n/g,
+      '\n'
+    )
+    const crlf = parseDrapGrid(lf.replace(/\n/g, '\r\n'))
+    expect(crlf?.validTime).toBe('2026-08-20T04:42:00.000Z')
+    expect(crlf?.frequenciesMHz).toEqual(parseDrapGrid(lf)?.frequenciesMHz)
+  })
+
+  it('rejects a grid caught mid-rewrite, short of the documented 90x90 shape', () => {
+    // NOAA rewrites this file in place; a read can land after only some of
+    // the data rows have been written. Every row present is still internally
+    // consistent (right width, finite values), so only a shape check catches
+    // it -- otherwise drapFrequencyAt would silently snap to the nearest
+    // surviving row instead of the one NOAA actually measured.
+    const full = fixture('drap-global-frequencies.2026_08_20.txt')
+    const lines = full.split('\n')
+    const dataStart = lines.findIndex((line) => /^\s*-?\d+\s*\|/.test(line))
+    const truncated = lines.slice(0, dataStart + 45).join('\n')
+    expect(parseDrapGrid(truncated)).toBeNull()
+  })
+})
+
+describe('drapFrequencyAt', () => {
+  const grid = parseDrapGrid(fixture('drap-global-frequencies.2026_08_20.txt'))
+
+  it('reads the exact grid point for an on-grid position', () => {
+    expect(drapFrequencyAt(grid, 41, -178)).toBeCloseTo(2.9, 5)
+  })
+
+  it('snaps to the nearest grid point for an off-grid position', () => {
+    // 41N/-178E is the nearest defined point to 40.9N/-176.9E.
+    expect(drapFrequencyAt(grid, 40.9, -176.9)).toBeCloseTo(2.9, 5)
+  })
+
+  it('wraps longitude across the -180/180 boundary', () => {
+    // -179.9 is close to the -178 column on the circle (1.9 degrees), not
+    // 358.1 degrees away as an unwrapped difference would compute it.
+    expect(drapFrequencyAt(grid, 89, -179.9)).toBeCloseTo(
+      grid!.frequenciesMHz[0][0],
+      5
+    )
+  })
+
+  it('returns null with no grid or a non-finite position', () => {
+    expect(drapFrequencyAt(null, 0, 0)).toBeNull()
+    expect(drapFrequencyAt(grid, NaN, 0)).toBeNull()
+    expect(drapFrequencyAt(grid, 0, NaN)).toBeNull()
   })
 })
 

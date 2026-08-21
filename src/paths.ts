@@ -78,6 +78,13 @@ export const SUNSPOT_BASE = 'environment.noaa.swpc.sunspot_number'
  */
 export const XRAY_FLUX_BASE = 'environment.noaa.swpc.xray_flux'
 export const PROTON_FLUX_BASE = 'environment.noaa.swpc.proton_flux'
+/**
+ * The highest frequency currently degraded by >=1dB at the vessel's own
+ * position, sampled from NOAA's D-RAP global grid -- the same "value at the
+ * vessel" treatment aurora gets, and for the same reason: the global grid
+ * itself is not useful on a boat.
+ */
+export const DRAP_BASE = 'environment.noaa.swpc.drap'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]
