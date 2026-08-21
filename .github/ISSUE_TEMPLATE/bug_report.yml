@@ -1,0 +1,108 @@
+name: Bug report
+description: Something the plugin does is wrong, or it stopped working
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems go through a
+        [private advisory](https://github.com/mark-brannan/signalk-noaa-space-weather/security/advisories/new)
+        instead — please don't file them here.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        The Kp forecast stopped updating some time yesterday. The webapp still
+        shows a value but the timestamp is 19 hours old.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: >
+        The steps, if it is reproducible. If it happened once and you cannot
+        make it happen again, say so — that is still worth reporting.
+    validations:
+      required: false
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Admin UI → Appstore → Installed, or `npm ls signalk-noaa-space-weather`.
+      placeholder: '0.24.0'
+    validations:
+      required: true
+
+  - type: input
+    id: server-version
+    attributes:
+      label: Signal K server version
+      description: Shown at the bottom of the admin UI, or in the server log at startup.
+      placeholder: '2.16.0'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: What is it running on
+      description: >
+        This plugin is written for small, often battery-powered hardware, so
+        this changes what a plausible cause is.
+      options:
+        - Raspberry Pi (3 / 4 / 5)
+        - Other ARM single-board computer
+        - x86 Linux
+        - macOS
+        - Windows
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      multiple: true
+      options:
+        - Published Signal K data (paths, values, units)
+        - Notifications and alarms
+        - The bundled webapp
+        - The aurora map / chart plotter tiles
+        - Plugin configuration screen
+        - Installation or startup
+        - Something else / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server log
+      description: >
+        The lines around the failure. Enable this plugin's debug output first if
+        you can — Admin UI → Server → Server Log, with
+        `signalk-noaa-space-weather` in the debug field. Redact anything you
+        would not want public, including position.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Plugin configuration
+      description: >
+        The plugin's settings, if the problem might relate to them. The raw JSON
+        from `<config-dir>/plugin-config-data/signalk-noaa-space-weather.json`
+        is ideal.
+      render: json
+    validations:
+      required: false

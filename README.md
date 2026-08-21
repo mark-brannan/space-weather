@@ -224,3 +224,18 @@ That button works whether or not `auroraEnabled` is on, and with it off — wher
 | Plugin configuration | The published paths in the data browser |
 
 ![Notifications](docs/screenshots/notifications.png)
+
+## Bugs, ideas and contributions
+
+Reports from people actually sailing with this are the most useful thing here.
+
+- **Something is wrong** — [open an issue](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/new/choose). The bug form asks for the plugin version, the Signal K server version, the hardware and the log; those are what makes a report actionable.
+- **Something is missing** — the [feature form](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/new?template=feature_request.yml). A new NOAA data source is cheap here by design; a new setting is not.
+- **You found a security problem** — report it privately, per [SECURITY.md](SECURITY.md). Not as an issue.
+- **You want to send a patch** — [CONTRIBUTING.md](CONTRIBUTING.md) has the setup and the short version of the rules; [AGENTS.md](AGENTS.md) has the full ones and [CLAUDE.md](CLAUDE.md) has the constraints that will bite you.
+
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Licence
+
+[ISC](LICENSE). Copyright (c) 2025 Mark Brannan.
