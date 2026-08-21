@@ -100,19 +100,16 @@
     letter-spacing: 0.06em; text-transform: uppercase; margin: 0; color: var(--text);
     white-space: nowrap;
   }
-  .statusbar-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .statusbar-meta { display: flex; align-items: baseline; gap: 20px; }
-  .statusbar .field { display: flex; align-items: baseline; gap: 8px; }
-  .statusbar .val { font-variant-numeric: tabular-nums; font-size: 0.92rem; white-space: nowrap; }
+  /* Stretched to the bar's full width now that it's the only child --
+     justify-content:space-between on .statusbar has nothing left to space
+     between a single item, so the countdown pins itself to the far edge
+     with margin-left:auto instead. */
+  .statusbar-lead { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
   .statusbar-sep { width: 1px; align-self: stretch; min-height: 1.4em; background: var(--grid); }
-  /* The HF phrase, on the status bar rather than in a tile of its own: four
-     numbers are one line, and the page is already short of vertical room. */
-  .statusbar .indices { display: flex; align-items: baseline; gap: 12px; }
-  .statusbar .indices .t { display: flex; align-items: baseline; gap: 5px; }
   /* The same element and the same renderTimer as the old hero clock, at bar
      scale: digits and label share one baseline instead of stacking. */
   .bar-countdown {
-    display: flex; align-items: baseline; gap: 9px; white-space: nowrap;
+    display: flex; align-items: baseline; gap: 9px; white-space: nowrap; margin-left: auto;
     font-family: var(--font-mono); font-weight: 700; font-size: 1.25rem;
     font-variant-numeric: tabular-nums; color: var(--amber); line-height: 1;
     text-shadow: 0 0 24px color-mix(in srgb, var(--amber) 45%, transparent);
@@ -166,8 +163,8 @@
   .sev-0 { color: var(--sev-0); } .sev-1 { color: var(--sev-1); } .sev-3 { color: var(--sev-3); }
   .sev-4 { color: var(--sev-4); } .sev-5 { color: var(--sev-5); }
 
-  /* Verdict and advisory share one tile: with the chip and the clock in the
-     bar, what is left of the hero is a headline and one line of impact,
+  /* Verdict and advisory share one tile: with the chip and the countdown in
+     the bar, what is left of the hero is a headline and one line of impact,
      which does not fill a tile of its own. */
   .hero { display: grid; grid-template-columns: 7fr 1px 5fr; gap: 20px; align-items: start; }
   .hero-verdict, .hero-advisory { min-width: 0; }
@@ -179,22 +176,13 @@
   }
   .hero .sub { color: var(--text-dim); font-size: 0.86rem; max-width: 52ch; }
 
-  /* The header compacts one step earlier than the grid does. The 800x480
-     kiosk is the size this variant was drawn for, and at 800px the bar --
-     now carrying the countdown as well -- cannot hold vessel and local time
-     on the same row: measured, the lead group alone wants ~465px and the two
-     meta fields another ~315px against ~745px of content width. It wrapped
-     to two rows, which is the height the variant exists to save. So the
-     meta fields go, and verdict and advisory stop sharing a row at the same
-     width rather than squeezing the advisory to a ~278px column. */
+  /* The header carries only the chip and countdown now (issue #36's HF
+     indices and clock were pulled back out -- low value for most users, and
+     not worth the responsive complexity they cost). Still wraps below the
+     width where the title and countdown can't share a row. */
   @media (max-width: 900px) {
-    .statusbar-meta { display: none; }
-    .statusbar-sep { display: none; }
-    /* Wraps rather than clips: the title and the clock are both nowrap, so
-       below roughly 500px they cannot share a row and the countdown has to
-       drop to a second one. */
-    .statusbar-lead { flex: 1; gap: 9px; flex-wrap: wrap; }
-    .bar-countdown { margin-left: auto; font-size: 1.05rem; gap: 7px; }
+    .statusbar-lead { gap: 9px; flex-wrap: wrap; }
+    .bar-countdown { font-size: 1.05rem; gap: 7px; }
     .bar-countdown .unit { font-size: 0.58rem; letter-spacing: 0.1em; }
     .hero { grid-template-columns: 1fr; gap: 10px; }
     .hero-rule { height: 1px; align-self: auto; }
@@ -425,10 +413,6 @@
       <span class="statusbar-sep" aria-hidden="true"></span>
       <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
     </div>
-    <div class="statusbar-meta">
-      <div class="field"><span class="label">Local</span><span class="val" id="clock">&mdash;</span></div>
-      <div class="indices" id="hfIndices"></div>
-    </div>
   </div>
 
   <div class="auth-banner" id="authBanner">
@@ -541,7 +525,6 @@
 
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
-import { hfIndices } from './indices.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
   'use strict';
@@ -661,11 +644,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   function setTimestamp(el, iso) {
     el.textContent = fmtTime(iso) + (isStale(iso) ? ' (stale)' : '');
     el.classList.toggle('stale', isStale(iso));
-  }
-  function fmtClock() {
-    return new Date().toLocaleString(undefined, {
-      month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-    });
   }
   const SCALE_NOUNS = { G: 'Geomagnetic storm', S: 'Solar radiation storm', R: 'Radio blackout' };
   // NOAA's own scale effects (spaceweather.gov/noaa-scales-explanation), cut
@@ -948,19 +926,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       ${scheduled ? '' : `<div class="empty-state" style="margin-top:2px;padding:0;background:none;font-size:0.68rem;">
         Automatic updates are off &mdash; fetched only when asked.</div>`}`;
     setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
-  }
-
-  function renderIndices(f107, aIndexRaw, kp, sunspotRaw) {
-    const terms = hfIndices({
-      f107: leafValue(f107),
-      aIndex: leafValue(aIndexRaw),
-      kp: leafValue(kp?.observed),
-      sunspot: leafValue(sunspotRaw)
-    });
-    document.getElementById('hfIndices').innerHTML = terms.map((t) => `
-      <span class="t"><span class="label">${t.key}</span><span class="val">${
-        t.value === null ? '–' : t.value.toFixed(t.digits)
-      }</span></span>`).join('');
   }
 
   function renderWind(wind) {
@@ -1574,11 +1539,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   })
 
   async function refresh() {
-    document.getElementById('clock').textContent = fmtClock();
-
-    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot;
+    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status;
     try {
-      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
+      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
@@ -1588,10 +1551,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
-        getJson('/signalk/v1/api/signalk-noaa-space-weather/status'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/f107'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/a_index'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/sunspot_number')
+        getJson('/signalk/v1/api/signalk-noaa-space-weather/status')
       ]);
     } catch (err) {
       // Every getJson call above hits this same server, so one 401 means
@@ -1621,7 +1581,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // that never set auroraEnabled reads as the default it is actually running.
     auroraScheduled = status?.settings?.auroraEnabled === true;
 
-    renderIndices(f107, aIndex, kp, sunspot);
     renderHero(scalesLatest, scalesPeak24h, kp, status);
     renderScales(scalesLatest, xrayFlare, scalesForecast);
     renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status);
@@ -1645,6 +1604,5 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
 
   refresh();
   setInterval(refresh, REFRESH_MS);
-  setInterval(() => { document.getElementById('clock').textContent = fmtClock(); }, 30000);
 })();
 </script>
