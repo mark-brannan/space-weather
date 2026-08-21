@@ -8,6 +8,7 @@ import {
   parseAlert,
   parseDailySolarIndices,
   parseF107,
+  parseGoesFlux,
   parseGeophysicalAlert,
   parseIssueDate,
   parseKpForecast,
@@ -782,6 +783,53 @@ describe('parseSolarWind', () => {
       [{ bt: 3 }]
     )
     expect(wind.timestamp).toBe('2026-08-01T00:00:00Z')
+  })
+})
+
+describe('parseGoesFlux', () => {
+  it('reads the latest 0.1-0.8nm and >=10 MeV records from a captured payload', () => {
+    const flux = parseGoesFlux(
+      fixtureJson('xrays-6-hour.2026_08_20.json'),
+      fixtureJson('integral-protons-6-hour.2026_08_20.json')
+    )
+    expect(flux.xrayFlux).toBeCloseTo(1.3730890486840508e-6, 15)
+    expect(flux.xrayTimestamp).toBe('2026-08-20T04:42:00Z')
+    // 0.21759319305419922 pfu -> m^-2.s^-1.sr^-1
+    expect(flux.protonFlux).toBeCloseTo(2175.9319305419922, 6)
+    expect(flux.protonTimestamp).toBe('2026-08-20T04:35:00Z')
+  })
+
+  it('scans past interleaved channels rather than reading the last element', () => {
+    const flux = parseGoesFlux(
+      [
+        { time_tag: '2026-01-01T00:00:00Z', energy: '0.1-0.8nm', flux: 1e-7 },
+        { time_tag: '2026-01-01T00:01:00Z', energy: '0.05-0.4nm', flux: 2e-8 }
+      ],
+      [
+        { time_tag: '2026-01-01T00:00:00Z', energy: '>=10 MeV', flux: 0.3 },
+        { time_tag: '2026-01-01T00:00:00Z', energy: '>=1 MeV', flux: 5 }
+      ]
+    )
+    expect(flux.xrayFlux).toBe(1e-7)
+    expect(flux.protonFlux).toBeCloseTo(3000, 6)
+  })
+
+  it('never produces NaN', () => {
+    for (const [xray, proton] of [
+      [[], []],
+      [null, null],
+      [{}, {}],
+      [[{ energy: '0.1-0.8nm', flux: null }], [{ energy: '>=10 MeV' }]],
+      [
+        [{ energy: '0.1-0.8nm', flux: 'x' }],
+        [{ energy: '>=10 MeV', flux: 'x' }]
+      ]
+    ]) {
+      const flux = parseGoesFlux(xray, proton)
+      for (const value of [flux.xrayFlux, flux.protonFlux]) {
+        expect(value === null || Number.isFinite(value)).toBe(true)
+      }
+    }
   })
 })
 

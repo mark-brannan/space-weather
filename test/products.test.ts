@@ -6,6 +6,7 @@ import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
 import { aIndex } from '../src/products/aIndex'
 import { f107 } from '../src/products/f107'
+import { goesFlux } from '../src/products/goesFlux'
 import { kp } from '../src/products/kp'
 import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
@@ -226,6 +227,57 @@ describe('solar wind product', () => {
     await solarWind.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
+  })
+})
+
+describe('GOES flux product', () => {
+  it('publishes the latest X-ray and proton channel from a captured payload', async () => {
+    const h = harness({
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    })
+    await goesFlux.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.xray_flux')).toBeCloseTo(
+      1.3730890486840508e-6,
+      15
+    )
+    expect(h.valueAt('environment.noaa.swpc.proton_flux')).toBeCloseTo(
+      2175.9319305419922,
+      6
+    )
+  })
+
+  it('publishes nothing at all rather than NaN when the payload is unusable', async () => {
+    const h = harness({
+      '/json/goes/primary/xrays-6-hour.json': [],
+      '/json/goes/primary/integral-protons-6-hour.json': []
+    })
+    await goesFlux.refresh(h.ctx)
+    expect(h.published).toEqual([])
+    expect(h.errors.length).toBe(1)
+  })
+
+  it('does not rebroadcast channels that have not moved', async () => {
+    const responses = {
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    }
+    const h = harness(responses)
+    await goesFlux.refresh(h.ctx)
+    await goesFlux.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.published.length).toBe(1)
   })
 })
 

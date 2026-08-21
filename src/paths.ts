@@ -69,6 +69,15 @@ export const A_INDEX_BASE = 'environment.noaa.swpc.a_index'
  * is not derived from the other.
  */
 export const SUNSPOT_BASE = 'environment.noaa.swpc.sunspot_number'
+/**
+ * Raw GOES flux behind the R and S scales -- the shape (rising, peaked,
+ * decaying) the bucketed level can't show. `xray_flux` is the 0.1-0.8nm
+ * channel the flare class is defined on, alongside XRAY_FLARE_BASE's class
+ * string; `proton_flux` is the >=10 MeV channel the S scale is defined on,
+ * converted from NOAA's pfu to m^-2.s^-1.sr^-1 -- see parseGoesFlux.
+ */
+export const XRAY_FLUX_BASE = 'environment.noaa.swpc.xray_flux'
+export const PROTON_FLUX_BASE = 'environment.noaa.swpc.proton_flux'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]

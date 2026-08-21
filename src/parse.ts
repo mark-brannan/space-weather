@@ -1436,3 +1436,49 @@ export function isRaised(value: any): boolean {
     (Array.isArray(value.method) && value.method.length > 0)
   )
 }
+
+// ---------------------------------------------------------------------------
+// GOES X-ray and integral proton flux
+// https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json
+// https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json
+// ---------------------------------------------------------------------------
+
+export interface GoesFlux {
+  /** 0.1-0.8nm channel, W/m^2 -- the channel the GOES flare class (M1, X1, ...) is defined on. */
+  xrayFlux: number | null
+  xrayTimestamp: string | null
+  /** >=10 MeV channel, converted from pfu (cm^-2.s^-1.sr^-1) to m^-2.s^-1.sr^-1 -- the channel the S scale is defined on. */
+  protonFlux: number | null
+  protonTimestamp: string | null
+}
+
+const PFU_TO_SI = 1e4 // cm^-2 -> m^-2
+
+/**
+ * Both endpoints are flat arrays interleaving several energy channels per
+ * timestamp (two for X-rays, eight for protons), not one channel appended in
+ * order -- so "latest" means the last record matching the wanted channel,
+ * found by scanning from the end, not simply the last element.
+ */
+export function parseGoesFlux(xrayJson: any, protonJson: any): GoesFlux {
+  const xrayRow = lastRecordForEnergy(xrayJson, '0.1-0.8nm')
+  const protonRow = lastRecordForEnergy(protonJson, '>=10 MeV')
+
+  const xrayFlux = firstNumber(xrayRow, ['flux'])
+  const protonFluxPfu = firstNumber(protonRow, ['flux'])
+
+  return {
+    xrayFlux,
+    xrayTimestamp: firstString(xrayRow, ['time_tag']),
+    protonFlux: protonFluxPfu === null ? null : protonFluxPfu * PFU_TO_SI,
+    protonTimestamp: firstString(protonRow, ['time_tag'])
+  }
+}
+
+function lastRecordForEnergy(json: any, energy: string): any {
+  if (!Array.isArray(json)) return null
+  for (let i = json.length - 1; i >= 0; i--) {
+    if (json[i]?.energy === energy) return json[i]
+  }
+  return null
+}
