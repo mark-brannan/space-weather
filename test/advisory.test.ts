@@ -4,6 +4,8 @@ import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { settingsFrom } from '../src/config'
 import { advisory, nextAdvisoryDelayMinutes } from '../src/products/advisory'
+import { ADVISORY_BASE } from '../src/paths'
+import { NotificationStates } from '../src/parse'
 import { fixture } from './fixtures'
 
 const REAL = 'advisory-outlook.2026_08_03.txt'
@@ -45,7 +47,7 @@ describe('advisory product', () => {
       rmSync(dir, { recursive: true, force: true })
   })
 
-  function harness(text: string) {
+  function harness(text: string, model: Record<string, unknown> = {}) {
     const published: any[] = []
     const errors: string[] = []
     const dataDir = mkdtempSync(join(tmpdir(), 'advisory-cache-'))
@@ -56,7 +58,7 @@ describe('advisory product', () => {
       value(path: string, value: any) {
         published.push({ path, value })
       },
-      selfPath: () => undefined,
+      selfPath: (path: string) => model[path],
       status: () => {},
       fail: () => {},
       error: (m: string) => errors.push(m),
@@ -119,6 +121,80 @@ describe('advisory product', () => {
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
     expect(result).toHaveProperty('nextDelayMinutes')
+  })
+
+  it('publishes one fixed path, with the bulletin number in the value', async () => {
+    const h = harness(fixture(REAL))
+    await advisory.refresh(h.ctx as any)
+
+    const notifications = h.published.filter((p) => p.value?.id)
+    expect(notifications).toHaveLength(1)
+    const [only] = notifications
+    expect(only.path).toBe(ADVISORY_BASE)
+    expect(only.value.shortId).toMatch(/\S/)
+    expect(only.value.state).toBe(NotificationStates.ALERT)
+  })
+
+  it('does not republish a bulletin the path already holds', async () => {
+    const first = harness(fixture(REAL))
+    await advisory.refresh(first.ctx as any)
+    const [published] = first.published.filter((p) => p.value?.id)
+
+    const again = harness(fixture(REAL), {
+      [`${ADVISORY_BASE}.value`]: published.value
+    })
+    await advisory.refresh(again.ctx as any)
+    expect(again.published.filter((p) => p.value?.id)).toEqual([])
+  })
+
+  it('stands down a per-bulletin path left by an older version', async () => {
+    const stale = {
+      id: 'space_weather_advisory_outlookSWO25-034',
+      state: NotificationStates.ALERT,
+      method: ['visual']
+    }
+    const h = harness(fixture(REAL), {
+      [ADVISORY_BASE]: {
+        // The leaf's own keys sit alongside the legacy children.
+        value: { id: 'space_weather_advisory_outlook' },
+        meta: { name: 'irrelevant' },
+        'SWO25-034': { value: stale }
+      }
+    })
+    await advisory.refresh(h.ctx as any)
+
+    const cleared = h.published.find(
+      (p) => p.path === `${ADVISORY_BASE}.SWO25-034`
+    )
+    expect(cleared.value.state).toBe(NotificationStates.NORMAL)
+    expect(cleared.value.method).toEqual([])
+    // The leaf's own `value` and `meta` are not mistaken for legacy children.
+    expect(
+      h.published.filter((p) => p.path.startsWith(`${ADVISORY_BASE}.`))
+    ).toHaveLength(1)
+  })
+
+  it('stands down a legacy path left quiet but still asking for a sound', async () => {
+    // Issue #45's screenshot: `normal` with a non-empty method still makes
+    // noise, so state alone does not mean "already stood down".
+    const h = harness(fixture(REAL), {
+      [ADVISORY_BASE]: {
+        'SWO25-034': {
+          value: {
+            id: 'space_weather_advisory_outlookSWO25-034',
+            state: NotificationStates.NORMAL,
+            method: ['visual', 'sound']
+          }
+        }
+      }
+    })
+    await advisory.refresh(h.ctx as any)
+
+    const cleared = h.published.find(
+      (p) => p.path === `${ADVISORY_BASE}.SWO25-034`
+    )
+    expect(cleared.value.state).toBe(NotificationStates.NORMAL)
+    expect(cleared.value.method).toEqual([])
   })
 
   it('is on by default', () => {

@@ -2,6 +2,7 @@
 import { ADVISORY_BASE } from '../paths.js'
 import {
   NotificationStates,
+  isRaised,
   methodForState,
   parseAdvisoryOutlook
 } from '../parse.js'
@@ -9,10 +10,12 @@ import {
   readAdvisoryCache,
   writeAdvisoryCache
 } from '../cache/advisoryCache.js'
-import { Meta } from '../publisher.js'
+import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 
-const ID_PREFIX = 'space_weather_advisory_outlook'
+// There is only ever one current advisory, so this identifies the path, not
+// the week. The bulletin number lives in the value's `shortId` instead.
+const ID = 'space_weather_advisory_outlook'
 
 // This bulletin is genuinely weekly (every captured fixture is issued on a
 // Monday, ~0100-0400 UTC), so a flat interval either chatters all week for
@@ -89,12 +92,17 @@ export const advisory: Product = {
     }
 
     const { idLine, shortId, issued, outlookTeaser } = outlook
-    const path = `${ADVISORY_BASE}.${shortId}`
-    const existing = publisher.selfPath(`${path}.value`)
-    const id = ID_PREFIX + shortId
+    const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
+      { shortId?: string } | undefined
 
     const current = {
-      id,
+      id: ID,
+      // The week's bulletin number, which used to be the last path segment.
+      // It identifies the issue, not the condition, so it belongs in the
+      // value the same way an alert's serial number does -- a client that
+      // wants to know whether this is a bulletin it has already seen reads
+      // this field rather than watching a path appear and disappear.
+      shortId,
       issued: issued.toISOString(),
       message: `${idLine} for ${issued.toDateString()}`,
       description: text,
@@ -105,32 +113,16 @@ export const advisory: Product = {
       // Monday on a default install.
       method: methodForState(NotificationStates.ALERT)
     }
-    publisher.value(path, current, issued.toISOString())
 
-    if (!existing || existing.state === NotificationStates.NORMAL) {
-      publisher.debug('Sending %s: %s', id, current.message)
+    // The tight poll runs every 15 minutes through the pre-issuance window
+    // and re-reads the same bulletin each time; republishing it would put a
+    // delta out to every connected client for a value that has not moved.
+    if (!existing || existing.shortId !== shortId) {
+      publisher.value(ADVISORY_BASE, current, issued.toISOString())
+      publisher.debug('Sending %s: %s', ID, current.message)
     }
 
-    // Clear any advisory from a previous week that is still raised.
-    const previous = publisher.selfPath(ADVISORY_BASE)
-    if (previous) {
-      for (const entry of Object.values(previous) as any[]) {
-        if (!entry?.value?.id) continue
-        if (
-          entry.value.id === current.id ||
-          entry.value.state === NotificationStates.NORMAL
-        ) {
-          continue
-        }
-        const staleShortId = entry.value.id.slice(ID_PREFIX.length)
-        publisher.debug('Clearing ' + entry.value.id)
-        publisher.value(
-          `${ADVISORY_BASE}.${staleShortId}`,
-          { ...entry.value, state: NotificationStates.NORMAL },
-          issued.toISOString()
-        )
-      }
-    }
+    clearShortIdPaths(publisher, issued)
 
     // Cached separately from the notification path above so the webapp can
     // read the raw bulletin back over this plugin's own HTTP route, rather
@@ -149,5 +141,38 @@ export const advisory: Product = {
     }
 
     return { nextDelayMinutes: nextAdvisoryDelayMinutes(new Date(), issued) }
+  }
+}
+
+/**
+ * Stand down the per-bulletin notifications this plugin raised before 0.25.0
+ * (`notifications.noaa.swpc.advisory_outlook.SWO25-034`).
+ *
+ * Every week minted a fresh path, so a client that subscribed to one stopped
+ * hearing anything the following Monday (issue #104), and upgrading does not
+ * remove the old ones -- they are already in the server's model and in every
+ * client that saw them. Idempotent, and a no-op on an install that never ran
+ * the old code.
+ */
+function clearShortIdPaths(publisher: Publisher, now: Date) {
+  // `selfPath` is untyped, and the leaf holds its own `value`/`meta` keys
+  // alongside whatever legacy children are left, so the entries are only
+  // known to maybe carry a notification.
+  const existing = publisher.selfPath(ADVISORY_BASE) as
+    Record<string, { value?: { id?: string } } | undefined> | undefined
+  if (!existing) return
+
+  for (const [leaf, entry] of Object.entries(existing)) {
+    // Skips `value`, `meta` and the rest of the leaf's own keys, which carry
+    // no `id` of ours now that ADVISORY_BASE is itself the notification.
+    const value = entry?.value
+    if (!value?.id) continue
+    if (!isRaised(value)) continue
+    publisher.debug('Clearing the stale per-bulletin path %s', leaf)
+    publisher.value(
+      `${ADVISORY_BASE}.${leaf}`,
+      { ...value, state: NotificationStates.NORMAL, method: [] },
+      now.toISOString()
+    )
   }
 }

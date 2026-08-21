@@ -5,7 +5,8 @@ import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
   NotificationStates,
-  currentAlertNotifications
+  currentAlertNotifications,
+  isRaised
 } from '../parse.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
@@ -132,22 +133,6 @@ function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
   return true
 }
 
-/**
- * Whether a raised notification still has something to stand down.
- *
- * A non-empty method matters even at `normal`, and is not a hypothetical: the
- * screenshot on issue #45 is a `normal` notification carrying visual+sound,
- * which is why it was making noise about a three-week-old message. Treating
- * `state === normal` as "already quiet" would leave exactly the reported case
- * untouched.
- */
-function isRaised(value: any): boolean {
-  return (
-    value.state !== NotificationStates.NORMAL ||
-    (Array.isArray(value.method) && value.method.length > 0)
-  )
-}
-
 /** `{ ...value, quiet }` -- keeps the message so a client can still read it. */
 function standDown(publisher: Publisher, path: string, value: any, now: Date) {
   publisher.value(
@@ -162,8 +147,8 @@ function standDown(publisher: Publisher, path: string, value: any, now: Date) {
  *
  * Signal K has no way to delete a path, so a notification that is simply
  * dropped from the next poll stays raised in the model and in every client
- * that has ever seen it. It has to be actively stood down. Same shape as the
- * advisory product's weekly hand-off.
+ * that has ever seen it. It has to be actively stood down. Same shape as
+ * `clearShortIdPaths` in the advisory product.
  */
 function clearWithdrawn(
   publisher: Publisher,

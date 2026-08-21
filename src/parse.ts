@@ -1420,3 +1420,19 @@ function dailySolarRow(line: string): DailySolarIndices | null {
   )
   return day ? { day, sunspotNumber } : null
 }
+
+/**
+ * Whether a raised notification still has something to stand down.
+ *
+ * A non-empty method matters even at `normal`, and is not a hypothetical: the
+ * screenshot on issue #45 is a `normal` notification carrying visual+sound,
+ * which is why it was making noise about a three-week-old message. Treating
+ * `state === normal` as "already quiet" would leave exactly the reported case
+ * untouched.
+ */
+export function isRaised(value: any): boolean {
+  return (
+    value.state !== NotificationStates.NORMAL ||
+    (Array.isArray(value.method) && value.method.length > 0)
+  )
+}

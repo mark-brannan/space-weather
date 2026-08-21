@@ -16,6 +16,13 @@ export const AURORA_BASE = 'environment.noaa.swpc.aurora'
 // it's a single "most recent event" reading.
 export const XRAY_FLARE_BASE = 'environment.noaa.swpc.xray_flare'
 export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
+/**
+ * The weekly Advisory Outlook, a single notification rather than a subtree:
+ * there is only ever one current bulletin, and keying the path on the week's
+ * bulletin number moved the notification out from under anyone subscribed to
+ * it every Monday (issue #104). The number is in the value's `shortId`, and
+ * `clearShortIdPaths` cleans up after the old scheme.
+ */
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 /**
  * Alerts, watches and warnings, one leaf per NOAA message code (`WARK05`,
