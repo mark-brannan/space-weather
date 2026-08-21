@@ -90,7 +90,7 @@
   .shell { max-width: 1180px; margin: 0 auto; padding: 14px 20px 24px; }
 
   .statusbar {
-    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: 6px 24px; padding: 8px 16px; border: 1px solid var(--grid); border-radius: 4px;
     background: linear-gradient(180deg, var(--panel-2), var(--panel)); box-shadow: var(--shadow);
     margin-bottom: 12px;
@@ -98,13 +98,29 @@
   .statusbar h1 {
     font-family: var(--font-display); font-weight: 700; font-size: 1rem;
     letter-spacing: 0.06em; text-transform: uppercase; margin: 0; color: var(--text);
+    white-space: nowrap;
   }
+  .statusbar-lead { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .statusbar-meta { display: flex; align-items: baseline; gap: 20px; }
   .statusbar .field { display: flex; align-items: baseline; gap: 8px; }
-  .statusbar .val { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+  .statusbar .val { font-variant-numeric: tabular-nums; font-size: 0.92rem; white-space: nowrap; }
+  .statusbar-sep { width: 1px; align-self: stretch; min-height: 1.4em; background: var(--grid); }
   /* The HF phrase, on the status bar rather than in a tile of its own: four
      numbers are one line, and the page is already short of vertical room. */
   .statusbar .indices { display: flex; align-items: baseline; gap: 12px; }
   .statusbar .indices .t { display: flex; align-items: baseline; gap: 5px; }
+  /* The same element and the same renderTimer as the old hero clock, at bar
+     scale: digits and label share one baseline instead of stacking. */
+  .bar-countdown {
+    display: flex; align-items: baseline; gap: 9px; white-space: nowrap;
+    font-family: var(--font-mono); font-weight: 700; font-size: 1.25rem;
+    font-variant-numeric: tabular-nums; color: var(--amber); line-height: 1;
+    text-shadow: 0 0 24px color-mix(in srgb, var(--amber) 45%, transparent);
+  }
+  .bar-countdown .unit {
+    font-family: var(--font-display); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-dim); text-shadow: none;
+  }
 
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
   .tile {
@@ -126,28 +142,16 @@
     .grid { grid-template-columns: repeat(4, 1fr); }
     .span-12, .span-8, .span-7, .span-6, .span-5, .span-4 { grid-column: span 4; }
 
-    /* First pass at issue #36: shrink only the statusbar and hero tile for
-       kiosk/tablet screens. The rest of the layout is still being explored
-       in a separate design tool, so it stays untouched here. */
+    /* Issue #36: shrink only the statusbar and hero tile for kiosk/tablet
+       screens. The rest of the layout is still being explored in a separate
+       design tool, so it stays untouched here. */
     .shell { padding: 10px 12px 16px; }
     .statusbar { padding: 6px 10px; gap: 4px 14px; margin-bottom: 8px; }
     .statusbar h1 { font-size: 0.82rem; }
     .statusbar .val { font-size: 0.82rem; }
     .tile.hero { padding: 12px 14px; gap: 12px; }
-    .hero .headline { font-size: clamp(1.1rem, 5vw, 1.5rem); line-height: 1.1; margin: 4px 0 6px; }
+    .hero .headline { font-size: clamp(1.1rem, 5vw, 1.5rem); line-height: 1.1; margin: 0 0 6px; }
     .hero .sub { font-size: 0.8rem; }
-    .hero .countdown { font-size: clamp(1.4rem, 8vw, 2rem); }
-    .hero .countdown .unit { font-size: 0.56rem; margin-top: 2px; }
-
-    /* Below the breakpoint, the headline and countdown compete for the same
-       row on a knife's edge: whether the flex box wraps or shrinks depends on
-       exact text length, and at ~320-420px it was shrinking the countdown to
-       the point of overflowing the tile's `overflow: hidden` and vanishing
-       entirely -- confirmed by screenshotting both this branch and main at
-       320/375/420/500px with real hero text. Forcing the stack removes the
-       ambiguity instead of chasing the exact width it tips over at. */
-    .tile.hero { flex-direction: column; align-items: flex-start; }
-    .hero .countdown { text-align: left; }
   }
 
   .chip {
@@ -162,20 +166,38 @@
   .sev-0 { color: var(--sev-0); } .sev-1 { color: var(--sev-1); } .sev-3 { color: var(--sev-3); }
   .sev-4 { color: var(--sev-4); } .sev-5 { color: var(--sev-5); }
 
-  .hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  /* Verdict and advisory share one tile: with the chip and the clock in the
+     bar, what is left of the hero is a headline and one line of impact,
+     which does not fill a tile of its own. */
+  .hero { display: grid; grid-template-columns: 7fr 1px 5fr; gap: 20px; align-items: start; }
+  .hero-verdict, .hero-advisory { min-width: 0; }
+  .hero-rule { background: var(--grid); align-self: stretch; }
+  .hero-advisory .label { display: block; margin-bottom: 2px; }
   .hero .headline {
     font-family: var(--font-display); font-weight: 700; font-size: clamp(1.3rem, 2.4vw, 1.9rem);
-    text-wrap: balance; line-height: 1.15; margin: 6px 0 8px;
+    text-wrap: balance; line-height: 1.15; margin: 0 0 8px;
   }
-  .hero .sub { color: var(--text-dim); font-size: 0.86rem; max-width: 46ch; }
-  .hero .countdown {
-    font-family: var(--font-mono); font-weight: 700; font-size: clamp(1.7rem, 4vw, 2.6rem);
-    font-variant-numeric: tabular-nums; color: var(--amber); text-align: right; line-height: 1;
-    text-shadow: 0 0 24px color-mix(in srgb, var(--amber) 45%, transparent);
-  }
-  .hero .countdown .unit {
-    display: block; font-family: var(--font-display); font-size: 0.6rem; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--text-dim); text-shadow: none; margin-top: 4px;
+  .hero .sub { color: var(--text-dim); font-size: 0.86rem; max-width: 52ch; }
+
+  /* The header compacts one step earlier than the grid does. The 800x480
+     kiosk is the size this variant was drawn for, and at 800px the bar --
+     now carrying the countdown as well -- cannot hold vessel and local time
+     on the same row: measured, the lead group alone wants ~465px and the two
+     meta fields another ~315px against ~745px of content width. It wrapped
+     to two rows, which is the height the variant exists to save. So the
+     meta fields go, and verdict and advisory stop sharing a row at the same
+     width rather than squeezing the advisory to a ~278px column. */
+  @media (max-width: 900px) {
+    .statusbar-meta { display: none; }
+    .statusbar-sep { display: none; }
+    /* Wraps rather than clips: the title and the clock are both nowrap, so
+       below roughly 500px they cannot share a row and the countdown has to
+       drop to a second one. */
+    .statusbar-lead { flex: 1; gap: 9px; flex-wrap: wrap; }
+    .bar-countdown { margin-left: auto; font-size: 1.05rem; gap: 7px; }
+    .bar-countdown .unit { font-size: 0.58rem; letter-spacing: 0.1em; }
+    .hero { grid-template-columns: 1fr; gap: 10px; }
+    .hero-rule { height: 1px; align-self: auto; }
   }
 
   /* Storm Scales card: one row per G/S/R scale, observed + 3-day forecast
@@ -391,12 +413,22 @@
 </style>
 
 <div class="shell">
+  <!-- Command bar: the bar carries the whole verdict -- severity, then the
+       countdown with its label -- so the tile below is text only. Nothing
+       about the boat belongs here: the vessel name is on every other page of
+       the server, and position is what the aurora map is drawn around, so it
+       is labelled there instead. -->
   <div class="statusbar">
-    <h1>NOAA Space Weather</h1>
-    <div class="field"><span class="label">Vessel</span><span class="val" id="vesselName">—</span></div>
-    <div class="field"><span class="label">Position</span><span class="val" id="vesselPos">—</span></div>
-    <div class="field"><span class="label">Local</span><span class="val" id="clock">—</span></div>
-    <div class="indices" id="hfIndices"></div>
+    <div class="statusbar-lead">
+      <h1>NOAA Space Weather</h1>
+      <span class="chip sev-0" id="heroChip">Loading</span>
+      <span class="statusbar-sep" aria-hidden="true"></span>
+      <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
+    </div>
+    <div class="statusbar-meta">
+      <div class="field"><span class="label">Local</span><span class="val" id="clock">&mdash;</span></div>
+      <div class="indices" id="hfIndices"></div>
+    </div>
   </div>
 
   <div class="auth-banner" id="authBanner">
@@ -405,24 +437,17 @@
   </div>
 
   <div class="grid">
-    <div class="tile span-7 hero">
-      <div>
-        <span class="chip sev-0" id="heroChip">Loading</span>
+    <div class="tile span-12 hero">
+      <div class="hero-verdict">
         <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
         <div class="sub" id="heroSub"></div>
       </div>
-      <div class="countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
-    </div>
-
-    <div class="tile span-5">
-      <div class="map-header">
-        <div>
-          <span class="label">Advisory &middot; NOAA SWPC</span>
-          <h2>Weekly Outlook</h2>
-        </div>
+      <div class="hero-rule" aria-hidden="true"></div>
+      <div class="hero-advisory">
+        <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
+        <div class="advisory-teaser" id="advisoryTeaser">Waiting for data&hellip;</div>
+        <button type="button" id="advisoryOpen" class="btn-outline" disabled style="margin-top:10px;">Read full outlook</button>
       </div>
-      <div class="advisory-teaser" id="advisoryTeaser">Waiting for data&hellip;</div>
-      <button type="button" id="advisoryOpen" class="btn-outline" disabled style="margin-top:10px;">Read full outlook</button>
     </div>
 
     <div class="tile span-12">
@@ -473,7 +498,7 @@
         <div>
           <span class="label">Aurora &middot; OVATION</span>
           <h2>Regional Aurora</h2>
-          <span class="map-extent">&plusmn;25&deg; latitude around the vessel</span>
+          <span class="map-extent">&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span></span>
         </div>
         <button type="button" id="mapToggle" class="btn-outline">Show map</button>
       </div>
@@ -1551,9 +1576,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot;
+    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot;
     try {
-      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
+      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
@@ -1561,7 +1586,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
         getJson('/signalk/v1/api/vessels/self/navigation/position'),
-        getJson('/signalk/v1/api/vessels/self/name'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/status'),
@@ -1606,16 +1630,17 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     renderKp(kp);
     renderAdvisory(advisory);
 
+    // Position reads as the aurora map's extent now ("+/-25 degrees latitude
+    // around <here>"), which is the only thing the webapp ever did with it.
+    // The fallback has to stay a noun phrase that sentence can end on.
     const pos = leafValue(position);
     document.getElementById('vesselPos').textContent = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
-      : 'No position';
+      : 'the vessel';
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
     // map is already centered on -- only overwrite it with an actual value.
     if (pos) lastPosition = pos;
-    const vesselName = leafValue(name);
-    document.getElementById('vesselName').textContent = vesselName || 'Unnamed vessel';
   }
 
   refresh();

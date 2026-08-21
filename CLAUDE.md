@@ -402,6 +402,31 @@ If the admin UI 500s on `/admin/`, npm has hoisted `@signalk/server-admin-ui`
 somewhere the server doesn't look; symlink it into
 `node_modules/signalk-server/node_modules/@signalk/`.
 
+## Working on the webapp without a server
+
+```shell
+npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
+```
+
+`scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
+answers the ten Signal K paths it understands with fabricated data, so the real
+`heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
+bottom of the page switches between five states: quiet, G3 forecast, G4+S4,
+stale, and no-data-since-start. Four of those are impractical to reach
+against a live server -- a G4 happens a few times a solar cycle, and the last
+one means breaking the plugin on purpose -- which is the whole reason the
+file exists. Reach for it instead of hand-editing the DOM in devtools, and
+add a state there rather than faking one in the console.
+
+It has no dependencies and nothing imports it. Keep it that way: the plugin
+registry clones this repo and runs `npm ci`, `npm run build` and `npm test`
+under `firejail --net=none` with a 60 second cap, and this script has to stay
+invisible to all three.
+
+The aurora map is deliberately not mocked -- it needs a real grid cache to
+draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
+that tile renders its own empty state.
+
 ## Regenerating the README screenshots
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`
