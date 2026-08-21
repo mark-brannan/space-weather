@@ -9,6 +9,9 @@ import {
   OTHER_WIRE_KB,
   RATE,
   currentConditions,
+  A_INDEX_WIRE_KB,
+  OUTLOOK27_WIRE_KB,
+  SUNSPOT_WIRE_KB,
   dailyKb,
   formatKb,
   gScaleForKp,
@@ -385,6 +388,15 @@ describe('dailyKb', () => {
     const faster = dailyKb({ ...settings, updateInterval: 30 })
     expect(faster.fixed).toBe(base.fixed)
     expect(faster.other).toBeCloseTo(base.other * 2)
+  })
+
+  it('prices the HF indices, whose cadences no setting reaches', () => {
+    // They are small, but they are two more fetches on the fixed row and the
+    // panel's claim is that the figure is arithmetic rather than a sentence.
+    const off = dailyKb({ ...settings, sendAdvisoryOutlook: false })
+    expect(off.fixed).toBeCloseTo(
+      OUTLOOK27_WIRE_KB + 8 * A_INDEX_WIRE_KB + 6 * SUNSPOT_WIRE_KB
+    )
   })
 
   it('drops the weekly bulletin when the advisory outlook is off', () => {

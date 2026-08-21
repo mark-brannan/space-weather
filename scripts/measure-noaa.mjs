@@ -26,7 +26,9 @@ const ENDPOINTS = [
   ['/json/f107_cm_flux.json', 'f107'],
   ['/json/ovation_aurora_latest.json', 'aurora'],
   ['/text/advisory-outlook.txt', 'advisory'],
-  ['/text/27-day-outlook.txt', 'outlook27']
+  ['/text/27-day-outlook.txt', 'outlook27'],
+  ['/text/wwv.txt', 'aIndex'],
+  ['/text/daily-solar-indices.txt', 'sunspot']
 ]
 
 /** Gap between conditional probes. Longer than any observed rewrite cycle. */

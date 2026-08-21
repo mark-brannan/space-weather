@@ -6,7 +6,9 @@ import {
   parse27DayOutlook,
   parseAdvisoryOutlook,
   parseAlert,
+  parseDailySolarIndices,
   parseF107,
+  parseGeophysicalAlert,
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
@@ -821,5 +823,123 @@ describe('firstJsonValue', () => {
   it('returns null for anything that is not an array or object', () => {
     for (const text of ['', '   ', 'nope', '"a string"', '42'])
       expect(firstJsonValue(text), JSON.stringify(text)).toBeNull()
+  })
+})
+
+describe('parseGeophysicalAlert', () => {
+  const WWV = fixture('wwv.2026_08_20.txt')
+
+  it('reads the planetary A index and the day it describes', () => {
+    const alert = parseGeophysicalAlert(WWV)
+    expect(alert?.aIndex).toBe(20)
+    expect(alert?.day).toBe('2026-08-19T00:00:00.000Z')
+  })
+
+  it('accepts the wordings NOAA has used between the label and the number', () => {
+    const header = WWV.slice(0, WWV.indexOf('Solar-terrestrial'))
+    for (const [phrase, expected] of [
+      ['estimated planetary A-index 20.', 20],
+      ['estimated planetary A-index was 20.', 20],
+      ['estimated planetary A index of 8.', 8],
+      ['estimated planetary A-index 112.', 112]
+    ] as [string, number][]) {
+      const text =
+        header +
+        'Solar-terrestrial indices for 19 August follow.\n' +
+        'Solar flux 126 and ' +
+        phrase +
+        '\n'
+      expect(parseGeophysicalAlert(text)?.aIndex, phrase).toBe(expected)
+    }
+  })
+
+  it('reads a December day off a January bulletin as the year before', () => {
+    const text =
+      ':Product: Geophysical Alert Message wwv.txt\n' +
+      ':Issued: 2027 Jan 01 0305 UTC\n' +
+      'Solar-terrestrial indices for 31 December follow.\n' +
+      'Solar flux 126 and estimated planetary A-index 20.\n'
+    expect(parseGeophysicalAlert(text)?.day).toBe('2026-12-31T00:00:00.000Z')
+  })
+
+  it("rejects NOAA's negative filler rather than reading it as a severe index", () => {
+    // The gap before the number is matched loosely, so an unsigned pattern
+    // reads -999 as 999 -- a fabricated extreme storm out of a missing
+    // measurement.
+    const text =
+      ':Issued: 2026 Aug 20 0605 UTC\n' +
+      'Solar-terrestrial indices for 19 August follow.\n' +
+      'Solar flux 126 and estimated planetary A-index -999.\n'
+    expect(parseGeophysicalAlert(text)).toBeNull()
+  })
+
+  it('rejects a bulletin day that is not on the calendar', () => {
+    const text =
+      ':Issued: 2026 Mar 01 0305 UTC\n' +
+      'Solar-terrestrial indices for 31 February follow.\n' +
+      'Solar flux 126 and estimated planetary A-index 20.\n'
+    expect(parseGeophysicalAlert(text)).toBeNull()
+  })
+
+  it('returns null rather than a number without a day, or a day without a number', () => {
+    expect(parseGeophysicalAlert('')).toBeNull()
+    expect(parseGeophysicalAlert('No indices in this bulletin.')).toBeNull()
+    expect(
+      parseGeophysicalAlert(
+        ':Issued: 2026 Aug 20 0605 UTC\nestimated planetary A-index 20.\n'
+      )
+    ).toBeNull()
+  })
+})
+
+describe('parseDailySolarIndices', () => {
+  const DSD = fixture('daily-solar-indices.2026_08_20.txt')
+
+  it('reads the newest complete day from the 30-day table', () => {
+    const latest = parseDailySolarIndices(DSD)
+    expect(latest?.sunspotNumber).toBe(78)
+    expect(latest?.day).toBe('2026-08-19T00:00:00.000Z')
+  })
+
+  it('takes the newest row whatever order the table is in', () => {
+    const lines = DSD.replace(/\r\n/g, '\n').split('\n')
+    const reversed = lines.slice().reverse().join('\n')
+    expect(parseDailySolarIndices(reversed)).toEqual(
+      parseDailySolarIndices(DSD)
+    )
+  })
+
+  it('accepts an ISO date column alongside the one NOAA writes today', () => {
+    const text = '2026-08-19  126     78      560      1\n'
+    expect(parseDailySolarIndices(text)).toEqual({
+      day: '2026-08-19T00:00:00.000Z',
+      sunspotNumber: 78
+    })
+  })
+
+  it("skips a row whose sunspot column is NOAA's -999 filler", () => {
+    const text =
+      '2026 08 18  125     71      510      1\n' +
+      '2026 08 19  126   -999      560      1\n'
+    expect(parseDailySolarIndices(text)?.day).toBe('2026-08-18T00:00:00.000Z')
+  })
+
+  it('rejects a day that is not on the calendar', () => {
+    // Date rolls 30 February forward to 2 March, which sorts ahead of every
+    // real row -- so a torn payload would win the newest-row pick.
+    const text =
+      '2026 08 19  126     78      560      1\n' +
+      '2026 02 30  126     99      560      1\n'
+    expect(parseDailySolarIndices(text)?.day).toBe('2026-08-19T00:00:00.000Z')
+    expect(parseDailySolarIndices('2026-02-30  126  99\n')).toBeNull()
+  })
+
+  it('returns null rather than NaN when there is no usable row', () => {
+    for (const text of [
+      '',
+      '# comment only\n',
+      ':Issued: 0225 UT 20 Aug 2026\n'
+    ])
+      expect(parseDailySolarIndices(text), JSON.stringify(text)).toBeNull()
   })
 })

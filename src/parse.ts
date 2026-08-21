@@ -1296,3 +1296,127 @@ export function zonesForAurora(): Zone[] {
     }
   ]
 }
+
+export interface GeophysicalAlert {
+  /** The UTC day the indices in the bulletin describe, as an ISO instant. */
+  day: string
+  /** Estimated planetary A index: the linearised daily summary of K. */
+  aIndex: number
+}
+
+/**
+ * https://services.swpc.noaa.gov/text/wwv.txt -- the Geophysical Alert
+ * Message, the text broadcast on WWV/WWVH at 18 minutes past each hour.
+ *
+ * Only the A index is taken from it. The bulletin also quotes the solar flux
+ * and the current K, but both already publish from their own products, and a
+ * second source for a value already on a path is a way for two numbers to
+ * disagree rather than a second reading.
+ *
+ * The wording is matched loosely -- the phrase between "A-index" and the
+ * number has varied ("was", "of", nothing at all) -- for the same reason the
+ * Kp and solar wind parsers accept more than one shape.
+ */
+export function parseGeophysicalAlert(text: string): GeophysicalAlert | null {
+  const normalized = text.replace(/\r\n/g, '\n')
+  // The sign is captured rather than skipped: the gap before the number is
+  // matched loosely, so an unsigned pattern reads NOAA's -999 filler as a
+  // severe 999 -- a fabricated storm out of a missing measurement. A is a
+  // magnitude and has no negative values to lose.
+  const aMatch = normalized.match(/A[- ]index\D{0,12}?(-?\d+(?:\.\d+)?)/i)
+  if (!aMatch) return null
+  const aIndex = Number(aMatch[1])
+  if (!Number.isFinite(aIndex) || aIndex < 0) return null
+
+  const day = indicesDay(normalized)
+  return day ? { day, aIndex } : null
+}
+
+/**
+ * The UTC day the bulletin's indices are for. It names a day and a month but
+ * no year ("indices for 19 August follow"), so the year comes from the
+ * :Issued: line -- and a bulletin issued on 1 January reports 31 December, so
+ * a day that lands ahead of its own issue date belongs to the year before.
+ */
+function indicesDay(text: string): string | null {
+  const issued = parseIssueDate(text)
+  const match = text.match(/indices for (\d{1,2} [A-Za-z]{3,9})/i)
+  if (!issued || !match) return null
+
+  const at = new Date(`${match[1]} ${issued.getUTCFullYear()} 00:00 UTC`)
+  // `31 February` parses, as the 3rd of March; see utcDay.
+  if (isNaN(at.getTime()) || at.getUTCDate() !== Number(match[1].split(' ')[0]))
+    return null
+  if (at.getTime() > issued.getTime()) {
+    at.setUTCFullYear(at.getUTCFullYear() - 1)
+  }
+  return at.toISOString()
+}
+
+/**
+ * A `YYYY-MM-DD` date as a UTC instant, or null if it is not a real day.
+ *
+ * `Date` silently rolls an impossible date forward -- `2026-02-30` parses as
+ * the 2nd of March -- so a torn row could yield a day that looks valid and
+ * sorts ahead of the real newest one, which is exactly the row the caller
+ * picks. Reading the parts back is what catches that.
+ */
+function utcDay(text: string): string | null {
+  const at = new Date(text + 'T00:00:00Z')
+  if (isNaN(at.getTime())) return null
+  const [year, month, dayOfMonth] = text.split('-').map(Number)
+  const rolled =
+    at.getUTCFullYear() !== year ||
+    at.getUTCMonth() + 1 !== month ||
+    at.getUTCDate() !== dayOfMonth
+  return rolled ? null : at.toISOString()
+}
+
+export interface DailySolarIndices {
+  /** The UTC day of the row, as an ISO instant. */
+  day: string
+  /** SESC sunspot number: where the solar cycle is, hence whether the high bands open. */
+  sunspotNumber: number
+}
+
+/**
+ * https://services.swpc.noaa.gov/text/daily-solar-indices.txt (DSD.txt) --
+ * the last 30 daily rows, of which only the newest complete one is used.
+ *
+ * SWPC's other sunspot products carry the whole record back to 1749 or 1996
+ * for the same one current number, at a hundred times the wire cost; see
+ * docs/noaa-products.md.
+ *
+ * Tokenised rather than matched as a whole line, and the ISO date form
+ * accepted alongside NOAA's `2026 08 19`, for the reason outlookRow gives.
+ */
+export function parseDailySolarIndices(text: string): DailySolarIndices | null {
+  let latest: DailySolarIndices | null = null
+  for (const line of text.replace(/\r\n/g, '\n').split('\n')) {
+    const row = dailySolarRow(line)
+    if (row && (!latest || row.day > latest.day)) latest = row
+  }
+  return latest
+}
+
+function dailySolarRow(line: string): DailySolarIndices | null {
+  const trimmed = line.trim()
+  if (trimmed === '' || trimmed.startsWith('#') || trimmed.startsWith(':')) {
+    return null
+  }
+
+  const tokens = trimmed.split(/\s+/)
+  const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(tokens[0])
+  const dateTokens = isoDate ? 1 : 3
+  if (tokens.length < dateTokens + 2) return null
+
+  const sunspotNumber = Number(tokens[dateTokens + 1])
+  // NOAA fills a missing value with -999 rather than leaving the column
+  // empty, and a negative sunspot count is the only way that shows up here.
+  if (!Number.isFinite(sunspotNumber) || sunspotNumber < 0) return null
+
+  const day = utcDay(
+    isoDate ? tokens[0] : tokens.slice(0, dateTokens).join('-')
+  )
+  return day ? { day, sunspotNumber } : null
+}

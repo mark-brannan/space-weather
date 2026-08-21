@@ -62,11 +62,18 @@ export const OTHER_WIRE_KB = 5
  * The 27-day outlook is one 451 B fetch a day, always. The advisory outlook is
  * adaptive: it sleeps up to a day, then polls every 15 minutes through a
  * six-hour window before the weekly issuance is due, so a week costs roughly
- * six idle fetches plus a couple of dozen in the window.
+ * six idle fetches plus a couple of dozen in the window. The two HF indices
+ * are flat: eight fetches a day for the WWV bulletin, six for the daily solar
+ * table. Both were priced on their own rather than folded into the row above,
+ * so unlike `f107` there is no number to invent.
  */
 export const OUTLOOK27_WIRE_KB = 0.44
 export const ADVISORY_WIRE_KB = 1.6
 const ADVISORY_FETCHES_PER_DAY = 30 / 7
+export const A_INDEX_WIRE_KB = 0.3
+const A_INDEX_FETCHES_PER_DAY = 8
+export const SUNSPOT_WIRE_KB = 0.8
+const SUNSPOT_FETCHES_PER_DAY = 6
 
 const MINUTES_PER_DAY = 24 * 60
 /** Long enough to be worth quoting, short enough that every month has one. */
@@ -90,6 +97,8 @@ export function minutes(raw, fallback) {
 export function fixedKb(settings) {
   return (
     OUTLOOK27_WIRE_KB +
+    A_INDEX_FETCHES_PER_DAY * A_INDEX_WIRE_KB +
+    SUNSPOT_FETCHES_PER_DAY * SUNSPOT_WIRE_KB +
     (settings.sendAdvisoryOutlook
       ? ADVISORY_FETCHES_PER_DAY * ADVISORY_WIRE_KB
       : 0)

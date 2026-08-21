@@ -40,6 +40,28 @@ export const F107_BASE = 'environment.noaa.swpc.f107'
  * an accident; the outlook27 product says why that reading would overstate it.
  */
 export const OUTLOOK27_BASE = `${KP_BASE}.forecast.outlook27`
+/**
+ * The estimated planetary A index -- the daily linearised summary of the
+ * 3-hourly K, and the third term of the phrase every HF operator reads
+ * conditions in ("SFI 145, A 8, K 2").
+ *
+ * Its own base rather than an arm of KP_BASE even though both are geomagnetic:
+ * A is a whole-day average and Kp a 3-hourly sample, and under one base the
+ * two invite being read against each other as though a rise in one meant a
+ * rise in the other on the same clock.
+ *
+ * No `zones` on it, deliberately. A high A index describes a day that has
+ * already happened, and everything it would raise is something the Kp
+ * forecast and the alerts product have already said louder and sooner.
+ */
+export const A_INDEX_BASE = 'environment.noaa.swpc.a_index'
+/**
+ * The SESC sunspot number: the slow variable, telling an operator whether the
+ * high bands open at all this month. Alongside F107_BASE rather than under it
+ * -- the two track each other closely but are separate observations, and one
+ * is not derived from the other.
+ */
+export const SUNSPOT_BASE = 'environment.noaa.swpc.sunspot_number'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]

@@ -101,6 +101,10 @@
   }
   .statusbar .field { display: flex; align-items: baseline; gap: 8px; }
   .statusbar .val { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+  /* The HF phrase, on the status bar rather than in a tile of its own: four
+     numbers are one line, and the page is already short of vertical room. */
+  .statusbar .indices { display: flex; align-items: baseline; gap: 12px; }
+  .statusbar .indices .t { display: flex; align-items: baseline; gap: 5px; }
 
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
   .tile {
@@ -392,6 +396,7 @@
     <div class="field"><span class="label">Vessel</span><span class="val" id="vesselName">—</span></div>
     <div class="field"><span class="label">Position</span><span class="val" id="vesselPos">—</span></div>
     <div class="field"><span class="label">Local</span><span class="val" id="clock">—</span></div>
+    <div class="indices" id="hfIndices"></div>
   </div>
 
   <div class="auth-banner" id="authBanner">
@@ -483,6 +488,7 @@
     <span class="label" style="margin-right:2px">Learn more</span>
     <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
     <a href="https://www.swpc.noaa.gov/products/planetary-k-index" target="_blank" rel="noopener">Planetary K-index</a>
+    <a href="https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text" target="_blank" rel="noopener">WWV geophysical alert</a>
     <a href="https://www.spaceweather.gov/communities/aurora-dashboard-experimental" target="_blank" rel="noopener">Aurora dashboard</a>
     <a href="https://www.spaceweather.gov/communities/radio-communications" target="_blank" rel="noopener">Radio &amp; HF impacts</a>
     <a href="https://www.spaceweather.gov/communities/global-positioning-system-gps-community-dashboard" target="_blank" rel="noopener">GPS/GNSS impacts</a>
@@ -510,6 +516,7 @@
 
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
+import { hfIndices } from './indices.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
   'use strict';
@@ -916,6 +923,19 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       ${scheduled ? '' : `<div class="empty-state" style="margin-top:2px;padding:0;background:none;font-size:0.68rem;">
         Automatic updates are off &mdash; fetched only when asked.</div>`}`;
     setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
+  }
+
+  function renderIndices(f107, aIndexRaw, kp, sunspotRaw) {
+    const terms = hfIndices({
+      f107: leafValue(f107),
+      aIndex: leafValue(aIndexRaw),
+      kp: leafValue(kp?.observed),
+      sunspot: leafValue(sunspotRaw)
+    });
+    document.getElementById('hfIndices').innerHTML = terms.map((t) => `
+      <span class="t"><span class="label">${t.key}</span><span class="val">${
+        t.value === null ? '–' : t.value.toFixed(t.digits)
+      }</span></span>`).join('');
   }
 
   function renderWind(wind) {
@@ -1531,9 +1551,9 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   async function refresh() {
     document.getElementById('clock').textContent = fmtClock();
 
-    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status;
+    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot;
     try {
-      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status] = await Promise.all([
+      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, name, xrayFlare, advisory, status, f107, aIndex, sunspot] = await Promise.all([
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
@@ -1544,7 +1564,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         getJson('/signalk/v1/api/vessels/self/name'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
         getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
-        getJson('/signalk/v1/api/signalk-noaa-space-weather/status')
+        getJson('/signalk/v1/api/signalk-noaa-space-weather/status'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/f107'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/a_index'),
+        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/sunspot_number')
       ]);
     } catch (err) {
       // Every getJson call above hits this same server, so one 401 means
@@ -1574,6 +1597,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // that never set auroraEnabled reads as the default it is actually running.
     auroraScheduled = status?.settings?.auroraEnabled === true;
 
+    renderIndices(f107, aIndex, kp, sunspot);
     renderHero(scalesLatest, scalesPeak24h, kp, status);
     renderScales(scalesLatest, xrayFlare, scalesForecast);
     renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status);

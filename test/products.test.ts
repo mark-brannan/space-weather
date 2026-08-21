@@ -4,11 +4,13 @@ import { Client } from '../src/noaa/client'
 import { ValueUpdate } from '../src/parse'
 import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
+import { aIndex } from '../src/products/aIndex'
 import { f107 } from '../src/products/f107'
 import { kp } from '../src/products/kp'
 import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
+import { sunspot } from '../src/products/sunspot'
 import { fixture, fixtureJson } from './fixtures'
 
 /**
@@ -34,7 +36,20 @@ function harness(responses: Record<string, any>) {
     value(path, value, timestamp) {
       this.values([{ path, value }], timestamp)
     },
-    selfPath: () => undefined,
+    // Answers what this harness has already published, so a product that
+    // checks the tree before republishing sees what a server would show it:
+    // the newest update for that path, not the first, and the `.timestamp`
+    // leaf alongside the `.value` one.
+    selfPath: (path: string) => {
+      for (let i = published.length - 1; i >= 0; i--) {
+        const { values, timestamp } = published[i]
+        for (const update of values) {
+          if (`${update.path}.value` === path) return update.value
+          if (`${update.path}.timestamp` === path) return timestamp
+        }
+      }
+      return undefined
+    },
     status: () => {},
     fail: () => {},
     error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
@@ -335,5 +350,163 @@ describe('outlook27 product', () => {
     await outlook27.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
+  })
+})
+
+describe('a index product', () => {
+  it('publishes the planetary A index from a captured bulletin', async () => {
+    const h = harness({
+      '/text/wwv.txt': fixture('wwv.2026_08_20.txt')
+    })
+    await aIndex.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.a_index')).toBe(20)
+    // Timestamped to the day the indices describe, not the hour the bulletin
+    // was reissued: eight bulletins a day carry the same daily average.
+    expect(h.published[0].timestamp).toBe('2026-08-19T00:00:00.000Z')
+  })
+
+  it('leaves the solar flux and K index to the products that own them', async () => {
+    const h = harness({
+      '/text/wwv.txt': fixture('wwv.2026_08_20.txt')
+    })
+    await aIndex.refresh(h.ctx)
+
+    expect(h.paths()).toEqual(['environment.noaa.swpc.a_index'])
+  })
+
+  it('carries no units on a dimensionless index', () => {
+    const meta = aIndex.metadata!(settingsFrom({}))[0]
+    expect(meta.path).toBe('environment.noaa.swpc.a_index')
+    expect(meta.value.units).toBeUndefined()
+    // No zones either: a daily average of a day already past has nothing to
+    // raise that the Kp forecast and the alerts have not raised sooner.
+    expect(meta.value.zones).toBeUndefined()
+  })
+
+  it('does not rebroadcast a reading that has not moved', async () => {
+    // Eight bulletins a day carry one daily average, and the delta is stamped
+    // with the day rather than the fetch -- so a republish is the same value
+    // at the same timestamp, reaching every connected client for nothing.
+    const h = harness({ '/text/wwv.txt': fixture('wwv.2026_08_20.txt') })
+    await aIndex.refresh(h.ctx)
+    await aIndex.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.paths()).toEqual(['environment.noaa.swpc.a_index'])
+  })
+
+  it('republishes an unchanged reading once the day it describes moves on', async () => {
+    // A quiet spell repeats the same A for days. Suppressing on the value
+    // alone would leave the timestamp on the first of them until it aged past
+    // `timeout` and a client nulled a reading that was still current.
+    const wwv = fixture('wwv.2026_08_20.txt')
+    const h = harness({ '/text/wwv.txt': wwv })
+    await aIndex.refresh(h.ctx)
+
+    h.client.text = async () =>
+      wwv
+        .replace('indices for 19 August', 'indices for 20 August')
+        .replace('2026 Aug 20 0305 UTC', '2026 Aug 21 0305 UTC')
+    await aIndex.refresh(h.ctx)
+
+    expect(h.published.map((p) => p.timestamp)).toEqual([
+      '2026-08-19T00:00:00.000Z',
+      '2026-08-20T00:00:00.000Z'
+    ])
+    expect(h.published.every((p) => p.values[0].value === 20)).toBe(true)
+  })
+
+  it('declares a timeout that outlives the reading it stamps', async () => {
+    // The delta is dated to the day the bulletin describes, so by the last
+    // bulletin of the following day it is already near 48h old -- and the
+    // next poll is an interval after that. A timeout inside that window makes
+    // a compliant client null a value that is perfectly current.
+    const h = harness({ '/text/wwv.txt': fixture('wwv.2026_08_20.txt') })
+    await aIndex.refresh(h.ctx)
+
+    const stampedAt = Date.parse(h.published[0].timestamp)
+    const lastRepublish =
+      stampedAt +
+      48 * 60 * 60 * 1000 +
+      aIndex.intervalMinutes(settingsFrom({})) * 60 * 1000
+    const timeout = aIndex.metadata!(settingsFrom({}))[0].value.timeout
+    expect(timeout * 1000).toBeGreaterThan(lastRepublish - stampedAt)
+  })
+
+  it('reports an unreadable bulletin instead of publishing nothing quietly', async () => {
+    const h = harness({ '/text/wwv.txt': 'no indices here' })
+    await aIndex.refresh(h.ctx)
+
+    expect(h.paths()).toEqual([])
+    expect(h.errors.length).toBeGreaterThan(0)
+  })
+})
+
+describe('sunspot product', () => {
+  it('publishes the newest daily sunspot number from a captured payload', async () => {
+    const h = harness({
+      '/text/daily-solar-indices.txt': fixture(
+        'daily-solar-indices.2026_08_20.txt'
+      )
+    })
+    await sunspot.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.valueAt('environment.noaa.swpc.sunspot_number')).toBe(78)
+    expect(h.published[0].timestamp).toBe('2026-08-19T00:00:00.000Z')
+  })
+
+  it('carries no units on a dimensionless count', () => {
+    const meta = sunspot.metadata!(settingsFrom({}))[0]
+    expect(meta.path).toBe('environment.noaa.swpc.sunspot_number')
+    expect(meta.value.units).toBeUndefined()
+    // And no zones, pinned the same way the A index pins it: a monthly-scale
+    // number has nothing to raise on the timescale a notification is for.
+    expect(meta.value.zones).toBeUndefined()
+  })
+
+  it('does not rebroadcast a row that has not moved', async () => {
+    const payload = fixture('daily-solar-indices.2026_08_20.txt')
+    const h = harness({ '/text/daily-solar-indices.txt': payload })
+    await sunspot.refresh(h.ctx)
+    await sunspot.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    expect(h.paths()).toEqual(['environment.noaa.swpc.sunspot_number'])
+  })
+
+  it('republishes an unchanged row once the day moves on', async () => {
+    // Same argument as the A index: the day is half the comparison.
+    const payload = fixture('daily-solar-indices.2026_08_20.txt')
+    const h = harness({ '/text/daily-solar-indices.txt': payload })
+    await sunspot.refresh(h.ctx)
+
+    h.client.text = async () =>
+      payload + '2026 08 20  126     78      560   1\n'
+    await sunspot.refresh(h.ctx)
+
+    expect(h.published.map((p) => p.timestamp)).toEqual([
+      '2026-08-19T00:00:00.000Z',
+      '2026-08-20T00:00:00.000Z'
+    ])
+    expect(h.published.every((p) => p.values[0].value === 78)).toBe(true)
+  })
+
+  it('declares a timeout that outlives the reading it stamps', () => {
+    // Same argument as the A index: one row a day, dated to that day.
+    const timeout = sunspot.metadata!(settingsFrom({}))[0].value.timeout
+    const worstCaseAgeSeconds =
+      48 * 60 * 60 + sunspot.intervalMinutes(settingsFrom({})) * 60
+    expect(timeout).toBeGreaterThan(worstCaseAgeSeconds)
+  })
+
+  it('reports a payload with no usable rows instead of throwing', async () => {
+    const h = harness({ '/text/daily-solar-indices.txt': '# header only\n' })
+    await sunspot.refresh(h.ctx)
+
+    expect(h.paths()).toEqual([])
+    expect(h.errors.length).toBeGreaterThan(0)
   })
 })

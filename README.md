@@ -27,6 +27,7 @@ The plugin currently surfaces:
 * The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, along with [IMF](https://en.wikipedia.org/wiki/Interplanetary_magnetic_field) strength (Bt) and direction (Bz)
 * The [Kp index](https://en.wikipedia.org/wiki/K-index) — most recent observed value, a forecast summary under `environment.noaa.swpc.kp.forecast` (the peak Kp expected in the next 24 and 72 hours, and the time the next storm-level interval begins), and the full 3-hourly series (`forecast.series`) from 24h in the past to 72h ahead for plotting a timeline
 * The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.kp.forecast.outlook27` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
+* The [planetary A index](https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text) at `environment.noaa.swpc.a_index` and the [sunspot number](https://www.swpc.noaa.gov/products/solar-cycle-progression) at `environment.noaa.swpc.sunspot_number` — with the 10.7cm flux and Kp above, the four numbers HF operators read conditions in, see [Reading conditions like an HF operator](#reading-conditions-like-an-hf-operator)
 * Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — not fetched on a schedule by default, on bandwidth, and fetchable on demand from the webapp even then, see [Configuration](#configuration)
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
@@ -44,6 +45,35 @@ It buys that horizon by being a **recurrence** forecast. 27 days is the solar ro
 So none of it carries `zones`, and **none of it will ever raise a notification or sound an alarm**. A G1 day turns up somewhere in a 27-day window roughly monthly; alarming on that would fire constantly on low-confidence data and drown out the 3-day alerts that are worth waking up for. Read the outlook; be woken by the Kp forecast.
 
 These six paths sit under the Kp forecast rather than on a base of their own, because the outlook is the same index and the same G mapping at a third horizon: asking "what is the worst Kp coming" should not mean knowing which NOAA product answered. They are a branch under `forecast` rather than siblings of `max24h` and `max72h`, because a whole-day maximum from a recurrence forecast is not interchangeable with a 3-hourly value.
+
+### Reading conditions like an HF operator
+
+Hams state propagation as one phrase — **"SFI 145, A 8, K 2"** — and it is how
+every club bulletin, contest forecast and the
+[WWV geophysical alert](https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text)
+broadcast at 18 minutes past the hour says it. The plugin publishes all of it,
+and the webapp's status bar shows the phrase with the sunspot number on the
+end:
+
+* **SFI** — 10.7cm solar radio flux, `environment.noaa.swpc.f107`
+* **A** — the estimated planetary A index, `environment.noaa.swpc.a_index`
+* **K** — the observed planetary K index, `environment.noaa.swpc.kp.observed`
+* **SSN** — the SESC sunspot number, `environment.noaa.swpc.sunspot_number`
+
+A and K are the same geomagnetic field seen at two speeds: K is a 3-hourly
+sample on a quasi-logarithmic scale, A the linearised daily average of it. A
+below 10 is a quiet field; above 30 is a disturbed one, with degraded
+high-latitude paths and noisy bands — and it stays high after K has dropped,
+which is why operators read both. SSN is the slow variable: it says whether the
+high bands (15, 12 and 10 metres) open at all this month, not what happens
+today.
+
+A and SSN carry no `zones`, so neither ever raises a notification: both
+describe a day that has mostly already happened, and the storm worth waking for
+is the one the Kp forecast and the alerts are already shouting about. K is the
+exception and keeps the zones it has always had — see
+[Alarm zones](#alarm-zones) — because it is the only one of the four that says
+what the field is doing *now*.
 
 ### Alarm zones
 
@@ -156,6 +186,8 @@ Note that the outlook advisory is not available as json, so the plugin is doing 
 * <https://services.swpc.noaa.gov/text/27-day-outlook.txt>
 * <https://services.swpc.noaa.gov/text/current-space-weather-indices.txt>
 * <https://services.swpc.noaa.gov/text/3-day-forecast.txt>
+* <https://services.swpc.noaa.gov/text/wwv.txt>
+* <https://services.swpc.noaa.gov/text/daily-solar-indices.txt>
 
 ### Other resources
 

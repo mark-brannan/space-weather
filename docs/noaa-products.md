@@ -36,6 +36,8 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 | `/json/ovation_aurora_latest.json` | `aurora` | the only large payload |
 | `/text/advisory-outlook.txt` | `advisory` | weekly bulletin, plain text |
 | `/text/27-day-outlook.txt` | `outlook27` | daily rows for one solar rotation, plain text |
+| `/text/wwv.txt` | `aIndex` | the WWV geophysical alert bulletin, plain text |
+| `/text/daily-solar-indices.txt` | `sunspot` | last 30 daily rows (DSD.txt), plain text |
 
 ## Payload size
 
@@ -57,6 +59,36 @@ observation and forecast endpoints together come to about 5 KB per poll.
 `/text/27-day-outlook.txt` was measured 2026-08-12, separately from the run
 above and after it, by the same method. At `outlook27`'s daily interval that is
 451 B a day, about 3 KB a week, which is why it has no setting.
+
+`/text/wwv.txt` and `/text/daily-solar-indices.txt` were measured 2026-08-20 by
+the same script, in the run that also produced the two rows added to the
+conditional-GET table below.
+
+| Endpoint | Wire | Decoded |
+| --- | --- | --- |
+| `/text/wwv.txt` | 0.3 KB | 0.5 KB |
+| `/text/daily-solar-indices.txt` | 0.8 KB | 2.9 KB |
+
+At their intervals (three-hourly and four-hourly) that is roughly 2.4 KB and
+4.8 KB a day, so neither gets a setting either.
+
+### The sunspot number is much cheaper from DSD.txt than from its own products
+
+Measured 2026-08-20, same method, on the two SWPC endpoints that carry a
+sunspot number directly. Both serve the whole record — back to 1749 and to 1996
+respectively — for the one current value, and there is no shorter form of
+either.
+
+| Endpoint | Wire | Decoded |
+| --- | --- | --- |
+| `/json/solar-cycle/observed-solar-cycle-indices.json` | 34 KB | 512 KB |
+| `/json/solar-cycle/swpc_observed_ssn.json` | 44 KB | 474 KB |
+
+**Consequence.** `sunspot` reads the daily number out of
+`/text/daily-solar-indices.txt` instead, at roughly a fortieth of the wire. The
+monthly *smoothed* number, which is the truer cycle-context figure, is only in
+the first of these and is not published on its own — so it is not published by
+this plugin either.
 
 **Consequence.** Only aurora is worth a setting (`auroraEnabled`,
 `auroraInterval`). At the default two-hour interval it is about 1.7 MB a day,
@@ -121,6 +153,13 @@ same method. Baseline `ETag` and `Last-Modified` echoed back as
 | `/json/ovation_aurora_latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/text/advisory-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 | `/text/27-day-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/wwv.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/text/daily-solar-indices.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
+
+The last two rows are from a 2026-08-20 re-run of the same script. It found
+zero 304s on every endpoint, exactly as the 2026-08-09 run did; which bodies
+happened to be byte-identical differed between the runs, as the cadence table
+above says it would.
 
 **Zero 304s, on any endpoint, at either gap** — including four whose bodies were
 byte-identical to the baseline. The ETag is shaped `<size>-<mtime>`:
@@ -385,8 +424,12 @@ Named so nobody cites this file for them:
   [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
 - whether `Cache-Control: max-age=60` is honoured by any intermediary
 - content cadence for `/json/ovation_aurora_latest.json`,
-  `/text/advisory-outlook.txt` and `/text/27-day-outlook.txt` — all three were
-  in the size and conditional-GET runs but not the 15-minute cadence watch
+  `/text/advisory-outlook.txt`, `/text/27-day-outlook.txt`, `/text/wwv.txt` and
+  `/text/daily-solar-indices.txt` — all five were in the size and
+  conditional-GET runs but not the 15-minute cadence watch
+- whether `/text/wwv.txt` is reissued on the hour it claims (NOAA documents it
+  as three-hourly, and `aIndex` polls on that documented cadence rather than a
+  measured one); the daily A index it carries moves once a day either way
 - whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
   how tightly the issue time clusters. One issue observed so far; see
   [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
