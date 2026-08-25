@@ -1,0 +1,30 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2026 Aug 24 0235 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #26-33
+2026 August 23 at 8:32 p.m. MDT (2026 August 24 0232 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For August 17-23
+
+G1-Minor geomagnetic storms were observed on 18-19 Aug due to the flanking influence from a CME that left the Sun on 14 Aug, combined with the onset of a CIR ahead of a negative polarity CH HSS
+
+R1-R2 (Minor-Moderate) radio blackouts were observed on 19-21 Aug following M-class activity from Regions 4507 and 4513. Region 4507 produced an M1.0 flare at 19/1824 UTC. Region 4513 produced an M1.8/Sf flare at 20/0805 UTC, an M8.1/Sf flare, and an M2.9/Sf flare at 20/1611 UTC.
+
+No S1 or greater solar radiation storms were obsereved.
+
+Outlook For August 24-30
+
+No G1 or greater geomagnetic storms are expected during the outlook period.
+
+There is a chance for M-class flares (R1/R2-Minor/Moderate) and a slight chance for X-class (R3-Strong) flares on 24-30 Aug, mainly attributed to the flare activity and magnetic complexity of Region 4513.
+
+There is a slight chance for a greater than 10 MeV proton event on 24-30 Aug, mainly attributed to the magnetic complexity of Region 4513.
+

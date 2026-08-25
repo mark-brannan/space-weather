@@ -120,3 +120,10 @@ dist
 # pull request that changes the webapp, not repo content: pinning one would
 # mean regenerating it on every unrelated change to the page.
 /.hero-states/
+
+# Sub-daily NOAA captures from scripts/capture.mjs. Deduped by "interest key",
+# so these are distinct *cases* rather than a log -- but wwv and noaa-scales
+# still accumulate faster than a tracked fixture should. Promote an interesting
+# one into examples/ with `mv` and then `git add` it (these are untracked, so
+# `git mv` refuses them); the rest are raw material.
+/examples/captures/
