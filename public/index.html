@@ -591,7 +591,8 @@
 
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
-import { SCALES_NOW, SCALES_OBSERVED } from './scales-source.js';
+import { scalesCard } from './scales.js';
+import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
   'use strict';
@@ -679,20 +680,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       return null;
     }
   }
-  // A Signal K leaf looks like {value, timestamp, $source, meta}. Absent
-  // paths (a disabled product, or before the first fetch cycle) 404 at the
-  // parent level, so callers must handle `null` throughout. Not every path
-  // is a leaf, though -- vessel name is a bare string at its own path, so
-  // `'value' in node` (node being a string) would throw.
-  // An object with no `value` is a path carrying only `meta` -- described at
-  // startup but never published, because that product's fetch failed. Falling
-  // through to the node itself rendered it as "[object Object]".
-  const leafValue = (node) =>
-    node && typeof node === 'object'
-      ? ('value' in node ? node.value : null)
-      : node ?? null;
-  const leafTime = (node) => (node && node.timestamp) || null;
-
   function fmtTime(iso) {
     if (!iso) return '–';
     const d = new Date(iso);
@@ -882,52 +869,39 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // one card -- they're the same three scales, so a separate "3-Day
   // Outlook" tile was just forcing the reader to cross-reference two tiles
   // to answer "is this getting worse."
-  function renderScales(scales, xrayFlare, forecast) {
+  //
+  // `card` is already the levels and percentages to draw; which paths they
+  // came from is scales.js's business (issue #121).
+  function renderScales(card) {
     const body = document.getElementById('scalesBody');
-    const days = ['1day', '2day', '3day'].map((key) => forecast?.[key]);
-    // The day's own date is the *value* at `<n>day.time` (NOAA's per-day
-    // DateStamp), not the leaf's delta timestamp -- all three days publish in
-    // one update, so a timestamp would label every column identically.
-    //
-    // Format in UTC, not the vessel's local zone. NOAA's forecast days are UTC
-    // days and days 2 and 3 arrive stamped 00:00:00, so rendering them locally
-    // moves them a day earlier anywhere west of Greenwich and a day later far
-    // enough east -- which put two columns on the same date again.
-    const dayLabel = (d, i) => {
-      const t = leafValue(d?.time);
-      return t ? new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) : `Day ${i + 1}`;
-    };
+    // UTC, not the vessel's local zone: NOAA's forecast days are UTC days and
+    // days 2 and 3 arrive stamped 00:00:00, so rendering them locally puts two
+    // columns on the same date.
+    const dayLabel = (day, i) =>
+      day.at
+        ? new Date(day.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+        : `Day ${i + 1}`;
 
-    const gLevel = leafValue(scales?.G), sLevel = leafValue(scales?.S), rLevel = leafValue(scales?.R);
+    const { G: gLevel, S: sLevel, R: rLevel } = card.observed;
+    // rCls also colours the flare-class readout below, rather than that
+    // getting a second letter-tier table to drift apart from this one. Issue
+    // #122: the value it colours is background flux, not the flare that drove R.
     const gCls = sevClass(gLevel) || 'sev-0', sCls = sevClass(sLevel) || 'sev-0', rCls = sevClass(rLevel) || 'sev-0';
 
-    const gPredCell = (d) => {
-      const v = leafValue(d?.G);
-      if (v === null) return '<div class="scales-pred sev-0">&ndash;</div>';
-      return `<div class="scales-pred ${sevClass(v) || 'sev-0'}">G<span class="num">${v}</span></div>`;
+    const gPredCell = (day) => {
+      if (day.G === null) return '<div class="scales-pred sev-0">&ndash;</div>';
+      return `<div class="scales-pred ${sevClass(day.G) || 'sev-0'}">G<span class="num">${day.G}</span></div>`;
     };
-    const sPredCell = (d) => {
-      const v = leafValue(d?.S?.probability);
-      const pct = v === null ? null : v * 100;
-      return `<div class="scales-arc">${arcSvg(pct, tierClass(pct))}</div>`;
-    };
+    const sPredCell = (day) =>
+      `<div class="scales-arc">${arcSvg(day.sProbability, tierClass(day.sProbability))}</div>`;
     const rLine = (pct, label) =>
       `<div class="scales-r-line ${tierClass(pct) || 'sev-0'}">${label}: <b>${pct === null ? '&ndash;' : Math.round(pct) + '%'}</b></div>`;
-    const rPredCell = (d) => {
-      const minor = leafValue(d?.R?.minorProbability), major = leafValue(d?.R?.majorProbability);
-      return `<div class="scales-r-day">
-        ${rLine(minor === null ? null : minor * 100, 'R1&ndash;R2')}
-        ${rLine(major === null ? null : major * 100, 'R3&ndash;R5')}
+    const rPredCell = (day) => `<div class="scales-r-day">
+        ${rLine(day.rMinorProbability, 'R1&ndash;R2')}
+        ${rLine(day.rMajorProbability, 'R3&ndash;R5')}
       </div>`;
-    };
 
-    // Flare class is the same underlying measurement R buckets into 0-5, at
-    // the letter+number resolution HF operators actually use. Colored by
-    // the current R level rather than a separate letter-tier mapping: R's
-    // own bucketing (M4.9 vs M5.0 crossing R1/R2, say) is the authoritative
-    // one, and a second hand-picked threshold table would just risk drifting
-    // out of sync with it.
-    const flareClass = leafValue(xrayFlare?.class);
+    const days = card.forecast;
 
     body.innerHTML = `
       <div class="scales-head">
@@ -958,7 +932,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
           <div class="name">Radio Blackout</div>
           <div class="scales-badge" id="letterR">${rLevel === null ? '&ndash;' : `R<span class="num">${rLevel}</span>`}</div>
           <div class="scales-flare-lbl">Solar Flare Class</div>
-          <div class="scales-flare-val ${rCls}">${flareMarkup(flareClass)}</div>
+          <div class="scales-flare-val ${rCls}">${flareMarkup(card.flareClass)}</div>
         </div>
         ${days.map(rPredCell).join('')}
       </div>
@@ -970,7 +944,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     setLetter(document.getElementById('letterG'), gLevel);
     setLetter(document.getElementById('letterS'), sLevel);
     setLetter(document.getElementById('letterR'), rLevel);
-    setTimestamp(document.getElementById('tsScales'), leafTime(scales?.G) || leafTime(scales?.time));
+    setTimestamp(document.getElementById('tsScales'), card.observedAt);
   }
 
   function renderAurora(aurora, scheduled, intervalMinutes, running, pos) {
@@ -1630,22 +1604,11 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   })
 
   async function refresh() {
-    let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status;
+    let data;
     try {
-      [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status] = await Promise.all([
-        getJson(`/signalk/v1/api/vessels/self/${SCALES_NOW}`),
-        getJson(`/signalk/v1/api/vessels/self/${SCALES_OBSERVED}`),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/aurora'),
-        getJson('/signalk/v1/api/vessels/self/navigation/position'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/xray_flare'),
-        getJson('/signalk/v1/api/signalk-noaa-space-weather/advisory-outlook'),
-        getJson('/signalk/v1/api/signalk-noaa-space-weather/status')
-      ]);
+      data = await readAll(getJson);
     } catch (err) {
-      // Every getJson call above hits this same server, so one 401 means
+      // Every request readAll makes hits this same server, so one 401 means
       // they all would -- no need to know which. Leaving the rest of the
       // tiles at whatever they last showed (not blanking them) makes this
       // read as "stale, go log in" rather than "the plugin stopped working".
@@ -1658,6 +1621,8 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // The Kp product's dotted sub-paths (forecast.max24h etc.) arrive as a
     // nested object from this endpoint; flatten what's needed with the same
     // key names used elsewhere in this file.
+    const { status } = data;
+    const kpRaw = data.kp;
     const kp = kpRaw ? {
       observed: kpRaw.observed,
       'forecast.max24h': kpRaw.forecast?.max24h,
@@ -1675,18 +1640,18 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // Read once, up front: both the aurora tile (issue #109 -- the reading is
     // *at* this position, so it belongs here too, not only on the regional
     // map) and the map's extent caption need it.
-    const pos = leafValue(position);
+    const pos = leafValue(data.position);
 
-    renderHero(scalesLatest, scalesPeak24h, kp, status);
-    // The badges show the 24-hour observed maximum, not the instantaneous
-    // reading -- see public/scales-source.js. The hero keeps both, because
-    // telling a storm in progress from one that has passed needs the pair.
-    renderScales(scalesPeak24h, xrayFlare, scalesForecast);
-    renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
+    // The hero keeps both observed readings: telling a storm in progress from
+    // one that has passed needs the pair. The card takes only the 24-hour
+    // maximum, and picks that path itself -- see scales.js.
+    renderHero(data.scalesNow, data.scalesObserved, kp, status);
+    renderScales(scalesCard(data));
+    renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();
-    renderWind(wind);
+    renderWind(data.solarWind);
     renderKp(kp);
-    renderAdvisory(advisory);
+    renderAdvisory(data.advisory);
 
     // Position reads as the aurora map's extent now ("+/-25 degrees latitude
     // around <here>"), which is the only thing the webapp ever did with it.
