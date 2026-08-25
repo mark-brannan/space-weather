@@ -49,12 +49,13 @@ import {
   withLevel,
   DAYS_PER_MONTH
 } from './config-panel.js'
+import { SCALES_OBSERVED } from './scales-source.js'
 
 const EXPOSED = './PluginConfigurationPanel'
 const API = '/signalk/v1/api'
 const STATUS_URL = `${API}/signalk-noaa-space-weather/status`
 // The two paths the plugin already publishes that say what the sky is doing.
-const SCALES_URL = `${API}/vessels/self/environment/noaa/swpc/scales/observations/latest`
+const SCALES_URL = `${API}/vessels/self/${SCALES_OBSERVED}`
 const KP_URL = `${API}/vessels/self/environment/noaa/swpc/kp`
 // The human-readable page behind the bulletin this setting forwards, so the
 // checkbox can show what it is offering rather than only naming it.

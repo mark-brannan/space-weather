@@ -531,6 +531,7 @@
 
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
+import { SCALES_NOW, SCALES_OBSERVED } from './scales-source.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
   'use strict';
@@ -870,7 +871,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
 
     body.innerHTML = `
       <div class="scales-head">
-        <span></span><span>Today</span>
+        <span></span><span>Past 24h</span>
         ${days.map((d, i) => `<span>${dayLabel(d, i)}</span>`).join('')}
       </div>
 
@@ -1571,8 +1572,8 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     let scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status;
     try {
       [scalesLatest, scalesPeak24h, scalesForecast, kpRaw, wind, aurora, position, xrayFlare, advisory, status] = await Promise.all([
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/latest'),
-        getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/observations/24_hours_maximums'),
+        getJson(`/signalk/v1/api/vessels/self/${SCALES_NOW}`),
+        getJson(`/signalk/v1/api/vessels/self/${SCALES_OBSERVED}`),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/scales/forecast'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/kp'),
         getJson('/signalk/v1/api/vessels/self/environment/noaa/swpc/solar_wind'),
@@ -1611,7 +1612,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     auroraScheduled = status?.settings?.auroraEnabled === true;
 
     renderHero(scalesLatest, scalesPeak24h, kp, status);
-    renderScales(scalesLatest, xrayFlare, scalesForecast);
+    // The badges show the 24-hour observed maximum, not the instantaneous
+    // reading -- see public/scales-source.js. The hero keeps both, because
+    // telling a storm in progress from one that has passed needs the pair.
+    renderScales(scalesPeak24h, xrayFlare, scalesForecast);
     renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status);
     labelAuroraButtons();
     renderWind(wind);

@@ -28,7 +28,10 @@ export const SCALES_FIXTURES = [
   'noaa-scales.2025_04_13.json',
   'noaa-scales.2025_04_16.json',
   'noaa-scales.2025_04_18.json',
-  'noaa-scales.2026_08_01.json'
+  'noaa-scales.2026_08_01.json',
+  // The payload behind issue #120: R2 in the 24-hour maximum, R0 in the
+  // instantaneous reading the badges used to draw.
+  'noaa-scales.2026_08_25.json'
 ]
 
 export const ADVISORY_FIXTURES = [
