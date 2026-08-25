@@ -10,8 +10,21 @@
 
 /** Kp at which NOAA calls it a G1 storm; mirrors KP_FOR_G1 in src/parse.ts. */
 const KP_FOR_G1 = 5
-/** The level this plugin treats as worth surfacing at all; see CLAUDE.md. */
+/**
+ * The level at which this plugin interrupts the user; mirrors ALERT_FLOOR in
+ * src/parse.ts. It decides precedence and nothing else here. Whether a
+ * storm is worth *saying* is a lower bar than whether it is worth a
+ * notification -- see IN_FORCE.
+ */
 const NOTABLE = 3
+/**
+ * Anything NOAA names is worth describing. NOAA's own front page and the WWV
+ * bulletin both report an R2 as "moderate"; a page that answers that with
+ * "quiet" is not being restrained, it is making the opposite claim (issue
+ * #126). Loudness stays where it belongs, in alarmLevel and popupLevel: this
+ * only governs what the banner says when somebody looks at it.
+ */
+const IN_FORCE = 1
 /**
  * How long a fresh plugin gets to produce its first value before silence
  * stops meaning "starting up". The first fetch is scheduled 5s after start
@@ -67,10 +80,16 @@ function worstOf(levels) {
   return best
 }
 
-/** Every scale at or above `NOTABLE` other than the one leading the hero. */
-function othersInForce(levels, leadLetter) {
+/**
+ * The other scales worth naming beside the one leading the hero: nothing
+ * quieter than the lead itself, and never below `NOTABLE` when the lead is
+ * above it. So a G4 banner still does not list an R1, but an R2 banner --
+ * which exists at all because level 2 is worth describing -- lists a G2.
+ */
+function othersInForce(levels, leadLetter, leadLevel) {
+  const floor = Math.min(NOTABLE, leadLevel)
   return LETTER_ORDER.filter(
-    (letter) => letter !== leadLetter && (levels?.[letter] ?? 0) >= NOTABLE
+    (letter) => letter !== leadLetter && (levels?.[letter] ?? 0) >= floor
   ).map((letter) => ({ letter, level: levels[letter] }))
 }
 
@@ -162,18 +181,20 @@ export function heroState(input, now = Date.now()) {
 
   const timer = timerFor(series, observed?.G ?? 0, now)
 
-  if (lead.level >= NOTABLE) {
-    return {
-      kind: 'storm',
-      letter: lead.letter,
-      level: lead.level,
-      also: othersInForce(observed, lead.letter),
-      timer
-    }
-  }
+  const storm = (letter, level) => ({
+    kind: 'storm',
+    letter,
+    level,
+    also: othersInForce(observed, letter, level),
+    timer
+  })
 
-  // A storm still ahead outranks one already gone: both are "quiet right
-  // now", and only one of them is still a decision.
+  if (lead.level >= NOTABLE) return storm(lead.letter, lead.level)
+
+  // A storm still ahead outranks one already gone, and outranks a minor one
+  // running now: all three leave the boat fine today, and only the forecast
+  // is still a decision. Anything reaching this line is below NOTABLE, so
+  // what the forecast offers is always the louder of the two.
   if (timer.kind === 'until-level') {
     return { kind: 'brewing', letter: 'G', level: timer.level, timer }
   }
@@ -183,5 +204,24 @@ export function heroState(input, now = Date.now()) {
     return { kind: 'all-clear', peak, timer }
   }
 
-  return { kind: 'quiet', peak: peak && peak.level > 0 ? peak : null, timer }
+  // Below the alert floor the plugin still raises nothing, but the banner has
+  // to say what NOAA says. Same state as a real storm, one level quieter --
+  // the difference is carried by the level and by NOAA's word for it, which
+  // is what index.html renders.
+  if (lead.level >= IN_FORCE && (!peak || peak.level <= lead.level)) {
+    return storm(lead.letter, lead.level)
+  }
+
+  // Nothing this minute as bad as the day has been. NOAA's front page reports
+  // the 24-hour maximum as the condition and the WWV bulletin puts it in
+  // words, so a day whose maximum was R2 is a moderate day rather than a
+  // quiet one. `all-clear` above is the louder version of this and reads
+  // differently on purpose: there, a real storm ended, and the relief is the
+  // news. At level 1-2 nothing ended, so the honest report is just what
+  // happened.
+  if (peak && peak.level >= IN_FORCE) {
+    return { kind: 'recent', peak, timer }
+  }
+
+  return { kind: 'quiet', peak: null, timer }
 }

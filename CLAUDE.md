@@ -108,6 +108,27 @@ mapping: 0 `nominal`, 1–2 `normal`, 3 `alert` with an **empty method array**, 
 `warn` (visual), 5 `alarm` (visual + sound). Do not make this louder without a
 frequency argument.
 
+**That conservatism is about notifications, never about what the page says.**
+The webapp describes conditions in NOAA's own vocabulary — None / Minor /
+Moderate / Strong / Severe / Extreme, `SEV_WORDS` in `index.html`, mirroring
+`SCALE_WORDS` in `parse.ts` — because "what is the sky doing" is a fact and
+"how loud should this be" is a preference. The two got answered with one word
+once: the banner carried the notification-state ladder, so an R2 that NOAA's
+front page and the WWV bulletin both called *moderate* rendered as **Quiet**,
+in the quiet green, with `Normal` under the badge (issue #126). So `heroState`
+describes any level in force, `ALERT_FLOOR` only decides precedence there, and
+level 2 has a colour step of its own. `quiet` means level 0 in force *and*
+level 0 over 24 hours, and `hero.test.ts` pins that nothing else reaches it.
+
+**The hero reads both observed scale paths, and needs both.**
+`observations/latest` is an instantaneous sample that is 0 in every payload in
+`examples/`, including the day whose 24-hour maximum was G4 (issue #120);
+`observations/24_hours_maximums` is what NOAA's front page and WWV report as
+the day's condition. So the maximum decides what the banner *says* and the
+instantaneous reading decides whether it is still running — `storm` versus
+`recent`, or above the floor, `storm` versus `all-clear`. Leading from either
+one alone puts the page back to reporting R0 through an R2.
+
 **Loudness is two thresholds, each naming the level its own band opens at** —
 `alarmLevel` sounds, `popupLevel` is visible and silent. Both are boundaries,
 and that is the point of there being two: **a single anchor with the quieter

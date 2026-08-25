@@ -42,7 +42,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
-    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
+    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     --font-display: 'Oswald', 'Arial Narrow', sans-serif;
     --font-mono: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -55,7 +55,7 @@
       --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
       --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
       --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
-      --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
+      --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
       --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
       color-scheme: light;
     }
@@ -64,7 +64,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
-    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
+    --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     color-scheme: dark;
   }
@@ -72,7 +72,7 @@
     --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
     --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
     --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
-    --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
+    --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
     --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
     color-scheme: light;
   }
@@ -160,7 +160,13 @@
     content: ''; width: 6px; height: 6px; border-radius: 50%;
     background: currentColor; box-shadow: 0 0 6px currentColor;
   }
-  .sev-0 { color: var(--sev-0); } .sev-1 { color: var(--sev-1); } .sev-3 { color: var(--sev-3); }
+  /* Level 2 gets a step of its own. NOAA calls it "Moderate" and this plugin
+     deliberately stays silent through it -- but drawing it in the same green
+     as Minor made the page say "quiet" in colour while the word beside it
+     said moderate (issue #126). Silence is a notification setting; the
+     colour is a description. */
+  .sev-0 { color: var(--sev-0); } .sev-1 { color: var(--sev-1); } .sev-2 { color: var(--sev-2); }
+  .sev-3 { color: var(--sev-3); }
   .sev-4 { color: var(--sev-4); } .sev-5 { color: var(--sev-5); }
 
   /* Verdict and advisory share one tile: with the chip and the countdown in
@@ -530,14 +536,19 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   'use strict';
   const REFRESH_MS = 60000;
 
-  // Mirrors src/parse.ts stateForScaleValue's default threshold (3) and
-  // src/parse.ts NotificationStates wording, so the webapp reads the same
-  // way the plugin's own notifications do.
-  const SEV_WORDS = ['Nominal', 'Normal', 'Normal', 'Alert', 'Warn', 'Alarm'];
+  // NOAA's own words for its own scale (mirrors SCALE_WORDS in src/parse.ts),
+  // because this describes the sky. It used to carry the notification-state
+  // wording instead -- Nominal/Normal/Normal/Alert/Warn/Alarm -- which
+  // answered "how loud should this be?" in the slot that asks "what is
+  // happening?", and printed Normal under an R2 that NOAA, and the WWV
+  // bulletin, both call Moderate (issue #126). The loudness vocabulary is
+  // still right where it is a setting: the config panel's ladder.
+  const SEV_WORDS = ['None', 'Minor', 'Moderate', 'Strong', 'Severe', 'Extreme'];
   function sevClass(level) {
     if (level === null || level === undefined) return null;
     if (level <= 0) return 'sev-0';
-    if (level <= 2) return 'sev-1';
+    if (level === 1) return 'sev-1';
+    if (level === 2) return 'sev-2';
     if (level === 3) return 'sev-3';
     if (level === 4) return 'sev-4';
     return 'sev-5';
@@ -650,13 +661,24 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // to what changes a decision on a boat: position fixes and radio. Written
   // sentence-first so the same clause reads as "Expect ..." for a forecast
   // and "Also S4: ..." for a second scale in force, without a second table.
+  //
+  // Levels 1 and 2 are here because the banner now describes them; the plugin
+  // still raises nothing below 3. NOAA's own effects at those levels are
+  // genuinely small, and saying so is the point -- "moderate, and here is
+  // what moderate costs you" is a different claim from "quiet".
   const IMPACTS = {
+    G1: 'Weak power grid fluctuations; aurora possible at high latitudes. HF and GNSS largely unaffected.',
+    G2: 'HF radio propagation fades at higher latitudes; aurora possible well south of the poles.',
     G3: 'Intermittent GNSS and low-frequency navigation problems, HF patchy.',
     G4: 'GNSS degraded for hours, low-frequency navigation disrupted, HF sporadic.',
     G5: 'GNSS degraded for days, low-frequency navigation out for hours, HF impossible in many areas for one to two days.',
+    R1: 'Weak HF degradation on the sunlit side with brief losses of contact; low-frequency navigation degraded for brief intervals.',
+    R2: 'Limited HF blackout on the sunlit side, contact lost for tens of minutes; low-frequency navigation degraded for tens of minutes.',
     R3: 'Wide-area HF blackout on the sunlit side for about an hour; low-frequency navigation degraded.',
     R4: 'HF blackout across most of the sunlit side for one to two hours; low-frequency navigation errors.',
     R5: 'Complete HF blackout on the sunlit side for hours; low-frequency and satellite navigation errors.',
+    S1: 'Minor impact on HF in the polar regions.',
+    S2: 'Small effects on HF propagation through the polar regions; navigation at polar cap locations possibly affected.',
     S3: 'Degraded HF through the polar regions; navigation position errors likely.',
     S4: 'HF blackout through the polar regions; increased navigation errors likely for several days.',
     S5: 'Complete HF blackout possible through the polar regions; navigation extremely difficult.'
@@ -763,15 +785,22 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       sub.textContent = `Expect ${uncapitalise(impact('G', state.level))}`;
       timerSev = sevClass(state.level);
     } else if (state.kind === 'all-clear') {
+      // A real storm ended, so the relief is the news and the chip says so.
       chip.className = 'chip sev-1'; chip.textContent = 'All Clear';
       headline.textContent = 'Space weather is quiet.';
       sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.`;
+    } else if (state.kind === 'recent') {
+      // Nothing in force this minute, but NOAA reports the 24-hour maximum as
+      // the day's condition and WWV says it out loud. Nothing ended here, so
+      // there is no relief to report -- just what the day has been.
+      setChip(chip, state.peak.level, `${state.peak.letter}${state.peak.level} · ${sevWord(state.peak.level)}`);
+      headline.innerHTML = `${SCALE_NOUNS[state.peak.letter]} reached ${level(state.peak.letter + state.peak.level)} in the past 24 hours.`;
+      sub.textContent = `${impact(state.peak.letter, state.peak.level)} Nothing in force right now.`;
+      timerSev = sevClass(state.peak.level);
     } else {
       chip.className = 'chip sev-1'; chip.textContent = 'Quiet';
       headline.textContent = 'Space weather is quiet.';
-      sub.textContent = state.peak
-        ? `Peak ${state.peak.letter}${state.peak.level} in the last 24 hours. Nothing at G3 or above forecast through 72 hours.`
-        : 'Nothing above background in the last 24 hours, none forecast through 72 hours.';
+      sub.textContent = 'Nothing above background in the last 24 hours, none forecast through 72 hours.';
     }
 
     renderTimer(state.timer, timerSev, state.kind === 'storm' && state.letter !== 'G');

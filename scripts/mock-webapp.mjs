@@ -84,11 +84,25 @@ const ADVISORY = {
 
 const STATES = {
   quiet: {
+    // Genuinely nothing: the only combination that reaches the quiet banner,
+    // since a level NOAA put a name to is a level the page describes (#126).
     label: 'Quiet',
     observed: { G: 0, S: 0, R: 0 },
-    peak24h: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 0, S: 0, R: 0 },
     kpObserved: 2.33,
     series: series({ peakKp: 3.67, peakInMin: 1800 })
+  },
+  recent: {
+    // Live on 2026-08-25, and the case that showed the banner was wrong: the
+    // instantaneous sample reads R0 while NOAA's 24-hour maximum and the WWV
+    // bulletin both say R2, moderate. Below the alert floor, so nothing here
+    // makes a sound -- which is the point. Impractical to wait for, like the
+    // rest of these.
+    label: 'R2 in the past 24h',
+    observed: { G: 0, S: 0, R: 0 },
+    peak24h: { G: 1, S: 0, R: 2 },
+    kpObserved: 3.33,
+    series: series({ peakKp: 4.0, peakInMin: 1500 })
   },
   brewing: {
     label: 'G3 forecast',
