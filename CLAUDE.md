@@ -489,6 +489,26 @@ their labels absorb count badges ("Data" is really "Data1") — so the script mo
 *hard* navigation straight to a deep route still doesn't work, which is why it
 loads `/admin/` first.
 
+## Pictures for a webapp pull request
+
+`scripts/screenshots/states.mjs` is the other half of that package, and the two
+answer different questions. `capture.mjs` shoots a live server and rewrites the
+five PNGs the README ships; `states.mjs` starts `scripts/mock-webapp.mjs`
+itself, walks every state it declares in both themes, and writes a gitignored
+`.hero-states/` with the PNGs and an `index.html` contact sheet. Nothing is
+committed — these are review material for one pull request, and pinning them
+would mean recapturing on every unrelated change to the page.
+
+```shell
+node scripts/screenshots/states.mjs        # --out, --port, --theme
+```
+
+It reads the state list off the mock's own startup line rather than importing
+it, so a state added there appears here with no second edit. The clip is the
+statusbar and the hero tile together, never one without the other: the chip and
+the countdown live in the first and the words in the second, and #126 was
+precisely a disagreement between the two.
+
 ## Releasing
 
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and

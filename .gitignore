@@ -115,3 +115,8 @@ dist
 # dist/ is generated: build output that ships (public/ is in package.json's
 # "files") but has no business being a second copy under version control.
 /public/icon.svg
+
+# Contact sheets from scripts/screenshots/states.mjs. Review material for a
+# pull request that changes the webapp, not repo content: pinning one would
+# mean regenerating it on every unrelated change to the page.
+/.hero-states/
