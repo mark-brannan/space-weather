@@ -147,8 +147,6 @@
     .statusbar h1 { font-size: 0.82rem; }
     .statusbar .val { font-size: 0.82rem; }
     .tile.hero { padding: 12px 14px; gap: 12px; }
-    .hero .headline { font-size: clamp(1.1rem, 5vw, 1.5rem); line-height: 1.1; margin: 0 0 6px; }
-    .hero .sub { font-size: 0.8rem; }
   }
 
   .chip {
@@ -192,6 +190,41 @@
     .bar-countdown .unit { font-size: 0.58rem; letter-spacing: 0.1em; }
     .hero { grid-template-columns: 1fr; gap: 10px; }
     .hero-rule { height: 1px; align-self: auto; }
+  }
+
+  /* Below 520px the three items stop fitting at their full sizes -- measured
+     in a browser across the mock's states, the longest chip ("R2 - Moderate")
+     runs out of room at 446px. Shrinking the title and the countdown instead
+     of breaking the bar buys that band back: all three share one line down to
+     ~400px. The separator goes with the shrink, since at this size it reads as
+     clutter between two things already spaced apart. */
+  @media (max-width: 520px) {
+    .statusbar h1 { font-size: 0.72rem; letter-spacing: 0.03em; }
+    .statusbar-lead { gap: 7px; }
+    .statusbar-sep { display: none; }
+    .bar-countdown { font-size: 0.95rem; gap: 5px; }
+    .bar-countdown .unit { font-size: 0.52rem; }
+  }
+
+  /* Below ~410px even the shrunk row won't fit, so give the countdown its own
+     line -- flex-basis:100% puts it there whole rather than letting flex-wrap
+     choose. 410 rather than 400 because the states don't run out of room at the
+     same width (measured: 408px for the longest chip, 400px for the rest), and
+     a breakpoint below the widest of them leaves a band where flex-wrap breaks
+     the row on its own and the rules below never fire.
+     margin-left:0 overrides the auto margin that pins the countdown right on a
+     shared line: alone on a line, right-aligned leaves it dangling under empty
+     space, so it starts at the same left edge as the title instead. */
+  @media (max-width: 410px) {
+    .bar-countdown { flex-basis: 100%; margin-left: 0; }
+  }
+
+  /* Issue #102: these must come after the base .hero rules above -- both are
+     equal-specificity (0,2,0), so a copy placed earlier in the cascade loses
+     to the unconditional rules that follow it and never takes effect. */
+  @media (max-width: 760px) {
+    .hero .headline { font-size: clamp(1.1rem, 5vw, 1.5rem); line-height: 1.1; margin: 0 0 6px; }
+    .hero .sub { font-size: 0.8rem; }
   }
 
   /* Storm Scales card: one row per G/S/R scale, observed + 3-day forecast
@@ -250,13 +283,21 @@
   .scales-r-line { font-size: 1.05rem; }
   .scales-r-line b { font-variant-numeric: tabular-nums; }
 
+  /* Issue #115: a grid item stretches to fill its whole track by default --
+     span-4 alone still forces this tile to the full width of a 4-column
+     slice at every viewport between the mobile breakpoint and desktop. The
+     max-width plus justify-self is what actually lets it shrink toward
+     square, and what it shrinks *to* at the narrow end. .span-4 keeps the
+     row's grid math at 12 (paired with Solar Wind's span-8) so the row
+     doesn't come up short of full width the way span-5 + span-6 did. */
   .aurora-tile {
+    justify-self: start; max-width: 380px;
     background:
       radial-gradient(120% 140% at 15% -10%, color-mix(in srgb, var(--aurora-a) 20%, transparent), transparent 60%),
       radial-gradient(120% 140% at 100% 120%, color-mix(in srgb, var(--aurora-b) 16%, transparent), transparent 60%),
       var(--panel);
   }
-  .aurora-ring { position: relative; width: 120px; height: 120px; margin: 4px auto 8px; }
+  .aurora-ring { position: relative; width: 148px; height: 148px; margin: 4px auto 8px; }
   .aurora-ring svg { width: 100%; height: 100%; }
   .aurora-ring .pct { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .aurora-ring .pct .n {
@@ -265,8 +306,15 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .aurora-ring .pct .u { font-family: var(--font-display); font-size: 0.56rem; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; }
+  /* Issue #109: the reading is *at* this position, so it belongs on the tile
+     that says "your position", not only on the regional map below it. */
+  .aurora-position { text-align: center; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 6px; }
   .aurora-detail { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim); }
-  .aurora-detail b { color: var(--text); font-weight: 400; }
+  /* nowrap keeps "19:49 UTC" one unit -- without it the line breaks at
+     whichever space runs out of room first, which below ~310px (measured in
+     Chromium: breaks at 300, fits at 320) was splitting the value from its own
+     unit instead of the label from the value. */
+  .aurora-detail b { color: var(--text); font-weight: 400; white-space: nowrap; }
   .empty-state { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
   .empty-state a { color: var(--amber); }
 
@@ -282,8 +330,13 @@
     position: relative; cursor: help; flex: none;
   }
   .info:hover, .info:focus-visible { color: var(--amber); border-color: var(--amber); }
+  /* Opens rightward from the icon rather than centering under it: a short
+     heading (Solar Wind) puts the icon close to the tile's left edge, and
+     centering pushed the bubble left of x:0 -- clipped by the tile's own
+     overflow:hidden. Anchoring to the icon's left edge instead keeps it
+     inside the tile no matter how short the heading before it is. */
   .info .bubble {
-    position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-45%);
+    position: absolute; left: 0; top: calc(100% + 8px);
     width: 265px; padding: 9px 11px; border: 1px solid var(--grid); border-radius: 4px;
     background: var(--panel-2); box-shadow: var(--shadow); color: var(--text);
     font: 400 0.7rem/1.45 var(--font-mono); letter-spacing: 0; text-align: left;
@@ -441,8 +494,14 @@
     </div>
 
     <div class="tile span-12">
-      <span class="label">Planetary K-Index</span>
-      <h2>24h Observed &middot; 72h Forecast</h2>
+      <div class="tile-head">
+        <h2>Planetary K-Index</h2>
+        <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
+          target="_blank" rel="noopener">i<span class="bubble">How disturbed Earth&rsquo;s magnetic
+          field is, on a 0&ndash;9 scale. It&rsquo;s what NOAA&rsquo;s G-scale below is built from
+          &mdash; the higher the number, the stronger the geomagnetic storm and the further from the
+          poles the aurora can be seen.</span></a>
+      </div>
       <div id="kpBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
@@ -462,11 +521,10 @@
       </div>
     </div>
 
-    <div class="tile span-6 aurora-tile">
+    <div class="tile span-4 aurora-tile">
       <div class="map-header">
         <div>
-          <span class="label">Aurora &middot; OVATION</span>
-          <h2>At Your Position</h2>
+          <h2>Aurora at Your Position</h2>
         </div>
         <button type="button" id="auroraRefresh" class="btn-outline">Refresh</button>
       </div>
@@ -475,9 +533,15 @@
       </div>
     </div>
 
-    <div class="tile span-6">
-      <span class="label">Solar Wind</span>
-      <h2>Live Readouts</h2>
+    <div class="tile span-8">
+      <div class="tile-head">
+        <h2>Solar Wind</h2>
+        <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
+          target="_blank" rel="noopener">i<span class="bubble">Speed, strength (Bt) and direction
+          (Bz) of the Sun&rsquo;s magnetic field as it reaches Earth. Bz pointing south (a negative
+          number) is what actually triggers geomagnetic storms and aurora &mdash; north mostly does
+          nothing.</span></a>
+      </div>
       <div id="windBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
@@ -486,7 +550,6 @@
     <div class="tile span-12 aurora-map-tile">
       <div class="map-header">
         <div>
-          <span class="label">Aurora &middot; OVATION</span>
           <h2>Regional Aurora</h2>
           <span class="map-extent">&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span></span>
         </div>
@@ -502,12 +565,9 @@
   <div class="learn-more">
     <span class="label" style="margin-right:2px">Learn more</span>
     <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
-    <a href="https://www.swpc.noaa.gov/products/planetary-k-index" target="_blank" rel="noopener">Planetary K-index</a>
-    <a href="https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text" target="_blank" rel="noopener">WWV geophysical alert</a>
-    <a href="https://www.spaceweather.gov/communities/aurora-dashboard-experimental" target="_blank" rel="noopener">Aurora dashboard</a>
-    <a href="https://www.spaceweather.gov/communities/radio-communications" target="_blank" rel="noopener">Radio &amp; HF impacts</a>
-    <a href="https://www.spaceweather.gov/communities/global-positioning-system-gps-community-dashboard" target="_blank" rel="noopener">GPS/GNSS impacts</a>
     <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
+    <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
+    <a href="https://www.spaceweather.gov/about-space-weather" target="_blank" rel="noopener">About space weather</a>
   </div>
 
   <div class="footstrip">
@@ -913,7 +973,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     setTimestamp(document.getElementById('tsScales'), leafTime(scales?.G) || leafTime(scales?.time));
   }
 
-  function renderAurora(aurora, scheduled, intervalMinutes, running) {
+  function renderAurora(aurora, scheduled, intervalMinutes, running, pos) {
     const body = document.getElementById('auroraBody');
     const p = leafValue(aurora?.probability);
     const state = auroraCardState({ probability: p, scheduled, running });
@@ -949,6 +1009,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         </svg>
         <div class="pct"><span class="n">${pct}%</span><span class="u">Probability</span></div>
       </div>
+      <div class="aurora-position">${pos ? `${pos.latitude.toFixed(4)}&deg;, ${pos.longitude.toFixed(4)}&deg;` : 'Position unknown'}</div>
       <div class="aurora-detail">
         <span>Observed <b>${fmtTime(leafValue(aurora?.observationTime))}</b></span>
         <span>Forecast <b>${fmtTime(leafValue(aurora?.forecastTime))}</b></span>
@@ -1611,12 +1672,17 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // that never set auroraEnabled reads as the default it is actually running.
     auroraScheduled = status?.settings?.auroraEnabled === true;
 
+    // Read once, up front: both the aurora tile (issue #109 -- the reading is
+    // *at* this position, so it belongs here too, not only on the regional
+    // map) and the map's extent caption need it.
+    const pos = leafValue(position);
+
     renderHero(scalesLatest, scalesPeak24h, kp, status);
     // The badges show the 24-hour observed maximum, not the instantaneous
     // reading -- see public/scales-source.js. The hero keeps both, because
     // telling a storm in progress from one that has passed needs the pair.
     renderScales(scalesPeak24h, xrayFlare, scalesForecast);
-    renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status);
+    renderAurora(aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();
     renderWind(wind);
     renderKp(kp);
@@ -1625,7 +1691,6 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // Position reads as the aurora map's extent now ("+/-25 degrees latitude
     // around <here>"), which is the only thing the webapp ever did with it.
     // The fallback has to stay a noun phrase that sentence can end on.
-    const pos = leafValue(position);
     document.getElementById('vesselPos').textContent = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'the vessel';
