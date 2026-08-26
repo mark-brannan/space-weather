@@ -12,6 +12,13 @@
 // has to keep honest. The switcher sets a cookie and reloads, which is why
 // the webapp itself needs to know nothing about any of this.
 //
+// The map's Fetch button is the one thing that doesn't fit that story: a
+// fabricated aurora/D-RAP grid would mean mocking tiles.ts, not the webapp.
+// Its four routes (aurora-grid, drap-grid, aurora-refresh, drap-refresh) fall
+// through to the real products instead -- see loadRealProducts below -- so
+// clicking Fetch does a real NOAA request and caches a real grid on disk,
+// with or without --upstream.
+//
 // The states are the things the header has to be able to say. They exist
 // because most of them are awkward to reach against a live server -- a real
 // G4 happens a few times a solar cycle, and "no data since the plugin
@@ -34,17 +41,232 @@
 // invisible to all three.
 import http from 'node:http'
 import fs from 'node:fs/promises'
+import fssync from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')
+const ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'public'
+)
+const REPO_ROOT = path.resolve(ROOT, '..')
+
+// Aurora and D-RAP are the two products the mock states above deliberately
+// don't fake (see the `status` and `default` cases in payload() below): both
+// buy a global grid, and a fabricated one would be mocking tiles.ts rather
+// than the webapp. Real ones are cheap to get -- the products are already
+// decoupled from the Signal K `app` object behind the Publisher interface --
+// so this pulls in the built plugin (`npm run build`'s dist/) and lets
+// aurora-grid/drap-grid/aurora-refresh/drap-refresh fall through to a real
+// NOAA fetch, cached on disk exactly the way the real plugin caches it. This
+// is why dev:webapp needs a `npm run build` first and needs the network for
+// these two buttons -- everything else here stays fabricated and offline.
+//
+// A real refresh() also publishes the point value at the vessel (probability
+// at position, highest affected frequency) via publisher.values() -- the
+// same call a real Signal K app object turns into a delta. There's no app
+// object here, so this captures those calls into a plain map instead, keyed
+// by path, and the swpc/aurora and swpc/drap routes below read it back. Until
+// the first real fetch nothing is captured and those two routes keep
+// answering from payload()'s fabricated, state-driven value, same as before.
+const publishedValues = new Map()
+const AURORA_BASE = 'environment.noaa.swpc.aurora'
+const DRAP_BASE = 'environment.noaa.swpc.drap'
+
+let realProducts = null
+async function loadRealProducts() {
+  if (realProducts) return realProducts
+  const distIndex = path.join(REPO_ROOT, 'dist', 'index.js')
+  if (!fssync.existsSync(distIndex)) {
+    throw new Error('dist/ missing -- run `npm run build` first')
+  }
+  const [
+    { aurora },
+    { drap },
+    { readAuroraCache, writeAuroraCache },
+    { readDrapCache },
+    { createClient }
+  ] = await Promise.all([
+    import(path.join(REPO_ROOT, 'dist', 'products', 'aurora.js')),
+    import(path.join(REPO_ROOT, 'dist', 'products', 'drap.js')),
+    import(path.join(REPO_ROOT, 'dist', 'cache', 'auroraCache.js')),
+    import(path.join(REPO_ROOT, 'dist', 'cache', 'drapCache.js')),
+    import(path.join(REPO_ROOT, 'dist', 'noaa', 'client.js'))
+  ])
+
+  // A scratch data dir standing in for the real plugin's
+  // app.getDataDirPath() -- same write-then-rename cache files, just under
+  // the OS temp dir instead of ~/.signalk/plugin-config-data/.
+  const dataDirPath = path.join(
+    os.tmpdir(),
+    'signalk-noaa-space-weather-mock-webapp'
+  )
+  fssync.mkdirSync(dataDirPath, { recursive: true })
+
+  // Fixed vessel position, matching payload()'s 'position' case above, so a
+  // real refresh can publish a point value at the same coordinates the
+  // webapp's position tile already shows.
+  const FIXED_POSITION = { latitude: 47.6578, longitude: -122.3773 }
+
+  const publisher = {
+    meta() {},
+    values(vals, timestamp) {
+      for (const { path: p, value } of vals)
+        publishedValues.set(p, { value, timestamp })
+    },
+    value(p, value, timestamp) {
+      this.values([{ path: p, value }], timestamp)
+    },
+    selfPath(p) {
+      if (p.startsWith('navigation.position')) return { value: FIXED_POSITION }
+      return null
+    },
+    status(message) {
+      console.log(`[aurora/drap] ${message}`)
+    },
+    fail(message) {
+      console.error(`[aurora/drap] ${message}`)
+    },
+    error(message, ...args) {
+      console.error(`[aurora/drap] ${message}`, ...args)
+    },
+    debug() {},
+    dataDirPath: () => dataDirPath
+  }
+  const client = createClient(publisher)
+  const settings = {
+    sendAdvisoryOutlook: false,
+    auroraEnabled: false,
+    auroraInterval: 900,
+    drapEnabled: false,
+    alarmLevel: 4,
+    popupLevel: 3,
+    updateInterval: 15
+  }
+  const ctx = { client, publisher, settings, stopped: () => false }
+
+  realProducts = {
+    aurora,
+    drap,
+    readAuroraCache,
+    writeAuroraCache,
+    readDrapCache,
+    ctx,
+    dataDirPath
+  }
+  return realProducts
+}
+
+// name is 'aurora' or 'drap' -- both index real[name] (the Product) and
+// real[`read${Aurora,Drap}Cache`] (its cache reader), so one function covers
+// both grid and refresh handling for either product.
+const READ_CACHE = { aurora: 'readAuroraCache', drap: 'readDrapCache' }
+const NOT_CACHED = {
+  aurora:
+    "No aurora data cached yet. Fetch one on demand from this plugin's webapp, or turn on automatic aurora updates in the plugin configuration.",
+  drap: "No D-RAP data cached yet. Fetch one on demand from this plugin's webapp, or turn on HF absorption in the plugin configuration."
+}
+
+// Mirrors refreshHandler in src/index.ts closely enough for the webapp's
+// button to behave the same: only answer 200 once a new grid has actually
+// landed. There is no scheduler here to defer a next run against, so that
+// half of the real handler is just dropped.
+async function handleRefresh(name, res) {
+  let real
+  try {
+    real = await loadRealProducts()
+  } catch (err) {
+    // The full error (e.g. "dist/ missing -- run npm run build first") goes
+    // to this process's own console, not the response: this is the same
+    // machine either way, but CodeQL flags any error text reaching an HTTP
+    // response on principle, and there's no cost to keeping the habit here.
+    console.error(err)
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error:
+          'Could not load the real NOAA products -- see the server console.'
+      })
+    )
+    return
+  }
+  const readCache = real[READ_CACHE[name]]
+  const before = readCache(real.dataDirPath)
+  try {
+    await real[name].refresh(real.ctx)
+  } catch (err) {
+    console.error(err)
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: `${name} refresh failed -- see the server console.`
+      })
+    )
+    return
+  }
+  const cached = readCache(real.dataDirPath)
+  if (!cached || cached.fetchedAt === before?.fetchedAt) {
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: `Refreshed, but no new ${name} grid came back from NOAA.`
+      })
+    )
+    return
+  }
+  res.writeHead(200, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store'
+  })
+  res.end(JSON.stringify(cached))
+}
+
+async function handleGrid(name, res) {
+  let real
+  try {
+    real = await loadRealProducts()
+  } catch (err) {
+    // The full error (e.g. "dist/ missing -- run npm run build first") goes
+    // to this process's own console, not the response: this is the same
+    // machine either way, but CodeQL flags any error text reaching an HTTP
+    // response on principle, and there's no cost to keeping the habit here.
+    console.error(err)
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error:
+          'Could not load the real NOAA products -- see the server console.'
+      })
+    )
+    return
+  }
+  const cached = real[READ_CACHE[name]](real.dataDirPath)
+  if (!cached) {
+    // no-store: a browser caching "nothing yet" would keep saying so after
+    // the next refresh actually lands one.
+    res.writeHead(404, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store'
+    })
+    res.end(JSON.stringify({ error: NOT_CACHED[name] }))
+    return
+  }
+  res.writeHead(200, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store'
+  })
+  res.end(JSON.stringify(cached))
+}
 
 const argv = process.argv.slice(2)
 let upstreamArg = null
 let portArg = null
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--upstream') upstreamArg = argv[++i]
-  else if (argv[i].startsWith('--upstream=')) upstreamArg = argv[i].slice('--upstream='.length)
+  else if (argv[i].startsWith('--upstream='))
+    upstreamArg = argv[i].slice('--upstream='.length)
   else if (portArg === null) portArg = argv[i]
 }
 const PORT = Number(portArg || 8731)
@@ -52,12 +274,30 @@ const PORT = Number(portArg || 8731)
 // base + path without re-checking for a double slash.
 const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
 
-const iso = (offsetMin) => new Date(Date.now() + offsetMin * 60000).toISOString()
-const leaf = (value, offsetMin = -6) => ({ value, timestamp: iso(offsetMin), $source: 'mock' })
+const iso = (offsetMin) =>
+  new Date(Date.now() + offsetMin * 60000).toISOString()
+const leaf = (value, offsetMin = -6) => ({
+  value,
+  timestamp: iso(offsetMin),
+  $source: 'mock'
+})
 
 // Matches NOAA's own ":Issued:" line (e.g. "2026 Aug 18 0341 UTC") so the
 // mock advisory's header and its parsed `issued` field can share one instant.
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec'
+]
 const fmtIssued = (offsetMin) => {
   const d = new Date(Date.now() + offsetMin * 60000)
   const pad = (n) => String(n).padStart(2, '0')
@@ -78,7 +318,11 @@ function series({ peakKp, peakInMin, base = 2 }) {
       const d = Math.abs(m - peakInMin) / 600
       kp = Math.max(kp, peakKp - d * 2.2)
     }
-    out.push({ time: iso(m), kp: Math.round(Math.max(0.33, Math.min(9, kp)) * 3) / 3, forecast: true })
+    out.push({
+      time: iso(m),
+      kp: Math.round(Math.max(0.33, Math.min(9, kp)) * 3) / 3,
+      forecast: true
+    })
   }
   return out
 }
@@ -87,7 +331,8 @@ const ADVISORY_ISSUED_MIN = -1140
 const ADVISORY = {
   idLine: 'Product: Weekly Highlights and 27-Day Forecast',
   issued: iso(ADVISORY_ISSUED_MIN),
-  teaser: 'Solar activity is expected to be at very low to low levels, with a chance for M-class flares.',
+  teaser:
+    'Solar activity is expected to be at very low to low levels, with a chance for M-class flares.',
   text: [
     ':Product: Weekly Highlights and 27-Day Forecast',
     `:Issued: ${fmtIssued(ADVISORY_ISSUED_MIN)}`,
@@ -178,7 +423,12 @@ function payload(name, s) {
   const scales = (levels) =>
     levels === null
       ? null
-      : { G: leaf(levels.G, age), S: leaf(levels.S, age), R: leaf(levels.R, age), time: leaf(iso(age), age) }
+      : {
+          G: leaf(levels.G, age),
+          S: leaf(levels.S, age),
+          R: leaf(levels.R, age),
+          time: leaf(iso(age), age)
+        }
 
   switch (name) {
     case 'latest':
@@ -224,6 +474,26 @@ function payload(name, s) {
         Bt: leaf((s.observed.G >= 3 ? 24 : 5) * 1e-9),
         Bz: leaf((s.observed.G >= 3 ? -18 : -2) * 1e-9)
       }
+    // The vessel-position point value the ring tile draws. publishedValues
+    // is only populated once a real aurora-refresh has actually landed one
+    // (see loadRealProducts above); until then this stays the empty state
+    // it always was -- there is no fabricated grid to derive a number from.
+    case 'aurora': {
+      const probability = publishedValues.get(`${AURORA_BASE}.probability`)
+      if (!probability) return null
+      const obsTime = publishedValues.get(`${AURORA_BASE}.observationTime`)
+      const fcTime = publishedValues.get(`${AURORA_BASE}.forecastTime`)
+      const asLeaf = (entry) => ({
+        value: entry.value,
+        timestamp: entry.timestamp,
+        $source: 'mock'
+      })
+      return {
+        probability: asLeaf(probability),
+        ...(obsTime ? { observationTime: asLeaf(obsTime) } : {}),
+        ...(fcTime ? { forecastTime: asLeaf(fcTime) } : {})
+      }
+    }
     case 'xray':
       return s.observed === null
         ? null
@@ -232,8 +502,30 @@ function payload(name, s) {
             max24h: { class: leaf(s.peak24h.R >= 2 ? 'M6.9' : 'C2.4') }
           }
     // The HF paths, keyed off the levels the state already declares, so a
-    // state stays a couple of numbers to write.
+    // state stays a couple of numbers to write -- unless a real drap-refresh
+    // has already landed a real value (see the aurora case above), in which
+    // case that takes precedence over the fabricated one.
     case 'drap': {
+      const real = publishedValues.get(
+        `${DRAP_BASE}.highest_affected_frequency`
+      )
+      if (real) {
+        const validTime = publishedValues.get(`${DRAP_BASE}.validTime`)
+        return {
+          highest_affected_frequency: {
+            value: real.value,
+            timestamp: real.timestamp,
+            $source: 'mock'
+          },
+          validTime: validTime
+            ? {
+                value: validTime.value,
+                timestamp: validTime.timestamp,
+                $source: 'mock'
+              }
+            : leaf(iso(age), age)
+        }
+      }
       if (s.observed === null) return null
       // Off the worse of R and S, not R alone: both scales raise the same
       // absorption floor -- flare X-rays on the sunlit side, solar protons
@@ -254,7 +546,8 @@ function payload(name, s) {
       // in force, clearing once the instantaneous R has fallen below the day's
       // peak -- the two words the tile has to be able to say, and steady in
       // between.
-      const trend = s.observed.R >= 2 ? 2.4 : s.observed.R < s.peak24h.R ? 0.6 : 1.02
+      const trend =
+        s.observed.R >= 2 ? 2.4 : s.observed.R < s.peak24h.R ? 0.6 : 1.02
       return {
         ...leaf(s.observed.R >= 2 ? 4.2e-5 : 1.8e-6, age),
         trend: leaf(trend, age)
@@ -262,13 +555,17 @@ function payload(name, s) {
     }
     case 'protonFlux':
       // In pfu the S levels are decades from 10, and the path carries SI.
-      return s.observed === null ? null : leaf(Math.pow(10, s.observed.S) * 1e4, age)
+      return s.observed === null
+        ? null
+        : leaf(Math.pow(10, s.observed.S) * 1e4, age)
     case 'f107':
       // Walks the convention's five bands across the states rather than
       // tracking the storm: solar flux is a solar-cycle number, and whether
       // today has a flare in it says nothing about this month's flux. Keyed on
       // R only so that one dial per state stays the rule.
-      return s.observed === null ? null : leaf([96, 118, 187, 68, 152, 143][s.observed.R], -300)
+      return s.observed === null
+        ? null
+        : leaf([96, 118, 187, 68, 152, 143][s.observed.R], -300)
     case 'aIndex':
       return s.observed === null ? null : leaf(s.peak24h.G >= 3 ? 48 : 6, -300)
     case 'sunspotNumber':
@@ -278,11 +575,20 @@ function payload(name, s) {
     case 'advisory':
       return s.observed === null ? null : ADVISORY
     case 'status':
-      // auroraEnabled stays false: the map needs a real grid cache to draw,
-      // and faking one would be mocking tiles.ts rather than the webapp.
-      return { startedAt: iso(s.startedMin ?? -720), settings: { auroraEnabled: false, auroraInterval: 900 } }
+      // auroraEnabled/drapEnabled stay false: they govern the schedule, not
+      // the capability, and this mock never runs one -- the map's Fetch
+      // button drives a real refresh regardless (see loadRealProducts).
+      return {
+        startedAt: iso(s.startedMin ?? -720),
+        settings: {
+          auroraEnabled: false,
+          auroraInterval: 900,
+          drapEnabled: false,
+          updateInterval: 15
+        }
+      }
     default:
-      return null // aurora: no fake grid, so the tile renders its own empty state
+      return null
   }
 }
 
@@ -342,7 +648,9 @@ async function proxyToUpstream(url, res) {
   const target = UPSTREAM + url.pathname + url.search
   let upstreamRes
   try {
-    upstreamRes = await fetch(target, { headers: { Accept: 'application/json' } })
+    upstreamRes = await fetch(target, {
+      headers: { Accept: 'application/json' }
+    })
   } catch (err) {
     res.writeHead(502, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: `Upstream fetch failed: ${err.message}` }))
@@ -350,7 +658,8 @@ async function proxyToUpstream(url, res) {
   }
   const body = Buffer.from(await upstreamRes.arrayBuffer())
   res.writeHead(upstreamRes.status, {
-    'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
+    'Content-Type':
+      upstreamRes.headers.get('content-type') || 'application/json',
     'Cache-Control': 'no-store'
   })
   res.end(body)
@@ -378,10 +687,26 @@ http
       const pick = /^\/mock\/([a-z]+)$/.exec(url.pathname)
       if (pick) {
         const next = STATES[pick[1]] ? pick[1] : 'quiet'
-        res.writeHead(302, { 'Set-Cookie': `mockstate=${next}; Path=/`, Location: '/' }).end()
+        res
+          .writeHead(302, {
+            'Set-Cookie': `mockstate=${next}; Path=/`,
+            Location: '/'
+          })
+          .end()
         return
       }
     }
+
+    // Aurora and D-RAP's grid/refresh routes fall through to a real NOAA
+    // fetch and a real on-disk cache (see loadRealProducts above) rather than
+    // going through payload() or the upstream proxy -- so a branch's public/
+    // can be checked against a real fetch with no running plugin and no
+    // --upstream server at all. Everything else stays proxied/fabricated.
+    if (/aurora-grid$/.test(url.pathname)) return handleGrid('aurora', res)
+    if (/drap-grid$/.test(url.pathname)) return handleGrid('drap', res)
+    if (/aurora-refresh$/.test(url.pathname))
+      return handleRefresh('aurora', res)
+    if (/drap-refresh$/.test(url.pathname)) return handleRefresh('drap', res)
 
     const route = ROUTES.find(([re]) => re.test(url.pathname))
     if (route) {
@@ -396,7 +721,10 @@ http
         res.writeHead(404).end('{}')
         return
       }
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store'
+      })
       res.end(JSON.stringify(body))
       return
     }
@@ -428,6 +756,7 @@ http
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`mock signalk + webapp on http://127.0.0.1:${PORT}/`)
-    if (UPSTREAM) console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
+    if (UPSTREAM)
+      console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
     else console.log(`states: ${Object.keys(STATES).join(', ')}`)
   })
