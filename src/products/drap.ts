@@ -9,7 +9,12 @@
  * much larger piece of work (a second tile layer) and is not part of this.
  */
 import { DRAP_BASE } from '../paths.js'
-import { drapFrequencyAt, parseDrapGrid } from '../parse.js'
+import {
+  drapFrequencyAt,
+  parseDrapGrid,
+  zoneMethods,
+  zonesForDrap
+} from '../parse.js'
 import { Meta } from '../publisher.js'
 import { vesselPosition } from './aurora.js'
 import { Product } from './types.js'
@@ -25,6 +30,7 @@ export const drap: Product = {
       {
         path: `${DRAP_BASE}.highest_affected_frequency`,
         value: {
+          ...zoneMethods(),
           displayName: 'D-RAP highest affected frequency',
           shortName: 'D-RAP',
           description:
@@ -32,7 +38,13 @@ export const drap: Product = {
             " absorption at the vessel's position, from NOAA's D-RAP model." +
             ' A value of 0 means no degradation is predicted here.',
           units: 'Hz',
-          timeout: 60 * 60
+          timeout: 60 * 60,
+          // Published even though the webapp draws the band strip from the
+          // raw number instead: a zone ladder on a path is what Freeboard,
+          // Grafana, another plugin or a script reads, none of which have
+          // this plugin's tile. zonesForDrap carries why it buckets by band
+          // and why it stays quiet.
+          zones: zonesForDrap()
         }
       },
       {

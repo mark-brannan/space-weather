@@ -33,10 +33,13 @@ export function scalesCard(data) {
     // Either leaf answers "how old is this", and a product that failed
     // mid-publish may have only one of them.
     observedAt: leafTime(observedNode?.G) || leafTime(observedNode?.time),
-    // Labelled "Solar Flare Class", but issue #122 measured it as the
-    // background X-ray flux at poll time. Passed through unchanged: fixing
-    // what is published is #122's job.
-    flareClass: leafValue(flareNode?.class) ?? null,
+    // The 24-hour peak, not the latest flare, because of where this readout
+    // sits: inside the R row, beside a badge that is NOAA's 24-hour maximum
+    // and coloured by that badge's level. The flare next to it has to be the
+    // one that level describes or the row disagrees with itself -- which is
+    // issue #122's complaint, one endpoint further back. The latest flare is
+    // published too and the Solar Activity tile draws it.
+    flareClass: leafValue(flareNode?.max24h?.class) ?? null,
     forecast: DAY_KEYS.map((key) => forecastDay(forecastNode?.[key]))
   }
 }

@@ -12,12 +12,15 @@ import {
   parseF107,
   parseGoesFlux,
   parseGeophysicalAlert,
+  fluxForFlareClass,
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
   parseXrayFlare,
+  parseXrayFlarePeak,
   percentToRatio,
-  transformJsonScaleRange
+  transformJsonScaleRange,
+  xrayFluxTrend
 } from '../src/parse'
 import {
   ADVISORY_FIXTURES,
@@ -421,11 +424,48 @@ describe('percentToRatio', () => {
 })
 
 describe('parseXrayFlare', () => {
-  it('reads the current flare class from a captured payload', () => {
+  it("reads the flare's own peak, not the background flux at poll time", () => {
+    // Issue #122: this payload's `current_class` is B3.3 -- the background
+    // flux when NOAA wrote the file -- while the flare it describes peaked at
+    // B4.6 four hours earlier. Publishing the former under a heading that
+    // reads as "the flare" is the defect.
     const flare = parseXrayFlare(
       fixtureJson('xray-flares-latest.2026_08_06.json')
     )
-    expect(flare).toEqual({ flareClass: 'B3.3', time: '2026-08-06T03:46:00Z' })
+    expect(flare).toEqual({ flareClass: 'B4.6', time: '2026-08-05T23:53:00Z' })
+  })
+
+  it('reads the peak on the day #122 was measured', () => {
+    const flare = parseXrayFlare(
+      fixtureJson('xray-flares-latest.2026_08_25.json')
+    )
+    expect(flare?.flareClass).toBe('C4.7')
+  })
+
+  it('falls back to the current class when NOAA sends no peak', () => {
+    expect(
+      parseXrayFlare([
+        { current_class: 'M2.1', time_tag: '2026-08-06T03:46:00Z' }
+      ])
+    ).toEqual({ flareClass: 'M2.1', time: '2026-08-06T03:46:00Z' })
+  })
+
+  it('rejects a class that is not one, on either field', () => {
+    // The only free string this plugin publishes, so it is validated where it
+    // enters rather than escaped where it is drawn -- a consumer that is not
+    // this plugin's own page gets the same guarantee.
+    const time = '2026-08-06T03:46:00Z'
+    for (const bad of ['<img src=x onerror=alert(1)>', 'Q1', 'M-1', '  ']) {
+      expect(parseXrayFlare([{ max_class: bad, max_time: time }])).toBeNull()
+      expect(
+        parseXrayFlare([{ current_class: bad, time_tag: time }])
+      ).toBeNull()
+    }
+    // A bare letter is NOAA's own way of writing the decade boundary.
+    expect(parseXrayFlare([{ max_class: ' M ', max_time: time }])).toEqual({
+      flareClass: 'M',
+      time
+    })
   })
 
   it('returns null rather than throwing on unusable input', () => {
@@ -434,14 +474,142 @@ describe('parseXrayFlare', () => {
     }
   })
 
-  it('returns null when current_class is present but empty', () => {
+  it('returns null when both classes are present but empty', () => {
     expect(
-      parseXrayFlare([{ current_class: '', time_tag: '2026-08-06T03:46:00Z' }])
+      parseXrayFlare([
+        { max_class: '', current_class: '', time_tag: '2026-08-06T03:46:00Z' }
+      ])
     ).toBeNull()
   })
 
-  it('returns null when time_tag is missing', () => {
+  it('returns null when neither reading carries a time', () => {
+    expect(parseXrayFlare([{ max_class: 'M2.1' }])).toBeNull()
     expect(parseXrayFlare([{ current_class: 'M2.1' }])).toBeNull()
+  })
+})
+
+describe('fluxForFlareClass', () => {
+  it.each([
+    ['M1', 1e-5],
+    ['M6.9', 6.9e-5],
+    ['X1.0', 1e-4],
+    ['M9.9', 9.9e-5],
+    ['B4.6', 4.6e-7],
+    // NOAA writes a bare letter for the decade boundary.
+    ['X', 1e-4]
+  ])('%s -> %s W/m2', (input, expected) => {
+    expect(fluxForFlareClass(input)!).toBeCloseTo(expected, 12)
+  })
+
+  it('orders M9.9 below X1.0, which string comparison does not', () => {
+    expect('M9.9' > 'X1.0').toBe(false)
+    expect(fluxForFlareClass('M9.9')!).toBeLessThan(fluxForFlareClass('X1.0')!)
+  })
+
+  it('returns null for anything that is not a class', () => {
+    for (const input of ['', 'Q1', 'M-1', 'nope', null, undefined])
+      expect(fluxForFlareClass(input)).toBeNull()
+  })
+})
+
+describe('parseXrayFlarePeak', () => {
+  const week = () => fixtureJson('xray-flares-7-day.2026_08_26.json')
+
+  it('picks the strongest flare inside the window, not the newest', () => {
+    const peak = parseXrayFlarePeak(week(), new Date('2026-08-26T06:00:00Z'))
+    // The M6.9 of the 25th, over a C1.2 that peaked five hours before `now`.
+    expect(peak).toEqual({
+      flareClass: 'M6.9',
+      time: '2026-08-25T10:02:00Z'
+    })
+  })
+
+  it('moves the answer when the window moves', () => {
+    // Same file, a window ending before that M6.9 began.
+    expect(
+      parseXrayFlarePeak(week(), new Date('2026-08-25T09:00:00Z'))?.flareClass
+    ).toBe('M1.9')
+    // And one covering the M8.1 of the 20th instead.
+    expect(
+      parseXrayFlarePeak(week(), new Date('2026-08-20T18:00:00Z'))?.flareClass
+    ).toBe('M8.1')
+  })
+
+  it('returns null for a window with no flare in it', () => {
+    // The week's own leading edge: this file's first record peaked at
+    // 04:54 on the 19th, so a window ending at 04:00 contains none of it.
+    expect(
+      parseXrayFlarePeak(week(), new Date('2026-08-19T04:00:00Z'))
+    ).toBeNull()
+  })
+
+  it('never reaches forward past `now`', () => {
+    // The window is a past 24 hours, so a file whose later records postdate
+    // the clock must not contribute one.
+    expect(
+      parseXrayFlarePeak(week(), new Date('2026-08-19T12:00:00Z'))?.flareClass
+    ).toBe('C5.0')
+  })
+
+  it('ranks on the class when NOAA sends no max_xrlong', () => {
+    const stripped = week().map(
+      ({ max_xrlong, ...rest }: Record<string, unknown>) => rest
+    )
+    expect(
+      parseXrayFlarePeak(stripped, new Date('2026-08-26T06:00:00Z'))?.flareClass
+    ).toBe('M6.9')
+  })
+
+  it('returns null rather than throwing on unusable input', () => {
+    const now = new Date('2026-08-26T06:00:00Z')
+    for (const input of [null, undefined, {}, [], [{}], 'nope'])
+      expect(parseXrayFlarePeak(input, now)).toBeNull()
+  })
+})
+
+describe('xrayFluxTrend', () => {
+  const quiet = () => fixtureJson('xrays-6-hour.2026_08_20.json')
+
+  it('reads a quiet sky as neither rising nor falling', () => {
+    const trend = xrayFluxTrend(quiet())!
+    expect(trend.ratio).toBeGreaterThan(0.8)
+    expect(trend.ratio).toBeLessThan(1.25)
+    // Anchored on the newest sample, not the wall clock.
+    expect(trend.time).toBe('2026-08-20T04:42:00.000Z')
+  })
+
+  it('reads a rise as a ratio above 1 and a decay as one below', () => {
+    const at = (minutesAgo: number, flux: number) => ({
+      time_tag: new Date(
+        Date.parse('2026-08-20T05:00:00Z') - minutesAgo * 60_000
+      ).toISOString(),
+      energy: '0.1-0.8nm',
+      flux
+    })
+    const ramp = (factor: number) =>
+      Array.from({ length: 30 }, (_, i) => at(i, 1e-6 * factor ** (29 - i)))
+
+    expect(xrayFluxTrend(ramp(1.1))!.ratio).toBeGreaterThan(3)
+    expect(xrayFluxTrend(ramp(1 / 1.1))!.ratio).toBeLessThan(1 / 3)
+  })
+
+  it('reports no trend rather than a flat one when a window is empty', () => {
+    // Only the recent window is populated; the half hour behind it is a gap,
+    // which is not the same measurement as "unchanged".
+    const only = quiet().filter(
+      (r) => Date.parse(r.time_tag) > Date.parse('2026-08-20T04:28:00Z')
+    )
+    expect(xrayFluxTrend(only)).toBeNull()
+  })
+
+  it('ignores the other energy channel', () => {
+    const short = quiet().filter((r) => r.energy !== '0.1-0.8nm')
+    expect(xrayFluxTrend(short)).toBeNull()
+  })
+
+  it('returns null rather than throwing on unusable input', () => {
+    for (const input of [null, undefined, {}, [], [{}], 'nope'])
+      expect(xrayFluxTrend(input)).toBeNull()
   })
 })
 

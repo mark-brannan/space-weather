@@ -7,7 +7,7 @@
  * publishes -- see "GOES X-ray and proton flux time series (#83)".
  */
 import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from '../paths.js'
-import { ValueUpdate, parseGoesFlux } from '../parse.js'
+import { ValueUpdate, parseGoesFlux, xrayFluxTrend } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
 
@@ -30,6 +30,40 @@ export const goesFlux: Product = {
         }
       },
       {
+        // A child of a leaf, which is unusual here and deliberate: the ratio
+        // is derived from the same series `xray_flux` samples, so hanging it
+        // anywhere else would invite reading the two as independent
+        // measurements. The full model tolerates a node that carries both a
+        // value and children, and a client that only ever reads `.value` sees
+        // no change.
+        path: `${XRAY_FLUX_BASE}.trend`,
+        value: {
+          displayName: 'GOES X-ray Flux trend',
+          shortName: 'X-ray trend',
+          description:
+            'X-ray flux now divided by the flux around 30 minutes ago,' +
+            ' as the median of two adjacent 15-minute windows. Above 1 the' +
+            ' D-region absorption floor is rising and HF is getting worse;' +
+            ' below 1 a blackout is clearing. Says nothing about the F2' +
+            ' ceiling -- the X-ray channel acts on the D region only.',
+          // `'ratio'` despite being unbounded above 1. Signal K's own
+          // vocabulary defines it as "relative value compared to reference or
+          // normal value", and its keys carrying it are not all 0-1:
+          // `propulsion.*.transmission.gearRatio` and `alternators.*.pulleyRatio`
+          // are open-ended quotients of two same-dimension quantities, which is
+          // exactly this. The 0-1 cases in this plugin are a property of
+          // probabilities, not of the units string. Its `display` is the empty
+          // string, so this does not reintroduce the `units: 'none'` problem
+          // that keeps Kp and G/S/R unitless.
+          units: 'ratio',
+          timeout: 60 * 60
+          // No `zones`, deliberately. A rate is not a condition: a ratio of 3
+          // is alarming from an M-class floor and meaningless from a B-class
+          // one, so the same number would have to mean two different things.
+          // The R scale already carries a zone ladder for the level itself.
+        }
+      },
+      {
         path: PROTON_FLUX_BASE,
         value: {
           displayName: 'GOES Proton Flux',
@@ -40,6 +74,12 @@ export const goesFlux: Product = {
             ' HF absorption, which can last days.',
           units: 'm-2.s-1.sr-1',
           timeout: 60 * 60
+          // No `zones` on either flux path, deliberately, and for the reason
+          // A_INDEX_BASE has none: the S and R scale paths already carry a
+          // ladder over the same two measurements, built from the user's own
+          // alarm thresholds. A second ladder here would raise a second
+          // notification for one condition, and the two would disagree the
+          // moment those thresholds moved.
         }
       }
     ]
@@ -72,6 +112,17 @@ export const goesFlux: Product = {
       values.push({ path: XRAY_FLUX_BASE, value: flux.xrayFlux })
     if (flux.protonFlux !== null && flux.protonFlux !== publishedProton)
       values.push({ path: PROTON_FLUX_BASE, value: flux.protonFlux })
+
+    // Derived from the same ~700-record payload the reading above comes
+    // from, so the direction of the floor costs no second fetch. Published
+    // outside the unchanged-value skip: the newest sample can repeat while
+    // the window behind it rolls forward, which moves the ratio.
+    const trend = xrayFluxTrend(xrayJson)
+    if (trend) {
+      const publishedTrend = publisher.selfPath(`${XRAY_FLUX_BASE}.trend.value`)
+      if (publishedTrend !== trend.ratio)
+        values.push({ path: `${XRAY_FLUX_BASE}.trend`, value: trend.ratio })
+    }
 
     if (values.length === 0) return
     publisher.debug('GOES flux values: %j', values)

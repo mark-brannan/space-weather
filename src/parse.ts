@@ -792,20 +792,127 @@ export function firstJsonValue(text: string): string | null {
 
 /**
  * GOES X-ray flare classification ("B3.3", "M2.1", "X1.4") for the most
- * recent event. A single-element array is the documented shape; tolerate an
- * empty one (no event ever recorded) rather than throwing.
+ * recent event, at that event's own peak.
+ *
+ * `max_class`/`max_time`, deliberately not `current_class`/`time_tag`: issue
+ * #122 measured the latter as the *background* flux at poll time, which is a
+ * different quantity wearing the same label. Live on 2026-08-25 the plugin
+ * published B9.6 on a day whose latest flare peaked at C4.7, under a heading
+ * that reads as the flare which caused the blackout.
+ *
+ * `current_class` remains the fallback, and only that: an event still in
+ * progress carries no `end_time` but does carry a running `max_class`, so the
+ * fallback fires when NOAA moves the field rather than while a flare is rising.
+ * A single-element array is the documented shape; tolerate an empty one (no
+ * event ever recorded) rather than throwing.
  */
 export function parseXrayFlare(json: any): XrayFlare | null {
   const entry = Array.isArray(json) ? json[0] : null
-  if (
-    !entry ||
-    typeof entry.current_class !== 'string' ||
-    !entry.current_class
-  ) {
-    return null
-  }
+  if (!entry) return null
+  const peak = flareRecord(entry)
+  if (peak) return peak
+  const flareClass = flareClassOf(entry.current_class)
+  if (flareClass === null) return null
   if (typeof entry.time_tag !== 'string' || !entry.time_tag) return null
-  return { flareClass: entry.current_class, time: entry.time_tag }
+  return { flareClass, time: entry.time_tag }
+}
+
+/** One record's peak, or null when either half of the pair is unusable. */
+function flareRecord(entry: any): XrayFlare | null {
+  const flareClass = flareClassOf(entry?.max_class)
+  if (flareClass === null) return null
+  if (typeof entry.max_time !== 'string' || !entry.max_time) return null
+  return { flareClass, time: entry.max_time }
+}
+
+/**
+ * The flare class if the field is one, else null -- the boundary check on the
+ * only NOAA field this plugin publishes as a free string rather than a number.
+ * Every other value on these paths is parsed into a number, so `class` is the
+ * one that reaches a consumer's DOM as whatever NOAA sent; validating it here
+ * covers Freeboard and Grafana too, where escaping in `public/index.html`
+ * would only have covered this plugin's own page.
+ *
+ * Reuses `fluxForFlareClass` rather than repeating its regex: "is a class" and
+ * "abbreviates a flux we can rank on" are the same question, and a second
+ * pattern would be free to drift from the one the ranking uses.
+ */
+export function flareClassOf(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return fluxForFlareClass(trimmed) === null ? null : trimmed
+}
+
+/**
+ * Watts per square metre for a GOES flare class, so two classes can be
+ * compared as the measurement they abbreviate rather than as strings -- "M9.9"
+ * sorts above "X1.0" alphabetically and is a tenth of it in flux.
+ *
+ * The letter is a decade and the number a multiplier within it, which is the
+ * same definition the R-scale table in docs/hf-operator-view.md is built on.
+ * Returns null for anything that is not a class, including the empty string.
+ * Takes `unknown` rather than `string` -- it normalises with `String(...)`
+ * below regardless, so the wider signature is what it already tolerates at
+ * runtime, and lets a caller (or a test) pass a NOAA payload's raw field
+ * straight through without a cast.
+ */
+export function fluxForFlareClass(flareClass: unknown): number | null {
+  const match = /^([ABCMX])\s*([0-9]+(?:\.[0-9]+)?)?$/i.exec(
+    String(flareClass ?? '').trim()
+  )
+  if (!match) return null
+  const decade: Record<string, number> = {
+    A: 1e-8,
+    B: 1e-7,
+    C: 1e-6,
+    M: 1e-5,
+    X: 1e-4
+  }
+  // NOAA writes a bare letter for the decade boundary ("M" is M1.0).
+  const multiplier = match[2] === undefined ? 1 : Number(match[2])
+  if (!Number.isFinite(multiplier)) return null
+  return decade[match[1].toUpperCase()] * multiplier
+}
+
+/**
+ * The strongest flare to peak in the `windowHours` before `now`, from
+ * https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json
+ *
+ * The companion to `parseXrayFlare` and the reason #122 needed two values
+ * rather than one: the latest flare answers "is anything happening", and this
+ * answers "what did today do" -- the same question NOAA's own 24-hour maximum
+ * on the R scale answers, at the resolution an operator reads conditions in.
+ *
+ * Ranked on `max_xrlong` where NOAA sends it and on the class it abbreviates
+ * where it does not, so a payload that drops the numeric field still ranks
+ * correctly instead of silently picking the last record. Returns null when no
+ * flare peaked inside the window -- a real and ordinary answer at solar
+ * minimum, and not the same as having no data.
+ */
+export function parseXrayFlarePeak(
+  json: any,
+  now: Date,
+  windowHours = 24
+): XrayFlare | null {
+  if (!Array.isArray(json)) return null
+  const since = now.getTime() - windowHours * 60 * 60 * 1000
+  let best: XrayFlare | null = null
+  let bestFlux = -Infinity
+  for (const entry of json) {
+    const peak = flareRecord(entry)
+    if (!peak) continue
+    const peaked = Date.parse(peak.time)
+    if (!Number.isFinite(peaked) || peaked < since || peaked > now.getTime())
+      continue
+    const flux =
+      firstNumber(entry, ['max_xrlong']) ?? fluxForFlareClass(peak.flareClass)
+    if (flux === null) continue
+    if (flux > bestFlux) {
+      bestFlux = flux
+      best = peak
+    }
+  }
+  return best
 }
 
 export interface F107Flux {
@@ -1297,6 +1404,116 @@ export function zonesForAurora(): Zone[] {
   ]
 }
 
+/**
+ * Marine SSB band lower edges, in Hz, ITU Appendix 17 order.
+ *
+ * The strip the webapp draws and the zone ladder below are the same list read
+ * two ways, so a band added here appears in both. Lower edges rather than
+ * centres or upper edges: D-RAP publishes the highest frequency degraded by
+ * >=1 dB, so everything below the cutoff is affected, and the first frequency
+ * of a band is the first one the cutoff reaches.
+ */
+export const MARINE_SSB_BAND_EDGES_HZ = [
+  2_045_000, 4_000_000, 6_200_000, 8_100_000, 12_230_000, 16_360_000,
+  18_780_000, 22_000_000, 25_070_000
+]
+
+/**
+ * Zones for the D-RAP highest affected frequency.
+ *
+ * The published value is a *frequency*, not a severity: "9.9 MHz absorbed" is
+ * the end of the working day for someone on 8 MHz and nothing at all to
+ * someone on 22, so the severity depends on the reader's band rather than on
+ * the number. The ladder therefore buckets by which marine SSB bands fall
+ * under the cutoff, which is the only reading of the number that is the same
+ * for every reader.
+ *
+ * And it stays quiet. `alert` carries an empty method array (`methodForState`),
+ * so the top bands are listed and never sound or pop -- being informative
+ * about a band the operator may not be using is not grounds to interrupt them,
+ * and a cutoff that wanders across a boundary through the day would interrupt
+ * them repeatedly. That is #45's failure mode with a different number in it.
+ */
+export function zonesForDrap(): Zone[] {
+  const [, , , eightMHz, , , , twentyTwoMHz] = MARINE_SSB_BAND_EDGES_HZ
+  return [
+    {
+      lower: 0,
+      upper: MARINE_SSB_BAND_EDGES_HZ[0],
+      state: NotificationStates.NOMINAL,
+      message: 'No marine HF band absorbed'
+    },
+    {
+      lower: MARINE_SSB_BAND_EDGES_HZ[0],
+      upper: eightMHz,
+      state: NotificationStates.NORMAL,
+      message: 'Marine bands below 8 MHz absorbed'
+    },
+    {
+      lower: eightMHz,
+      upper: twentyTwoMHz,
+      state: NotificationStates.ALERT,
+      message: 'Marine bands below 22 MHz absorbed'
+    },
+    // No `upper`, for the reason given on zonesForKp's top band.
+    {
+      lower: twentyTwoMHz,
+      state: NotificationStates.ALERT,
+      message: 'All marine SSB bands absorbed'
+    }
+  ]
+}
+
+/**
+ * The solar flux bands every operator quotes, in sfu.
+ *
+ * Convention, not derivation: docs/hf-operator-view.md records that no
+ * published mapping exists and that these were adopted deliberately as the
+ * numbers the panels everyone reads use. The provenance is the point, and it
+ * is why the webapp labels them rather than presenting them as measured.
+ *
+ * The ladder runs the other way from every other one in this plugin -- high
+ * F10.7 is *good* -- so it tops out at `nominal` and bottoms out at `normal`,
+ * and no band reaches `alert`. A naive "higher = worse" ladder would put the
+ * whole of solar minimum into `alert` and leave it there for years, describing
+ * a condition nobody can act on and nothing will change, which is #45 again in
+ * slow motion.
+ */
+export function zonesForF107(): Zone[] {
+  return [
+    {
+      lower: 0,
+      upper: 70,
+      state: NotificationStates.NORMAL,
+      message: 'High bands essentially closed'
+    },
+    {
+      lower: 70,
+      upper: 90,
+      state: NotificationStates.NORMAL,
+      message: 'Poor HF conditions'
+    },
+    {
+      lower: 90,
+      upper: 120,
+      state: NotificationStates.NORMAL,
+      message: 'Fair HF conditions'
+    },
+    {
+      lower: 120,
+      upper: 150,
+      state: NotificationStates.NOMINAL,
+      message: 'Good HF conditions'
+    },
+    // No `upper`, for the reason given on zonesForKp's top band.
+    {
+      lower: 150,
+      state: NotificationStates.NOMINAL,
+      message: 'Excellent HF conditions'
+    }
+  ]
+}
+
 export interface GeophysicalAlert {
   /** The UTC day the indices in the bulletin describe, as an ISO instant. */
   day: string
@@ -1476,6 +1693,80 @@ export function parseGoesFlux(xrayJson: any, protonJson: any): GoesFlux {
     protonFlux: protonFluxPfu === null ? null : protonFluxPfu * PFU_TO_SI,
     protonTimestamp: firstString(protonRow, ['time_tag'])
   }
+}
+
+/**
+ * Which way the floor is moving: the ratio of the X-ray flux now to the flux
+ * half an hour ago, from the ~700 records `xrays-6-hour.json` already carries
+ * on every poll and which `parseGoesFlux` reads one of.
+ *
+ * The trend is the one HF question the X-ray channel can answer that the flare
+ * class cannot. Per docs/hf-operator-view.md the channel acts on the D region
+ * only, so it moves the *floor* and says nothing about the F2 ceiling -- but
+ * "is this blackout deepening or clearing" is exactly what an operator waiting
+ * one out wants, and the absolute flux is the flare class in other notation
+ * (issue #122's "one number twice").
+ *
+ * A ratio rather than a word: which ratio counts as "rising" is a display
+ * choice about how twitchy the reader wants to be, and belongs to whatever
+ * draws it, not to the measurement. Above 1 the floor is rising.
+ *
+ * Medians over two adjacent 15-minute windows rather than two samples, because
+ * the 1-per-minute cadence is noisy at B-class levels where a single dropout
+ * would otherwise read as a collapse. Returns null unless both windows are
+ * substantially populated: a feed with a gap where the comparison should be
+ * has no trend to report, which is not the same as a flat one.
+ */
+export interface XrayTrend {
+  /** Flux now divided by flux ~30 minutes ago. Above 1 the floor is rising. */
+  ratio: number
+  /** Time of the newest sample the ratio was computed from. */
+  time: string
+}
+
+const TREND_WINDOW_MINUTES = 15
+const TREND_MIN_SAMPLES = 8
+
+export function xrayFluxTrend(xrayJson: any): XrayTrend | null {
+  if (!Array.isArray(xrayJson)) return null
+  const samples: { at: number; flux: number }[] = []
+  for (const entry of xrayJson) {
+    if (entry?.energy !== '0.1-0.8nm') continue
+    const flux = firstNumber(entry, ['flux'])
+    const at = Date.parse(entry.time_tag)
+    // A zero or negative flux is not a reading of "no X-rays"; it is a bad
+    // record, and one in the denominator would publish an infinite ratio.
+    if (flux === null || flux <= 0 || !Number.isFinite(at)) continue
+    samples.push({ at, flux })
+  }
+  if (samples.length === 0) return null
+
+  // Anchored on the newest sample rather than the wall clock: the feed runs
+  // minutes behind, and the leaf's own timestamp is what says how old this is.
+  const latest = samples.reduce((a, b) => (b.at > a.at ? b : a))
+  const window = TREND_WINDOW_MINUTES * 60 * 1000
+  const fluxes = (fromAgo: number, toAgo: number) =>
+    samples
+      .filter(
+        (s) =>
+          latest.at - s.at >= fromAgo * window &&
+          latest.at - s.at < toAgo * window
+      )
+      .map((s) => s.flux)
+
+  const recent = median(fluxes(0, 1))
+  const prior = median(fluxes(1, 2))
+  if (recent === null || prior === null) return null
+  return { ratio: recent / prior, time: new Date(latest.at).toISOString() }
+}
+
+function median(values: number[]): number | null {
+  if (values.length < TREND_MIN_SAMPLES) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = sorted.length >> 1
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
 function lastRecordForEnergy(json: any, energy: string): any {

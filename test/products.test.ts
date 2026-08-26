@@ -9,13 +9,20 @@ import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import { sunspot } from '../src/products/sunspot'
-import { FLARE_ENDPOINT, fixture, fixtureJson } from './fixtures'
+import {
+  FLARE_ENDPOINT,
+  FLARE_WEEK_ENDPOINT,
+  FLARE_WEEK_FIXTURES,
+  fixture,
+  fixtureJson
+} from './fixtures'
 
 describe('scales product', () => {
   it('publishes observed levels and forecast probabilities from a captured payload', async () => {
     const h = harness({
       '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
-      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json'),
+      [FLARE_WEEK_ENDPOINT]: fixtureJson(FLARE_WEEK_FIXTURES[0].file)
     })
     await scales.refresh(h.ctx)
 
@@ -45,21 +52,65 @@ describe('scales product', () => {
   it('reports a missing range instead of throwing', async () => {
     const h = harness({
       '/products/noaa-scales.json': {},
-      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json'),
+      [FLARE_WEEK_ENDPOINT]: fixtureJson(FLARE_WEEK_FIXTURES[0].file)
     })
     await scales.refresh(h.ctx)
     expect(h.errors.length).toBeGreaterThan(0)
   })
 
-  it('publishes the X-ray flare class from a captured payload', async () => {
+  it('publishes the latest flare at its own peak, not the background flux', async () => {
     const h = harness({
       '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
-      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+      // Issue #122: `current_class` here is B3.3, the background flux at poll
+      // time. The flare this payload describes peaked at B4.6.
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json'),
+      [FLARE_WEEK_ENDPOINT]: fixtureJson(FLARE_WEEK_FIXTURES[0].file)
     })
     await scales.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
-    expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBe('B3.3')
+    expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBe('B4.6')
+  })
+
+  it('publishes the strongest flare of the last 24 hours', async () => {
+    const { file, now } = FLARE_WEEK_FIXTURES[0]
+    const h = harness({
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json'),
+      [FLARE_WEEK_ENDPOINT]: fixtureJson(file)
+    })
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(now) })
+    try {
+      await scales.refresh(h.ctx)
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(h.errors).toEqual([])
+    // The M6.9 of 2026-08-25T10:02Z -- the flare behind the R2 that issue
+    // #120 measured the webapp missing, and stronger than the C1.2 that is
+    // the newest record in the same file.
+    expect(h.valueAt('environment.noaa.swpc.xray_flare.max24h.class')).toBe(
+      'M6.9'
+    )
+  })
+
+  it('still publishes scales when the 24-hour peak fetch fails', async () => {
+    const h = harness({
+      '/products/noaa-scales.json': fixtureJson('noaa-scales.2026_08_01.json'),
+      [FLARE_ENDPOINT]: fixtureJson('xray-flares-latest.2026_08_06.json')
+      // FLARE_WEEK_ENDPOINT deliberately unstubbed -- the client throws
+    })
+    await scales.refresh(h.ctx)
+
+    expect(h.valueAt('environment.noaa.swpc.xray_flare.class')).toBe('B4.6')
+    expect(
+      h.valueAt('environment.noaa.swpc.xray_flare.max24h.class')
+    ).toBeUndefined()
+    expect(
+      h.valueAt('environment.noaa.swpc.scales.observations.latest.G')
+    ).toBe(0)
   })
 
   it('still publishes scales even if the flare-class fetch fails', async () => {
@@ -194,6 +245,13 @@ describe('GOES flux product', () => {
 
     expect(h.errors).toEqual([])
     expect(h.published.length).toBe(1)
+  })
+
+  it("carries units 'ratio' on the trend, a quotient against a reference", () => {
+    const meta = goesFlux.metadata!(settingsFrom({})).find(
+      (m) => m.path === 'environment.noaa.swpc.xray_flux.trend'
+    )
+    expect(meta?.value.units).toBe('ratio')
   })
 })
 

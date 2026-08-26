@@ -28,6 +28,7 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 | --- | --- | --- |
 | `/products/noaa-scales.json` | `scales` | G/S/R observed + 3-day forecast |
 | `/json/goes/primary/xray-flares-latest.json` | `scales` | flare class, e.g. `B5.7` |
+| `/json/goes/primary/xray-flares-7-day.json` | `scales` | one record per flare, for the 24-hour peak |
 | `/products/noaa-planetary-k-index-forecast.json` | `kp` | shape alternates, see below |
 | `/products/summary/solar-wind-speed.json` | `solarWind` | shape changed once, see below |
 | `/products/summary/solar-wind-mag-field.json` | `solarWind` | shape changed once, see below |
@@ -406,6 +407,34 @@ windows, one satellite (18, the current GOES primary) at capture time.
 | `integral-protons-6-hour.json` | 7.9 KB | 58.6 KB | ~568 |
 | `integral-protons-1-day.json` | 30.7 KB | 236.7 KB | 2296 |
 | `integral-protons-3-day.json` | 91.8 KB | 711.6 KB | 6904 |
+
+### The 7-day flare list, beside the latest-flare endpoint (#122)
+
+Measured 2026-08-26.
+
+| Endpoint | Wire (gzip) | Decoded | Records |
+| --- | --- | --- | --- |
+| `xray-flares-latest.json` | 449 B | 451 B | 1 |
+| `xray-flares-7-day.json` | 4.9 KB | 27,860 B | 72 |
+
+One record per flare over the trailing week rather than a time series, which
+is why it stays smaller on the wire than every flux window above — from 1.6x
+against the six-hour proton window to 63x against the three-day X-ray one —
+despite covering seven days rather than six hours. The latest endpoint is a
+single record and too small to compress — its wire and decoded sizes are the
+same figure. 72 records is what a week carried on the capture date, not a
+rate: flare count is the thing being measured, and it varies by more than an
+order of magnitude across a solar cycle.
+
+The fixture is `examples/xray-flares-7-day.2026_08_26.json`, whose 27,860 bytes
+are the *decoded* size — the figure to quote for the cost of a poll is the 4.9 KB
+wire size, as everywhere else in this file.
+
+**Consequence.** `scales` fetches both: `-latest` answers "is anything
+happening now" and `-7-day` is where the strongest flare of the last 24 hours
+comes from. At roughly ten times the latest endpoint's bytes and still under
+5 KB on the wire, the second fetch is cheap enough that narrowing it was not
+worth a NOAA endpoint that does not exist.
 
 X-ray records interleave two energy channels (`0.05-0.4nm`, `0.1-0.8nm`) at
 roughly 1-minute cadence each; proton records interleave eight (`>=1 MeV`

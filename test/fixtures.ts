@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { vi } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { ENDPOINTS } from '../public/signalk.js'
 import { ValueUpdate } from '../src/parse.js'
@@ -74,7 +75,27 @@ export const SYNTHETIC_HOSTILE_SCALES_FIXTURES = [
  */
 export const FLARE_FIXTURES = [
   'xray-flares-latest.2026_08_06.json',
-  'xray-flares-latest.2026_08_25.json'
+  'xray-flares-latest.2026_08_25.json',
+  // The payload behind issue #122: `current_class` B7.6 -- background flux --
+  // on a day whose latest flare actually peaked at C4.7.
+  'xray-flares-latest.2026_08_26.json'
+]
+
+/**
+ * The week of flares the 24-hour peak is picked out of, paired with the
+ * instant to read them against. The window is measured back from a real
+ * clock, so a bare filename would answer differently every day it is run --
+ * the same reason `kp` is excluded from the dead-field sweep.
+ *
+ * 2026-08-26 spans the M6.9 of the 25th that issue #122 names and the M8.1 of
+ * the 20th, so the same file carries a 24-hour window with an M in it and one
+ * without depending only on where `now` is put.
+ */
+export const FLARE_WEEK_FIXTURES = [
+  {
+    file: 'xray-flares-7-day.2026_08_26.json',
+    now: '2026-08-26T06:00:00Z'
+  }
 ]
 
 /**
@@ -117,6 +138,20 @@ export const SYNTHETIC_TEXT_FIXTURES = [
 
 export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']
 
+export const F107_FIXTURES = [
+  'f107_cm_flux.2026_08_06.json',
+  'f107_cm_flux.2026_08_25.json',
+  'f107_cm_flux.2026_08_25_2.json'
+]
+
+export const WWV_FIXTURES = ['wwv.2026_08_20.txt', 'wwv.2026_08_25.txt']
+
+export const DAILY_SOLAR_FIXTURES = [
+  'daily-solar-indices.2026_08_20.txt',
+  'daily-solar-indices.2026_08_25.txt',
+  'daily-solar-indices.2026_08_26.txt'
+]
+
 export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']
 
 export const KP_FORECAST_FIXTURES = [
@@ -144,6 +179,9 @@ export function matchZone(zones: any[], value: number): number {
  * every captured flare payload past it.
  */
 export const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+
+/** The week of events the 24-hour peak is picked out of. */
+export const FLARE_WEEK_ENDPOINT = '/json/goes/primary/xray-flares-7-day.json'
 
 const SCALES_ENDPOINT = '/products/noaa-scales.json'
 
@@ -205,20 +243,34 @@ function apiTree(
  * path from NOAA's bytes to what a card module reads, with no hand-written
  * middle.
  *
- * `flareFixture` is optional because most scales fixtures do not pair with a
- * flare capture. Left off, the flare endpoint is unstubbed and the client
+ * Both flare fixtures are optional because most scales fixtures do not pair
+ * with a flare capture. Left off, that endpoint is unstubbed and the client
  * throws, which is the best-effort case the product already handles.
+ *
+ * A week fixture pins the clock for the length of the refresh: the 24-hour
+ * peak is a window measured back from `now`, so a dated capture read against
+ * the real clock answers differently every day and stops answering at all
+ * after one. `shouldAdvanceTime` leaves real timers running, so nothing here
+ * can deadlock on a faked clock.
  */
 export async function publishedScalesTree(
   scalesFixture: string,
-  flareFixture?: string
+  flareFixture?: string,
+  flareWeek?: { file: string; now: string }
 ): Promise<Record<string, ApiNode | null>> {
   const responses: Record<string, unknown> = {
     [SCALES_ENDPOINT]: fixtureJson(scalesFixture)
   }
   if (flareFixture) responses[FLARE_ENDPOINT] = fixtureJson(flareFixture)
+  if (flareWeek) responses[FLARE_WEEK_ENDPOINT] = fixtureJson(flareWeek.file)
 
   const h = harness(responses)
-  await scales.refresh(h.ctx)
+  if (flareWeek)
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(flareWeek.now) })
+  try {
+    await scales.refresh(h.ctx)
+  } finally {
+    if (flareWeek) vi.useRealTimers()
+  }
   return apiTree(h.published)
 }

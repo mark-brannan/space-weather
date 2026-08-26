@@ -11,6 +11,7 @@ import {
   NoaaScaleValues,
   ValueUpdate,
   parseXrayFlare,
+  parseXrayFlarePeak,
   transformJsonScaleRange,
   zoneMethods,
   zonesForScale
@@ -88,11 +89,24 @@ export const scales: Product = {
     metas.push({
       path: `${XRAY_FLARE_BASE}.class`,
       value: {
-        displayName: 'X-ray flare class',
+        displayName: 'Latest X-ray flare class',
         description:
-          'GOES X-ray classification of the most recent flare (e.g. "M2.1")' +
-          ' -- the same measurement the R scale buckets into 0-5, at the' +
-          ' resolution HF operators actually use.',
+          'GOES X-ray classification of the most recent flare at its own' +
+          ' peak (e.g. "M2.1") -- the same measurement the R scale buckets' +
+          ' into 0-5, at the resolution HF operators actually use.',
+        // No `units`: a flare class is a string, and one that looked like a
+        // number with a unit would be rendered "M2.1 none" by the admin UI.
+        timeout: 60 * 60 * 4
+      }
+    })
+    metas.push({
+      path: `${XRAY_FLARE_BASE}.max24h.class`,
+      value: {
+        displayName: 'Strongest X-ray flare, past 24 hours',
+        description:
+          'GOES X-ray classification of the strongest flare to peak in the' +
+          ' last 24 hours. The finer-grained reading of the same day the R' +
+          " scale's 24-hour maximum describes.",
         timeout: 60 * 60 * 4
       }
     })
@@ -104,8 +118,14 @@ export const scales: Product = {
     if (stopped()) return
 
     // Best-effort: a failure here must never block the primary scales
-    // publish below, and NOAA has no JSON form of this beyond the
-    // single-event array already handled by parseXrayFlare.
+    // publish below.
+    //
+    // Two endpoints and two values, which is what issue #122 resolved to.
+    // `-latest` carries one event and answers "is anything happening now";
+    // `-7-day` carries a week of them and answers "what did today do", which
+    // is the question the R scale's own 24-hour maximum answers one decimal
+    // place coarser. Each is stamped with its own peak time rather than with
+    // the poll, so a surface reading one of them gets that flare's clock.
     try {
       const flareJson = await client.json(
         '/json/goes/primary/xray-flares-latest.json',
@@ -120,6 +140,32 @@ export const scales: Product = {
       }
     } catch (err) {
       publisher.error(`Failed to fetch X-ray flare class: ${err}`)
+    }
+    if (stopped()) return
+
+    try {
+      const weekJson = await client.json(
+        '/json/goes/primary/xray-flares-7-day.json',
+        'X-ray flare 24-hour peak'
+      )
+      const peak = parseXrayFlarePeak(weekJson, new Date())
+      // A quiet 24 hours publishes nothing rather than a zero or an empty
+      // string: "no flare peaked" is the honest answer and the leaf's own
+      // `timeout` is what tells a reader the value has aged out of its
+      // window. Inventing a level here would be a number nobody measured.
+      if (peak) {
+        publisher.values(
+          [
+            {
+              path: `${XRAY_FLARE_BASE}.max24h.class`,
+              value: peak.flareClass
+            }
+          ],
+          peak.time
+        )
+      }
+    } catch (err) {
+      publisher.error(`Failed to fetch the 24-hour X-ray flare peak: ${err}`)
     }
     if (stopped()) return
 

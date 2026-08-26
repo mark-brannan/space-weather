@@ -5,22 +5,22 @@
 //   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
 //
 // index.html ships unmodified except for a strip appended to it. Everything
-// fake is on the wire: the ten paths ROUTES understands are answered here
-// (anything else refresh() polls, e.g. the HF indices, falls through to the
-// same 404 a real server gives an unpublished path), so what renders is the
-// real heroState/renderTimer/renderKp against data whose shape this file has
-// to keep honest. The switcher sets a cookie and reloads, which is why the
-// webapp itself needs to know nothing about any of this.
+// fake is on the wire: every path ROUTES understands is answered here (and
+// anything else refresh() polls falls through to the same 404 a real server
+// gives an unpublished path), so what renders is the real
+// heroState/renderTimer/renderKp/hfCard against data whose shape this file
+// has to keep honest. The switcher sets a cookie and reloads, which is why
+// the webapp itself needs to know nothing about any of this.
 //
-// The states are the five things the header has to be able to say. They exist
+// The states are the things the header has to be able to say. They exist
 // because most of them are awkward to reach against a live server -- a real
 // G4 happens a few times a solar cycle, and "no data since the plugin
 // started" means breaking the plugin on purpose. Add a state here rather than
 // hand-editing the DOM in devtools: the point is that the app's own code
 // decides what to render.
 //
-// --upstream trades the fabricated states for a real one: the same ten
-// ROUTES are proxied verbatim to a running Signal K server instead of going
+// --upstream trades the fabricated states for a real one: the same ROUTES
+// are proxied verbatim to a running Signal K server instead of going
 // through payload(), so a branch's public/ (new markup, new copy, a changed
 // card) can be viewed against genuine data without repointing
 // ~/.signalk/node_modules/signalk-noaa-space-weather at this worktree --
@@ -217,13 +217,62 @@ function payload(name, s) {
       }
     case 'wind':
       if (s.observed === null) return null
+      // Tesla, not the nT an operator quotes: Signal K carries SI and the tile
+      // converts on the way out, so nT here rendered as "5000000000.0 nT".
       return {
         speed: leaf(s.observed.G >= 3 ? 720000 : 412000),
-        Bt: leaf(s.observed.G >= 3 ? 24 : 5),
-        Bz: leaf(s.observed.G >= 3 ? -18 : -2)
+        Bt: leaf((s.observed.G >= 3 ? 24 : 5) * 1e-9),
+        Bz: leaf((s.observed.G >= 3 ? -18 : -2) * 1e-9)
       }
     case 'xray':
-      return s.observed === null ? null : { class: leaf(s.observed.R >= 2 ? 'M4.2' : 'C1.8') }
+      return s.observed === null
+        ? null
+        : {
+            class: leaf(s.observed.R >= 2 ? 'M4.2' : 'C1.8'),
+            max24h: { class: leaf(s.peak24h.R >= 2 ? 'M6.9' : 'C2.4') }
+          }
+    // The HF paths, keyed off the levels the state already declares, so a
+    // state stays a couple of numbers to write.
+    case 'drap': {
+      if (s.observed === null) return null
+      // Off the worse of R and S, not R alone: both scales raise the same
+      // absorption floor -- flare X-rays on the sunlit side, solar protons
+      // over the polar caps -- so an S4 with a quiet R still shuts the low
+      // bands. It is also what gives the strip a nearly-full state to draw.
+      // Cutoffs chosen to land between the band edges rather than on them.
+      const mhz = [0, 5, 12, 18, 23, 30][Math.max(s.observed.R, s.observed.S)]
+      return {
+        highest_affected_frequency: leaf(mhz * 1e6, age),
+        validTime: leaf(iso(age), age)
+      }
+    }
+    case 'xrayFlux': {
+      if (s.observed === null) return null
+      // A leaf that also carries a child, which is what the plugin publishes:
+      // `trend` is derived from the same series `xray_flux` samples, so it
+      // hangs off it rather than beside it. A rising floor while a blackout is
+      // in force, clearing once the instantaneous R has fallen below the day's
+      // peak -- the two words the tile has to be able to say, and steady in
+      // between.
+      const trend = s.observed.R >= 2 ? 2.4 : s.observed.R < s.peak24h.R ? 0.6 : 1.02
+      return {
+        ...leaf(s.observed.R >= 2 ? 4.2e-5 : 1.8e-6, age),
+        trend: leaf(trend, age)
+      }
+    }
+    case 'protonFlux':
+      // In pfu the S levels are decades from 10, and the path carries SI.
+      return s.observed === null ? null : leaf(Math.pow(10, s.observed.S) * 1e4, age)
+    case 'f107':
+      // Walks the convention's five bands across the states rather than
+      // tracking the storm: solar flux is a solar-cycle number, and whether
+      // today has a flare in it says nothing about this month's flux. Keyed on
+      // R only so that one dial per state stays the rule.
+      return s.observed === null ? null : leaf([96, 118, 187, 68, 152, 143][s.observed.R], -300)
+    case 'aIndex':
+      return s.observed === null ? null : leaf(s.peak24h.G >= 3 ? 48 : 6, -300)
+    case 'sunspotNumber':
+      return s.observed === null ? null : leaf(112, -300)
     case 'position':
       return leaf({ latitude: 47.6578, longitude: -122.3773 }, -1)
     case 'advisory':
@@ -245,13 +294,19 @@ const ROUTES = [
   [/swpc\/solar_wind$/, 'wind'],
   [/swpc\/aurora$/, 'aurora'],
   [/swpc\/xray_flare$/, 'xray'],
+  [/swpc\/xray_flux$/, 'xrayFlux'],
+  [/swpc\/proton_flux$/, 'protonFlux'],
+  [/swpc\/drap$/, 'drap'],
+  [/swpc\/f107$/, 'f107'],
+  [/swpc\/a_index$/, 'aIndex'],
+  [/swpc\/sunspot_number$/, 'sunspotNumber'],
   [/navigation\/position$/, 'position'],
   [/advisory-outlook$/, 'advisory'],
   [/space-weather\/status$/, 'status']
 ]
 
 const SWITCHER = (current) => `
-<div style="position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:8px;
+<div data-mock-strip style="position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:8px;
   align-items:center;flex-wrap:wrap;padding:8px 14px;background:#000;border-top:1px solid #444;
   font:12px/1.4 ui-monospace,monospace;color:#888;">
   <span style="letter-spacing:.12em;text-transform:uppercase;">Mock data</span>
@@ -264,23 +319,23 @@ const SWITCHER = (current) => `
     .join('')}
   <span style="margin-left:auto;">This strip is 44px tall &mdash; discount it when judging the 800&times;480 budget</span>
 </div>
-<div style="height:44px"></div>`
+<div data-mock-strip style="height:44px"></div>`
 
 // --upstream's equivalent of SWITCHER: there is no state to pick, so this says
 // instead which half of what's on screen is this branch's and which is the live
 // server's -- the confusion the state switcher never has to guard against, since
 // every state there is equally fake.
 const LIVE_BANNER = (base) => `
-<div style="position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:8px;
+<div data-mock-strip style="position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:8px;
   align-items:center;flex-wrap:wrap;padding:8px 14px;background:#000;border-top:1px solid #2a5;
   font:12px/1.4 ui-monospace,monospace;color:#8f8;">
   <span style="letter-spacing:.12em;text-transform:uppercase;">Live upstream</span>
   <span style="color:#ccc;">${base}</span>
-  <span style="margin-left:auto;">public/ is this branch's; the ten data paths are ${base}'s</span>
+  <span style="margin-left:auto;">public/ is this branch's; the data paths are ${base}'s</span>
 </div>
-<div style="height:44px"></div>`
+<div data-mock-strip style="height:44px"></div>`
 
-// Proxies one of the ten ROUTES verbatim: same pathname and query, upstream's
+// Proxies one of the ROUTES verbatim: same pathname and query, upstream's
 // status and body passed straight through, so a 404 (nothing published on that
 // path yet) reaches the webapp exactly as it would from that server directly.
 async function proxyToUpstream(url, res) {
@@ -373,6 +428,6 @@ http
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`mock signalk + webapp on http://127.0.0.1:${PORT}/`)
-    if (UPSTREAM) console.log(`proxying the ten data paths to ${UPSTREAM}`)
+    if (UPSTREAM) console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
     else console.log(`states: ${Object.keys(STATES).join(', ')}`)
   })

@@ -17,6 +17,14 @@ export const ENDPOINTS = {
   solarWind: vessel('environment/noaa/swpc/solar_wind'),
   aurora: vessel('environment/noaa/swpc/aurora'),
   xrayFlare: vessel('environment/noaa/swpc/xray_flare'),
+  // The HF Radio and Solar Activity tiles. Six paths the plugin has always
+  // published and nothing drew, which is why they were absent here.
+  xrayFlux: vessel('environment/noaa/swpc/xray_flux'),
+  protonFlux: vessel('environment/noaa/swpc/proton_flux'),
+  drap: vessel('environment/noaa/swpc/drap'),
+  f107: vessel('environment/noaa/swpc/f107'),
+  aIndex: vessel('environment/noaa/swpc/a_index'),
+  sunspotNumber: vessel('environment/noaa/swpc/sunspot_number'),
   position: vessel('navigation/position'),
   advisory: plugin('advisory-outlook'),
   status: plugin('status')

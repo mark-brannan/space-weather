@@ -228,19 +228,26 @@ describe('synthetic fixtures', () => {
   })
 
   describe('flares', () => {
-    it('reads a current class above B, which no real fixture has', () => {
+    it('reads a class above B, which no real fixture has', () => {
       expect(
         parseXrayFlare(syntheticJson('xray-flares-latest.x-class-peaked.json'))
           ?.flareClass
-      ).toBe('M2.1')
+      ).toBe('X1.8')
     })
 
-    it('holds a decayed flare and a rising one, which differ only in max', () => {
-      // No parser reads `max_class` yet, so this asserts the pair's shape
-      // rather than any behaviour: a fix for #122 needs a payload where
-      // current and max disagree, and the one real capture has none.
+    it('takes the peak over the background on a decayed flare', () => {
+      // The pair this file exists for, and now the behaviour rather than the
+      // shape: the decayed one has already fallen back to M2.1 at poll time
+      // while its own peak was X1.8, and reading `current_class` is what
+      // issue #122 measured the plugin doing. The rising one has not peaked
+      // yet, so the two fields agree and it cannot tell the readings apart.
       const peaked = syntheticJson('xray-flares-latest.x-class-peaked.json')
       expect(peaked[0].current_class).not.toBe(peaked[0].max_class)
+      expect(parseXrayFlare(peaked)).toEqual({
+        flareClass: 'X1.8',
+        time: peaked[0].max_time
+      })
+
       const rising = syntheticJson('xray-flares-latest.x-class-rising.json')
       expect(rising[0].current_class).toBe(rising[0].max_class)
       expect(parseXrayFlare(rising)?.flareClass).toBe('X2.4')

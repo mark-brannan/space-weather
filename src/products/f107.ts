@@ -16,7 +16,7 @@
  * here between polls -- no retry logic, nothing to explain.
  */
 import { F107_BASE } from '../paths.js'
-import { parseF107 } from '../parse.js'
+import { parseF107, zoneMethods, zonesForF107 } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
 
@@ -43,7 +43,12 @@ export const f107: Product = {
           // existing conventions cleanly. Converting to W/m^2/Hz would be
           // technically SI but not a unit anyone in this domain thinks in.
           // Publishing the raw sfu number until that's decided.
-          timeout: 60 * 60 * 6
+          timeout: 60 * 60 * 6,
+          // Descriptive only, and inverted -- high flux is good. zonesForF107
+          // carries the provenance (operator convention, no published
+          // derivation) and why no band on it reaches `alert`.
+          ...zoneMethods(),
+          zones: zonesForF107()
         }
       }
     ]

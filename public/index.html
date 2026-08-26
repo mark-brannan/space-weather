@@ -293,8 +293,10 @@
      slice at every viewport between the mobile breakpoint and desktop. The
      max-width plus justify-self is what actually lets it shrink toward
      square, and what it shrinks *to* at the narrow end. .span-4 keeps the
-     row's grid math at 12 (paired with Solar Wind's span-8) so the row
-     doesn't come up short of full width the way span-5 + span-6 did. */
+     row's grid math at 12 -- three span-4s across, aurora / Solar Activity /
+     HF Radio -- so the row doesn't come up short of full width the way
+     span-5 + span-6 did. Measured again when the row went to three: this tile
+     renders 290x270 either way, because its track is four columns in both. */
   .aurora-tile {
     justify-self: start; max-width: 380px;
     background:
@@ -349,10 +351,56 @@
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
 
-  .readout-row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--grid); }
+  /* HF Radio. The cutoff leads because it is the only number here measured
+     at the boat and in the present tense; everything under it is context. */
+  .hf-cutoff { display: flex; align-items: baseline; gap: 7px; margin: 2px 0 4px; }
+  .hf-cutoff .n {
+    font-family: var(--font-num); font-weight: 700; font-size: 2.1rem; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .hf-cutoff .u { font-size: 0.7rem; color: var(--text-dim); }
+  .hf-cutoff-sub { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 10px; }
+
+  /* One cell per marine SSB band. Filled = absorbed, and that is the only
+     state that asserts anything: an outlined cell means "not blocked from
+     below", never "usable" (issue #82 -- the plugin has no MUF, so the
+     ceiling is unmeasured and a green band would be an unbacked claim).
+     grid rather than flex so nine cells share the width evenly whatever
+     their labels are, and shrink together instead of the two-digit ones
+     winning. */
+  .hf-bands { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin-bottom: 4px; }
+  .hf-band {
+    border: 1px solid var(--grid); border-radius: 2px; padding: 6px 0 4px;
+    text-align: center; font-family: var(--font-num); font-size: 0.66rem;
+    font-variant-numeric: tabular-nums; color: var(--text-dim);
+  }
+  .hf-band.absorbed {
+    background: color-mix(in srgb, var(--sev-4) 55%, transparent);
+    border-color: var(--sev-4); color: var(--text);
+  }
+  /* Wraps between the two keys but never inside one: at kiosk width the tile
+     is ~245px and "Not blocked from below" broke away from its own swatch. */
+  .hf-bands-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 10px; }
+  .hf-bands-legend span { white-space: nowrap; }
+  .hf-bands-legend i { font-style: normal; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--grid); border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .hf-bands-legend i.absorbed { background: color-mix(in srgb, var(--sev-4) 55%, transparent); border-color: var(--sev-4); }
+
+  /* The severity ramp read backwards: on solar flux high is good, so the
+     worst reading takes the loudest colour. The word is drawn beside the
+     swatch in every case, so the colour never carries the meaning alone --
+     which matters more here than elsewhere, because these bands are operator
+     convention rather than a NOAA scale. */
+  .hf-sfi-closed { color: var(--sev-5); }
+  .hf-sfi-poor { color: var(--sev-4); }
+  .hf-sfi-fair { color: var(--sev-3); }
+  .hf-sfi-good { color: var(--sev-1); }
+  .hf-sfi-excellent { color: var(--aurora-a); }
+  .readout-row .q { font-size: 0.72rem; margin-left: 6px; }
+
+  .readout-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-top: 1px solid var(--grid); }
   .readout-row:first-of-type { border-top: none; }
   .readout-row .n { font-size: 0.78rem; color: var(--text-dim); }
-  .readout-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.95rem; }
+  .readout-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.95rem; text-align: right; white-space: nowrap; }
   .readout-row .u { font-size: 0.68rem; color: var(--text-dim); margin-left: 3px; }
 
   .kp-bars { display: flex; gap: 18px; align-items: flex-end; height: 92px; margin: 6px 0 4px; }
@@ -538,16 +586,31 @@
       </div>
     </div>
 
-    <div class="tile span-8">
+    <div class="tile span-4">
       <div class="tile-head">
-        <h2>Solar Wind</h2>
+        <h2>Solar Activity</h2>
         <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
-          target="_blank" rel="noopener">i<span class="bubble">Speed, strength (Bt) and direction
-          (Bz) of the Sun&rsquo;s magnetic field as it reaches Earth. Bz pointing south (a negative
-          number) is what actually triggers geomagnetic storms and aurora &mdash; north mostly does
-          nothing.</span></a>
+          target="_blank" rel="noopener">i<span class="bubble">What the Sun is doing and what has
+          reached us. Bz pointing south (a negative number) is what actually triggers geomagnetic
+          storms and aurora &mdash; north mostly does nothing. The flare is the most recent one,
+          and the A-index and sunspot number are daily figures.</span></a>
       </div>
-      <div id="windBody">
+      <div id="solarBody">
+        <div class="empty-state">Waiting for data&hellip;</div>
+      </div>
+    </div>
+
+    <div class="tile span-4" id="hfTile">
+      <div class="tile-head">
+        <h2>HF Radio</h2>
+        <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
+          target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
+          on the way out, at this position. Filled bands are absorbed; the rest are only
+          &ldquo;not blocked from below&rdquo; &mdash; nothing here measures the F2 layer, so no
+          band above the cutoff is claimed usable. The solar flux wording (Poor / Fair / Good) is
+          operator convention with no published derivation, not a NOAA scale.</span></a>
+      </div>
+      <div id="hfBody">
         <div class="empty-state">Waiting for data&hellip;</div>
       </div>
     </div>
@@ -597,6 +660,7 @@
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
 import { scalesCard } from './scales.js';
+import { hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
@@ -1016,18 +1080,80 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
   }
 
-  function renderWind(wind) {
-    const body = document.getElementById('windBody');
-    const speed = leafValue(wind?.speed), bt = leafValue(wind?.Bt), bz = leafValue(wind?.Bz);
-    if (speed === null && bt === null && bz === null) {
-      body.innerHTML = '<div class="empty-state">No solar wind reading yet.</div>';
+  const DASH = '–';
+  const row = (name, value, unit, style) =>
+    `<div class="readout-row"><span class="n">${name}</span><span class="v"${style ? ` style="${style}"` : ''}>${value}${unit ? `<span class="u">${unit}</span>` : ''}</span></div>`;
+
+  // Labels are spelled out -- "Solar flux (10.7 cm)", "Planetary A-index",
+  // never "SFI / A / K". NOAA's own WWV bulletin spells them out, so the
+  // shorthand is shack convention rather than the authoritative form.
+  function renderSolar(card) {
+    const body = document.getElementById('solarBody');
+    const { speed, bt, bz, flareClass, aIndex, sunspotNumber } = card;
+    if (speed === null && bt === null && bz === null && flareClass === null
+        && aIndex === null && sunspotNumber === null) {
+      body.innerHTML = '<div class="empty-state">No solar activity reading yet.</div>';
       return;
     }
+    // Bz south of -10 nT is the orientation that actually drives a storm.
     const bzColor = bz !== null && bz < -10e-9 ? 'var(--sev-4)' : 'var(--text)';
-    body.innerHTML = `
-      <div class="readout-row"><span class="n">Speed</span><span class="v">${speed !== null ? (speed / 1000).toFixed(0) : '–'}<span class="u">km/s</span></span></div>
-      <div class="readout-row"><span class="n">IMF strength (Bt)</span><span class="v">${bt !== null ? (bt * 1e9).toFixed(1) : '–'}<span class="u">nT</span></span></div>
-      <div class="readout-row"><span class="n">IMF orientation (Bz)</span><span class="v" style="color:${bzColor}">${bz !== null ? (bz * 1e9).toFixed(1) : '–'}<span class="u">nT</span></span></div>`;
+    body.innerHTML =
+      row('Speed', speed !== null ? (speed / 1000).toFixed(0) : DASH, 'km/s') +
+      row('IMF strength (Bt)', bt !== null ? (bt * 1e9).toFixed(1) : DASH, 'nT') +
+      row('IMF orientation (Bz)', bz !== null ? (bz * 1e9).toFixed(1) : DASH, 'nT', `color:${bzColor}`) +
+      // The latest flare, where the Storm Scales card takes the 24-hour peak:
+      // this tile is "what is the Sun doing", that row is "what did today do".
+      row('Latest flare', flareClass ?? DASH, '') +
+      row('Planetary A-index', aIndex !== null ? aIndex.toFixed(0) : DASH, '') +
+      row('Sunspot number', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '');
+  }
+
+  function renderHf(card) {
+    const body = document.getElementById('hfBody');
+    const { cutoffHz, bands, bandsAbsorbed, sfu, f107Band, protonPfu, protonElevated,
+      trendRatio, trendWord } = card;
+    if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
+      body.innerHTML = '<div class="empty-state">No HF propagation reading yet.</div>';
+      return;
+    }
+
+    // A cutoff of 0 is a measurement ("nothing absorbed"), not a missing one,
+    // so it gets its own sentence rather than a 0.0 MHz headline.
+    const lead = cutoffHz === null
+      ? `<div class="hf-cutoff"><span class="n">${DASH}</span></div>
+         <div class="hf-cutoff-sub">No D-RAP reading &mdash; needs a vessel position.</div>`
+      : cutoffHz === 0
+        ? `<div class="hf-cutoff"><span class="n">None</span></div>
+           <div class="hf-cutoff-sub">No D-region absorption predicted here.</div>`
+        : `<div class="hf-cutoff"><span class="n">${(cutoffHz / 1e6).toFixed(1)}</span><span class="u">MHz and below</span></div>
+           <div class="hf-cutoff-sub">Absorbed by 1&nbsp;dB or more &mdash; ${bandsAbsorbed} of ${bands.length} marine SSB bands.</div>`;
+
+    const strip = `<div class="hf-bands">${bands
+      .map((b) => `<div class="hf-band${b.absorbed ? ' absorbed' : ''}" title="${b.label} MHz band">${b.label}</div>`)
+      .join('')}</div>
+      <div class="hf-bands-legend">
+        <span><i class="absorbed"></i>Absorbed</span>
+        <span><i></i>Not blocked from below</span>
+      </div>`;
+
+    const sfiRow = row(
+      'Solar flux (10.7&nbsp;cm)',
+      sfu !== null ? `${sfu.toFixed(0)}<span class="q hf-sfi-${f107Band.key}">${f107Band.label}</span>` : DASH,
+      ''
+    );
+    const protonRow = row(
+      'Proton flux (&ge;10&nbsp;MeV)',
+      protonPfu !== null ? protonPfu.toFixed(protonPfu < 10 ? 1 : 0) : DASH,
+      'pfu',
+      protonElevated ? 'color:var(--sev-4)' : ''
+    );
+    const trendRow = row(
+      'X-ray trend',
+      trendWord !== null ? `${trendWord}<span class="q">&times;${trendRatio.toFixed(2)}</span>` : DASH,
+      ''
+    );
+
+    body.innerHTML = lead + strip + sfiRow + protonRow + trendRow;
   }
 
   function drawKpTimeline(canvas, series) {
@@ -1672,7 +1798,8 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     renderScales(scalesCard(data));
     renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();
-    renderWind(data.solarWind);
+    renderSolar(solarCard(data));
+    renderHf(hfCard(data));
     renderKp(kp);
     renderAdvisory(data.advisory);
 
