@@ -11,6 +11,12 @@ name: Claude PR Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review]
+    # A board-only pull request merges as soon as `version` is green, so a
+    # reviewer started here would post into a closed PR that nobody reopens.
+    # `paths-ignore` skips the run only when kanban.md is the whole diff; a
+    # board edit riding along with anything else still gets reviewed.
+    paths-ignore:
+      - kanban.md
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
