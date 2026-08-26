@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { ENDPOINTS, leafValue } from '../public/signalk.js'
-import { LETTERS, SCALES_CARD_SOURCES, scalesCard } from '../public/scales.js'
+import {
+  LETTERS,
+  SCALES_CARD_SOURCES,
+  scalesCard,
+  scalesMarkup
+} from '../public/scales.js'
 import {
   SCALES_FIXTURES,
   fixture,
@@ -58,6 +63,36 @@ describe('the Storm Scales card, from NOAA payload to badge', () => {
     expect(card.forecast).toHaveLength(3)
     expect(card.forecast[0].G).toBeNull()
     expect(card.forecast[0].sProbability).toBeNull()
+  })
+})
+
+/**
+ * `renderScales` in index.html had no test at all -- the other half of issue
+ * #121's complaint, `scalesCard` proving the *values* while nothing asked
+ * what actually lands on the page. `scalesMarkup` is that function's pure
+ * half (a card in, an HTML string out); these drive it from the same
+ * end-to-end path as the card assertions above and check the string a
+ * browser would receive, not a re-derivation of it.
+ */
+describe('the Storm Scales card, rendered to markup', () => {
+  it('draws a G4 badge on the day whose 24-hour maximum was G4', async () => {
+    const card = scalesCard(await publishedFrom('noaa-scales.2025_04_16.json'))
+    const html = scalesMarkup(card)
+    expect(html).toContain('id="letterG">G<span class="num">4</span>')
+    expect(html).toContain('>Severe<')
+  })
+
+  it('draws an R2 badge, not R0, for the #120 window', async () => {
+    const card = scalesCard(await publishedFrom('noaa-scales.2026_08_25.json'))
+    const html = scalesMarkup(card)
+    expect(html).toContain('id="letterR">R<span class="num">2</span>')
+  })
+
+  it('draws a dash rather than a false zero when a scale is missing', () => {
+    const html = scalesMarkup(scalesCard({}))
+    expect(html).toContain('id="letterG">&ndash;')
+    expect(html).toContain('id="letterS">&ndash;')
+    expect(html).toContain('id="letterR">&ndash;')
   })
 })
 
