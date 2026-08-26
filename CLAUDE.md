@@ -448,6 +448,24 @@ The aurora map is deliberately not mocked -- it needs a real grid cache to
 draw, and faking one would be mocking `tiles.ts` rather than the webapp -- so
 that tile renders its own empty state.
 
+`--upstream <base-url>` trades the five fabricated states for a running
+server's real numbers: the same ten paths are proxied there verbatim instead
+of going through `payload()`, so a branch's `public/` -- a changed card, new
+copy -- can be checked against genuine data without repointing
+`~/.signalk/node_modules/signalk-noaa-space-weather` at this worktree, which
+would move every other session on that shared server onto this branch's
+build too.
+
+```shell
+node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010
+```
+
+3010 is the shared dev server described above -- check
+`~/.signalk/locks/dev-server.lock` before relying on it being idle, same as
+any other use of that instance. `--upstream` and the state switcher are
+mutually exclusive; passing it replaces the switcher strip with one naming
+the upstream instead.
+
 ## Regenerating the README screenshots
 
 `scripts/screenshots/capture.mjs` rewrites all five PNGs in `docs/screenshots/`

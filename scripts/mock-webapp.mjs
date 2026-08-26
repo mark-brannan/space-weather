@@ -2,14 +2,15 @@
 // worked on without a server, a plugin, or NOAA.
 //
 //   node scripts/mock-webapp.mjs [port]     # default 8731
+//   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
 //
-// index.html ships unmodified except for a state switcher appended to it.
-// Everything fake is on the wire: the ten paths ROUTES understands are
-// answered here (anything else refresh() polls, e.g. the HF indices, falls
-// through to the same 404 a real server gives an unpublished path), so what
-// renders is the real heroState/renderTimer/renderKp against data whose shape
-// this file has to keep honest. The switcher sets a cookie and reloads, which
-// is why the webapp itself needs to know nothing about any of this.
+// index.html ships unmodified except for a strip appended to it. Everything
+// fake is on the wire: the ten paths ROUTES understands are answered here
+// (anything else refresh() polls, e.g. the HF indices, falls through to the
+// same 404 a real server gives an unpublished path), so what renders is the
+// real heroState/renderTimer/renderKp against data whose shape this file has
+// to keep honest. The switcher sets a cookie and reloads, which is why the
+// webapp itself needs to know nothing about any of this.
 //
 // The states are the five things the header has to be able to say. They exist
 // because most of them are awkward to reach against a live server -- a real
@@ -17,6 +18,15 @@
 // started" means breaking the plugin on purpose. Add a state here rather than
 // hand-editing the DOM in devtools: the point is that the app's own code
 // decides what to render.
+//
+// --upstream trades the fabricated states for a real one: the same ten
+// ROUTES are proxied verbatim to a running Signal K server instead of going
+// through payload(), so a branch's public/ (new markup, new copy, a changed
+// card) can be viewed against genuine data without repointing
+// ~/.signalk/node_modules/signalk-noaa-space-weather at this worktree --
+// which would move every other session on that shared server onto this
+// branch's build too. The mock states and --upstream are mutually exclusive:
+// there is nothing to switch when the numbers are real.
 //
 // No dependencies, and nothing here is imported by src/ or test/ -- the
 // registry clones this repo and runs `npm ci && npm run build && npm test`
@@ -28,7 +38,19 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')
-const PORT = Number(process.argv[2] || 8731)
+
+const argv = process.argv.slice(2)
+let upstreamArg = null
+let portArg = null
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === '--upstream') upstreamArg = argv[++i]
+  else if (argv[i].startsWith('--upstream=')) upstreamArg = argv[i].slice('--upstream='.length)
+  else if (portArg === null) portArg = argv[i]
+}
+const PORT = Number(portArg || 8731)
+// Trailing slash stripped once here so every proxied request can just concatenate
+// base + path without re-checking for a double slash.
+const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
 
 const iso = (offsetMin) => new Date(Date.now() + offsetMin * 60000).toISOString()
 const leaf = (value, offsetMin = -6) => ({ value, timestamp: iso(offsetMin), $source: 'mock' })
@@ -244,6 +266,41 @@ const SWITCHER = (current) => `
 </div>
 <div style="height:44px"></div>`
 
+// --upstream's equivalent of SWITCHER: there is no state to pick, so this says
+// instead which half of what's on screen is this branch's and which is the live
+// server's -- the confusion the state switcher never has to guard against, since
+// every state there is equally fake.
+const LIVE_BANNER = (base) => `
+<div style="position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:8px;
+  align-items:center;flex-wrap:wrap;padding:8px 14px;background:#000;border-top:1px solid #2a5;
+  font:12px/1.4 ui-monospace,monospace;color:#8f8;">
+  <span style="letter-spacing:.12em;text-transform:uppercase;">Live upstream</span>
+  <span style="color:#ccc;">${base}</span>
+  <span style="margin-left:auto;">public/ is this branch's; the ten data paths are ${base}'s</span>
+</div>
+<div style="height:44px"></div>`
+
+// Proxies one of the ten ROUTES verbatim: same pathname and query, upstream's
+// status and body passed straight through, so a 404 (nothing published on that
+// path yet) reaches the webapp exactly as it would from that server directly.
+async function proxyToUpstream(url, res) {
+  const target = UPSTREAM + url.pathname + url.search
+  let upstreamRes
+  try {
+    upstreamRes = await fetch(target, { headers: { Accept: 'application/json' } })
+  } catch (err) {
+    res.writeHead(502, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: `Upstream fetch failed: ${err.message}` }))
+    return
+  }
+  const body = Buffer.from(await upstreamRes.arrayBuffer())
+  res.writeHead(upstreamRes.status, {
+    'Content-Type': upstreamRes.headers.get('content-type') || 'application/json',
+    'Cache-Control': 'no-store'
+  })
+  res.end(body)
+}
+
 // index.html carries no <meta charset>, so the header has to supply one: a
 // real Signal K server does, and without it every curly quote in the hero
 // copy renders as mojibake.
@@ -258,18 +315,25 @@ const MIME = {
 http
   .createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x')
-    const cookie = /mockstate=([a-z]+)/.exec(req.headers.cookie || '')
-    const state = STATES[cookie?.[1]] ? cookie[1] : 'quiet'
+    let state = 'quiet'
+    if (!UPSTREAM) {
+      const cookie = /mockstate=([a-z]+)/.exec(req.headers.cookie || '')
+      state = STATES[cookie?.[1]] ? cookie[1] : 'quiet'
 
-    const pick = /^\/mock\/([a-z]+)$/.exec(url.pathname)
-    if (pick) {
-      const next = STATES[pick[1]] ? pick[1] : 'quiet'
-      res.writeHead(302, { 'Set-Cookie': `mockstate=${next}; Path=/`, Location: '/' }).end()
-      return
+      const pick = /^\/mock\/([a-z]+)$/.exec(url.pathname)
+      if (pick) {
+        const next = STATES[pick[1]] ? pick[1] : 'quiet'
+        res.writeHead(302, { 'Set-Cookie': `mockstate=${next}; Path=/`, Location: '/' }).end()
+        return
+      }
     }
 
     const route = ROUTES.find(([re]) => re.test(url.pathname))
     if (route) {
+      if (UPSTREAM) {
+        await proxyToUpstream(url, res)
+        return
+      }
       const body = payload(route[1], STATES[state])
       if (body === null) {
         // What a Signal K server does for a path no product has published --
@@ -298,7 +362,8 @@ http
       if (rel === 'index.html') {
         // index.html is tag soup -- no <html>, <head> or <body> -- so there is
         // no closing tag to inject before. Append.
-        buf = Buffer.from(buf.toString('utf8') + SWITCHER(state), 'utf8')
+        const strip = UPSTREAM ? LIVE_BANNER(UPSTREAM) : SWITCHER(state)
+        buf = Buffer.from(buf.toString('utf8') + strip, 'utf8')
       }
       res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' })
       res.end(buf)
@@ -308,5 +373,6 @@ http
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`mock signalk + webapp on http://127.0.0.1:${PORT}/`)
-    console.log(`states: ${Object.keys(STATES).join(', ')}`)
+    if (UPSTREAM) console.log(`proxying the ten data paths to ${UPSTREAM}`)
+    else console.log(`states: ${Object.keys(STATES).join(', ')}`)
   })
