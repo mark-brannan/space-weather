@@ -603,14 +603,19 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   'use strict';
   const REFRESH_MS = 60000;
 
-  // NOAA's own words for its own scale (mirrors SCALE_WORDS in src/parse.ts),
-  // because this describes the sky. It used to carry the notification-state
-  // wording instead -- Nominal/Normal/Normal/Alert/Warn/Alarm -- which
-  // answered "how loud should this be?" in the slot that asks "what is
-  // happening?", and printed Normal under an R2 that NOAA, and the WWV
-  // bulletin, both call Moderate (issue #126). The loudness vocabulary is
+  // NOAA's own words for its own scale (mirrors NoaaScaleNames in
+  // src/parse.ts), because this describes the sky. It used to carry the
+  // notification-state wording instead -- Nominal/Normal/Normal/Alert/Warn/
+  // Alarm -- which answered "how loud should this be?" in the slot that asks
+  // "what is happening?", and printed Normal under an R2 that NOAA, and the
+  // WWV bulletin, both call Moderate (issue #126). The loudness vocabulary is
   // still right where it is a setting: the config panel's ladder.
-  const SEV_WORDS = ['None', 'Minor', 'Moderate', 'Strong', 'Severe', 'Extreme'];
+  //
+  // Index 0 departs from NOAA's own word on purpose: "None" in a pill or
+  // under a badge reads as broken, not calm. "Quiet" is the standing default
+  // for no current, recent, or near-future storm until WWV coverage across
+  // more days says otherwise.
+  const SEV_WORDS = ['Quiet', 'Minor', 'Moderate', 'Strong', 'Severe', 'Extreme'];
   function sevClass(level) {
     if (level === null || level === undefined) return null;
     if (level <= 0) return 'sev-0';
