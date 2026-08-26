@@ -435,6 +435,8 @@
   .btn-outline:hover { border-color: var(--amber); color: var(--amber); }
   .btn-outline:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .map-body { margin-top: 14px; }
+  .map-controls { display: flex; gap: 8px; align-items: center; }
+  .map-controls select { padding: 4px 8px; font-size: 0.7rem; }
   #auroraMapCanvas { display: block; width: 100%; height: 320px; border-radius: 4px; }
   .map-footer {
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
@@ -446,6 +448,10 @@
   .map-legend .bar {
     width: 90px; height: 8px; border-radius: 4px;
     background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
+  }
+  /* The D-RAP ramp, stop for stop: DRAP_BAND_RAMP in public/hf.js. */
+  .map-legend .bar.drap {
+    background: linear-gradient(90deg, rgb(140,214,74), rgb(226,220,34), rgb(250,166,26), rgb(246,92,30), rgb(204,24,70));
   }
 
   /* line-height is explicit because the two-line trim measures against it. */
@@ -619,10 +625,16 @@
     <div class="tile span-12 aurora-map-tile">
       <div class="map-header">
         <div>
-          <h2>Regional Aurora</h2>
+          <h2 id="mapTitle">Regional Aurora</h2>
           <span class="map-extent">&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span></span>
         </div>
-        <button type="button" id="mapToggle" class="btn-outline">Show map</button>
+        <div class="map-controls">
+          <select id="mapLayer" class="btn-outline" aria-label="Map layer">
+            <option value="aurora">Aurora</option>
+            <option value="drap">HF absorption</option>
+          </select>
+          <button type="button" id="mapToggle" class="btn-outline">Show map</button>
+        </div>
       </div>
       <div id="mapBody" class="map-body" hidden>
         <div class="empty-state">Waiting for data&hellip;</div>
@@ -661,7 +673,7 @@
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
 import { scalesCard } from './scales.js';
-import { hfCard, solarCard } from './hf.js';
+import { drapCellColor, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 (() => {
@@ -1464,8 +1476,18 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // request in this file. Purely on request (the "Show map" toggle), never
   // automatically, so opening the map never forces an off-cycle NOAA fetch.
   const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
+  const DRAP_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-grid'
+  // Which layer the map is drawing. Both are the same picture of the same
+  // window around the vessel, off the same kind of server-side capture, so
+  // they share the toggle, the canvas and every failure path -- only the
+  // grid, the ink and the legend differ.
+  let mapLayer = 'aurora'
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error | no-position
+  // Bumped on every loadMap() call and every layer change; a load whose id no
+  // longer matches when its fetch resolves was for a layer the reader already
+  // left, so its result must not land on the current one.
+  let mapLoadId = 0
   // Whether the plugin is fetching aurora on its own schedule, from the status
   // route. Only changes what this page says and offers -- the fetch itself is
   // allowed either way, and the server is the one that decides that.
@@ -1479,18 +1501,48 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     return Math.max(0.15, Math.cos((centerLat * Math.PI) / 180))
   }
 
-  async function fetchAuroraCache() {
-    const res = await fetch(AURORA_GRID_URL, { headers: { Accept: 'application/json' } })
-    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(AURORA_GRID_URL)
+  async function fetchGridCache(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
     const body = await res.json().catch(() => null)
     if (res.status === 404) {
-      const err = new Error((body && body.error) || 'No aurora data cached yet.')
+      const err = new Error((body && body.error) || 'Nothing cached yet.')
       err.notCached = true
       throw err
     }
     if (!res.ok) throw new Error(`Server responded ${res.status}`)
     return body // { fetchedAt, grid }
   }
+
+  // Everything that differs between the two layers, in one place, so the
+  // loader below reads as one flow rather than as a pair of branches.
+  // A function, not a const object: the refresh URLs and button labellers it
+  // names are declared further down, and a top-level object literal would
+  // reach them before they exist.
+  const mapLayers = () => ({
+    aurora: {
+      title: 'Regional Aurora',
+      gridUrl: AURORA_GRID_URL,
+      refreshUrl: AURORA_REFRESH_URL,
+      draw: (canvas, grid, position) => drawAuroraMap(canvas, grid, position),
+      legend: '<div class="map-legend"><span class="bar"></span>Aurora probability, low &rarr; high</div>',
+      stamp: (entry) => `<span>Observed <b>${fmtTime(entry.grid['Observation Time'])}</b></span>`,
+      empty: 'No aurora grid has been fetched yet.',
+      fetchTitle: 'Fetches the aurora grid from NOAA now (~145 KB).',
+      relabel: labelAuroraButton
+    },
+    drap: {
+      title: 'Regional HF Absorption',
+      gridUrl: DRAP_GRID_URL,
+      refreshUrl: DRAP_REFRESH_URL,
+      draw: (canvas, grid, position) => drawDrapMap(canvas, grid, position),
+      legend: '<div class="map-legend"><span class="bar drap"></span>Marine SSB bands absorbed, none &rarr; all</div>',
+      stamp: (entry) => `<span>Valid <b>${fmtTime(entry.grid.validTime)}</b></span>`,
+      empty: 'No D-RAP grid has been fetched yet.',
+      fetchTitle: 'Fetches the D-RAP grid from NOAA now.',
+      relabel: labelDrapButton
+    }
+  })
 
   function drawAuroraMap(canvas, grid, position) {
     const dpr = window.devicePixelRatio || 1
@@ -1559,6 +1611,71 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     ctx.globalAlpha = 1
   }
 
+  /**
+   * The same window and the same projection as the aurora map, filled from the
+   * D-RAP grid instead: one rectangle per 2x4 degree cell, coloured by how
+   * many marine SSB bands the cutoff there has taken. Cells below the lowest
+   * marine band are left unpainted -- absorption nobody aboard can hear is not
+   * worth the ink, and it is what keeps the picture readable on a quiet day,
+   * when most of the globe carries a small non-zero number.
+   */
+  function drawDrapMap(canvas, grid, position) {
+    const dpr = window.devicePixelRatio || 1
+    const cssW = canvas.clientWidth || 800, cssH = 320
+    canvas.width = cssW * dpr
+    canvas.height = cssH * dpr
+    const ctx = canvas.getContext('2d')
+    ctx.scale(dpr, dpr)
+
+    const styles = getComputedStyle(document.documentElement)
+    ctx.fillStyle = styles.getPropertyValue('--grid').trim()
+    ctx.fillRect(0, 0, cssW, cssH)
+    const text = styles.getPropertyValue('--text').trim()
+
+    const latSpan = 25
+    const lonSpan = 40 / lonScaleFactor(position.latitude)
+    const lonCenter = ((position.longitude % 360) + 360) % 360
+    const x = (lon) => {
+      let d = ((lon % 360) + 360) % 360 - lonCenter
+      if (d > 180) d -= 360
+      if (d < -180) d += 360
+      return cssW / 2 + (d / lonSpan) * (cssW / 2)
+    }
+    const y = (lat) => cssH / 2 - ((lat - position.latitude) / latSpan) * (cssH / 2)
+
+    const latStep = Math.abs(grid.latitudes[0] - grid.latitudes[1])
+    const lonStep = Math.abs(grid.longitudes[1] - grid.longitudes[0])
+    const cellW = Math.max(1, (cssW / (2 * lonSpan)) * lonStep)
+    const cellH = Math.max(1, (cssH / (2 * latSpan)) * latStep)
+
+    for (let row = 0; row < grid.latitudes.length; row++) {
+      const lat = grid.latitudes[row]
+      if (lat < position.latitude - latSpan - latStep || lat > position.latitude + latSpan + latStep) continue
+      for (let column = 0; column < grid.longitudes.length; column++) {
+        const colour = drapCellColor(grid.frequenciesMHz[row][column] * 1e6)
+        if (!colour) continue
+        const px = x(grid.longitudes[column])
+        if (px < -cellW || px > cssW + cellW) continue
+        ctx.fillStyle = colour
+        ctx.fillRect(px - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
+      }
+    }
+
+    // Vessel marker, drawn the same way the aurora map draws it.
+    const px = x(position.longitude), py = y(position.latitude)
+    ctx.beginPath()
+    ctx.arc(px, py, 5, 0, Math.PI * 2)
+    ctx.fillStyle = text
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(px, py, 9, 0, Math.PI * 2)
+    ctx.strokeStyle = text
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+
   // NOAA's own OVATION scale, sampled from the legend on their published
   // forecast image at 5% intervals, so this map and the chart-plotter tile
   // overlay (src/tiles.ts, same table) agree with each other and with the
@@ -1583,24 +1700,27 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     ]
   }
 
-  async function loadAuroraMap() {
+  async function loadMap() {
     const body = document.getElementById('mapBody')
     if (!lastPosition) {
       mapState = 'no-position'
       body.innerHTML = `<div class="empty-state">No vessel position available yet, so there is nothing to center the map on.</div>`
       return
     }
+    const layer = mapLayers()[mapLayer]
+    const loadId = ++mapLoadId
     mapState = 'loading'
-    body.innerHTML = `<div class="empty-state">Loading the cached aurora grid&hellip;</div>`
+    body.innerHTML = `<div class="empty-state">Loading the cached grid&hellip;</div>`
     try {
-      const entry = await fetchAuroraCache()
+      const entry = await fetchGridCache(layer.gridUrl)
+      if (loadId !== mapLoadId) return // superseded by a later layer change
       mapState = 'ready'
       body.innerHTML = `
         <canvas id="auroraMapCanvas"></canvas>
         <div class="map-footer">
-          <div class="map-legend"><span class="bar"></span>Aurora probability, low &rarr; high</div>
+          ${layer.legend}
           <div>
-            <span>Observed <b>${fmtTime(entry.grid['Observation Time'])}</b></span>
+            ${layer.stamp(entry)}
             &nbsp;&middot;&nbsp;
             <span>Cached <b>${fmtTime(entry.fetchedAt)}</b></span>
             &nbsp;&middot;&nbsp;
@@ -1610,10 +1730,18 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       const canvas = document.getElementById('auroraMapCanvas')
       canvas._grid = entry.grid
       canvas._position = lastPosition
-      drawAuroraMap(canvas, entry.grid, lastPosition)
-      document.getElementById('mapRefresh').addEventListener('click', () => handleAuroraRefreshClick(document.getElementById('mapRefresh')))
+      canvas._layer = mapLayer
+      layer.draw(canvas, entry.grid, lastPosition)
+      const refreshButton = document.getElementById('mapRefresh')
+      refreshButton.addEventListener('click', () =>
+        handleRefreshClick(refreshButton, layer.refreshUrl, async () => {
+          await refresh()
+          await loadMap()
+        }, layer.relabel))
       labelAuroraButtons()
+      labelDrapButton(refreshButton)
     } catch (err) {
+      if (loadId !== mapLoadId) return // superseded by a later layer change
       mapState = 'error'
       if (err instanceof AuthRequiredError) {
         document.getElementById('authBanner').classList.add('show')
@@ -1624,19 +1752,23 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       // state actually needs, and is available whatever the schedule says.
       const notCached = !!(err && err.notCached)
       const message = notCached
-        ? 'No aurora grid has been fetched yet.'
+        ? layer.empty
         : err instanceof AuthRequiredError
           ? 'Not logged in to this Signal K server.'
-          : `Could not load the aurora data from the server (${String((err && err.message) || err)}).`
+          : `Could not load the data from the server (${String((err && err.message) || err)}).`
       body.innerHTML = `
         <div class="empty-state">${message}
         <button type="button" id="mapRetry" class="btn-outline" style="padding:4px 10px;font-size:0.66rem;">${notCached ? 'Fetch now' : 'Retry'}</button></div>`
       const retry = document.getElementById('mapRetry')
       if (notCached) {
-        retry.title = 'Fetches the aurora grid from NOAA now (~145 KB).'
-        retry.addEventListener('click', () => handleAuroraRefreshClick(retry))
+        retry.title = layer.fetchTitle
+        retry.addEventListener('click', () =>
+          handleRefreshClick(retry, layer.refreshUrl, async () => {
+            await refresh()
+            await loadMap()
+          }, layer.relabel))
       } else {
-        retry.addEventListener('click', loadAuroraMap)
+        retry.addEventListener('click', loadMap)
       }
     }
   }
@@ -1746,7 +1878,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   function handleAuroraRefreshClick(button) {
     return handleRefreshClick(button, AURORA_REFRESH_URL, async () => {
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      if (mapState !== 'idle') await loadAuroraMap() // re-reads the fresh cache for any state but idle (never opened)
+      if (mapState !== 'idle') await loadMap() // re-reads the fresh cache for any state but idle (never opened)
     }, labelAuroraButton)
   }
 
@@ -1757,6 +1889,26 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   document.getElementById('hfRefresh').addEventListener('click', () => {
     const button = document.getElementById('hfRefresh')
     handleRefreshClick(button, DRAP_REFRESH_URL, refresh, labelDrapButton)
+  })
+
+  document.getElementById('mapLayer').addEventListener('change', (event) => {
+    mapLayer = event.target.value
+    document.getElementById('mapTitle').textContent = mapLayers()[mapLayer].title
+    // A load in flight for the layer just left is now stale; loadMap's own id
+    // check drops its result if it lands after this. Only redraw a map that
+    // is actually open; switching the layer with the body hidden must not
+    // turn into a fetch nobody asked for. But a hidden 'ready' map still
+    // holds the old layer's canvas -- and a hidden 'loading' one is headed
+    // for the old layer's picture -- and the toggle below only reloads from
+    // 'idle'/'no-position', so drop back to 'idle' from either so reopening
+    // loads the layer that's now selected instead of finishing into, or
+    // redisplaying, the old layer's picture.
+    mapLoadId++
+    if (!document.getElementById('mapBody').hidden) {
+      loadMap()
+    } else if (mapState === 'ready' || mapState === 'error' || mapState === 'loading') {
+      mapState = 'idle'
+    }
   })
 
   document.getElementById('mapToggle').addEventListener('click', () => {
@@ -1770,13 +1922,13 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     }
     body.hidden = false
     btn.textContent = 'Hide map'
-    if (mapState === 'idle' || mapState === 'no-position') loadAuroraMap()
+    if (mapState === 'idle' || mapState === 'no-position') loadMap()
   })
 
   window.addEventListener('resize', () => {
     if (mapState !== 'ready') return
     const canvas = document.getElementById('auroraMapCanvas')
-    if (canvas && canvas._grid) drawAuroraMap(canvas, canvas._grid, canvas._position)
+    if (canvas && canvas._grid) mapLayers()[canvas._layer].draw(canvas, canvas._grid, canvas._position)
   })
 
   async function refresh() {

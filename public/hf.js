@@ -145,3 +145,63 @@ function numberOrNull(node) {
   const value = leafValue(node)
   return Number.isFinite(value) ? value : null
 }
+
+/**
+ * The D-RAP map ramp: one stop per marine SSB band the cutoff has passed.
+ *
+ * The same table as `DRAP_BAND_RAMP` in src/tiles.ts, which draws the
+ * chart-plotter overlay; `hf-render.test.ts` pins the two identical, for the
+ * reason the band edges above are pinned -- two pictures of one number that
+ * disagree are worse than one picture.
+ *
+ * Stops rather than a smooth scale because the published number is a
+ * frequency, not a severity: what changes for a reader is a band going under,
+ * so that is where the colour moves. See `zonesForDrap` in src/parse.ts.
+ */
+export const DRAP_BAND_RAMP = [
+  [90, 200, 120],
+  [140, 214, 74],
+  [186, 222, 44],
+  [226, 220, 34],
+  [246, 198, 30],
+  [250, 166, 26],
+  [250, 130, 24],
+  [246, 92, 30],
+  [232, 52, 44],
+  [204, 24, 70]
+]
+
+/**
+ * Where a cutoff sits on that ramp: the number of band edges it has passed,
+ * interpolated across the gap to the next so the contours have a shoulder
+ * rather than aliasing into a jagged edge.
+ */
+export function drapRampStop(cutoffHz) {
+  const mhz = cutoffHz / 1e6
+  const edges = MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
+  if (mhz >= edges[edges.length - 1]) return DRAP_BAND_RAMP.length - 1
+  for (let b = 0; b < edges.length; b++) {
+    if (mhz >= edges[b]) continue
+    const previous = b === 0 ? 0 : edges[b - 1]
+    return b + Math.min(1, Math.max(0, (mhz - previous) / (edges[b] - previous)))
+  }
+  return 0
+}
+
+/**
+ * `rgba(...)` for one map cell, or null where nothing a marine SSB set can
+ * hear is absorbed -- absorption below the lowest band is not worth putting
+ * ink on the chart for.
+ */
+export function drapCellColor(cutoffHz) {
+  if (!(cutoffHz > 0) || cutoffHz < MARINE_SSB_BAND_EDGES_HZ[0]) return null
+  const stop = drapRampStop(cutoffHz)
+  const seg = Math.min(DRAP_BAND_RAMP.length - 2, Math.floor(stop))
+  const t = Math.min(1, stop - seg)
+  const a = DRAP_BAND_RAMP[seg]
+  const b = DRAP_BAND_RAMP[seg + 1]
+  const alpha = 0.22 + 0.53 * Math.min(1, stop / (DRAP_BAND_RAMP.length - 1))
+  return `rgba(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(
+    a[1] + (b[1] - a[1]) * t
+  )},${Math.round(a[2] + (b[2] - a[2]) * t)},${alpha.toFixed(3)})`
+}

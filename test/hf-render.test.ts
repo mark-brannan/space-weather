@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   F107_BANDS,
+  DRAP_BAND_RAMP as WEBAPP_DRAP_RAMP,
   MARINE_SSB_BAND_EDGES_HZ as WEBAPP_BAND_EDGES_HZ,
+  drapCellColor,
   S1_PFU,
   bandStrip,
   f107Band,
@@ -10,6 +12,7 @@ import {
   trendWord
 } from '../public/hf.js'
 import { ENDPOINTS } from '../public/signalk.js'
+import { DRAP_BAND_RAMP } from '../src/tiles.js'
 import {
   MARINE_SSB_BAND_EDGES_HZ,
   zonesForF107,
@@ -27,6 +30,27 @@ import {
 import { fixtureJson } from './fixtures.js'
 
 const leaf = (value: unknown) => ({ value, timestamp: '2026-08-26T12:00:00Z' })
+
+describe('the D-RAP map ramp', () => {
+  // Two pictures of one number -- the webapp's map and the chart-plotter tile
+  // -- drawn from copies of the same table. A drift would put the same cutoff
+  // in two different colours on two screens on the same boat.
+  it('copies DRAP_BAND_RAMP exactly', () => {
+    expect(WEBAPP_DRAP_RAMP).toEqual(DRAP_BAND_RAMP.map((stop) => [...stop]))
+  })
+
+  it('draws nothing below the lowest marine band', () => {
+    expect(drapCellColor(0)).toBeNull()
+    expect(drapCellColor(1_000_000)).toBeNull()
+    expect(drapCellColor(MARINE_SSB_BAND_EDGES_HZ[0])).not.toBeNull()
+  })
+
+  it('gets more opaque as more bands go under', () => {
+    const alpha = (hz: number) =>
+      Number(drapCellColor(hz)!.split(',')[3].replace(')', ''))
+    expect(alpha(30_000_000)).toBeGreaterThan(alpha(5_000_000))
+  })
+})
 
 describe('the band strip is the same list as the D-RAP zone ladder', () => {
   // A browser cannot import the TypeScript, so the list is copied. If the copy

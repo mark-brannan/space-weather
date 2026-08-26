@@ -119,19 +119,22 @@ Two things about this are worth knowing, because the obvious implementation of b
 
 **A message code is the condition; a serial number is just one telling of it.** NOAA issues a new serial every time it extends, continues or cancels a condition, so keying paths on the serial number turned a single ongoing warning into 19 permanent notifications in a month. Keying on the code means a reissue updates the path in place, a cancellation clears it, and the number of paths stays bounded no matter how long the server runs.
 
-### Aurora on your chart plotter
+### Aurora and HF absorption on your chart plotter
 
-The aurora grid is also served as Web Mercator map tiles, so the oval can be drawn over your actual chart instead of only in this plugin's webapp:
+Both global grids are also served as Web Mercator map tiles, so the auroral oval and the HF absorption footprint can be drawn over your actual chart instead of only in this plugin's webapp:
 
 ```
 http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/aurora-tile/{z}/{x}/{y}.png
+http://<your-server>:3000/signalk/v1/api/signalk-noaa-space-weather/drap-tile/{z}/{x}/{y}.png
 ```
 
-Add that in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin) as an online chart source (chart format `png`, zoom 0–8), and it appears as a selectable layer in Freeboard-SK. Tiles are transparent everywhere the model gives no probability, so it overlays a real chart rather than covering it.
+The D-RAP layer is coloured by which marine SSB bands the absorption cutoff has taken, not by a smooth frequency scale — the published number is a frequency, and what changes for you is a band going under. Nothing is drawn where the cutoff is below the lowest marine band.
 
-Tiles are drawn on demand from the same cached fetch the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grid is 1°; beyond that there is nothing more to show.
+Add either URL in [`@signalk/charts-plugin`](https://github.com/SignalK/charts-plugin) as an online chart source (chart format `png`, zoom 0–8), and it appears as a selectable layer in Freeboard-SK. Tiles are transparent everywhere the layer has nothing to report, so they overlay a real chart rather than covering it.
 
-Each tile carries `Last-Modified` from the fetch behind it, so a client can tell how old the oval is. That matters with `auroraEnabled` off, where the grid only moves when someone asks for one: the plugin serves the last one it has and lets you judge it, rather than picking an expiry on your behalf.
+Tiles are drawn on demand from the same cached fetches the webapp reads — enabling this costs no extra NOAA traffic — and are re-rendered automatically when a new grid arrives. Zoom is capped at 8 because the source grids are 1° and 2°×4°; beyond that there is nothing more to show.
+
+Each tile carries `Last-Modified` from the fetch behind it, so a client can tell how old the picture is. That matters with the recurring fetch off, where the grid only moves when someone asks for one: the plugin serves the last one it has and lets you judge it, rather than picking an expiry on your behalf.
 
 ### Planned
 
