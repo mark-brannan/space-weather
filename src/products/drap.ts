@@ -24,6 +24,7 @@ const MHZ_TO_HZ = 1e6
 export const drap: Product = {
   name: 'D-RAP',
   intervalMinutes: (settings) => settings.updateInterval,
+  enabled: (settings) => settings.drapEnabled,
 
   metadata(): Meta[] {
     return [

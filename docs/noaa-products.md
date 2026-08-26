@@ -99,9 +99,15 @@ monthly *smoothed* number, which is the truer cycle-context figure, is only in
 the first of these and is not published on its own — so it is not published by
 this plugin either.
 
-**Consequence.** Only aurora is worth a setting (`auroraEnabled`,
-`auroraInterval`). At the default two-hour interval it is about 1.7 MB a day,
-against roughly 120 KB a day for everything else combined.
+**Consequence.** Two products are worth a setting. Aurora (`auroraEnabled`,
+`auroraInterval`) is about 1.7 MB a day at the default two-hour interval,
+against roughly 120 KB a day for everything else combined. D-RAP
+(`drapEnabled`, measured below at 3.3 KB) is nowhere near that, but it follows
+`updateInterval` and is two thirds again on top of the ~5 KB the rest of that
+poll costs — about 79 KB a day at the hourly default, which is most of the way
+to doubling the non-aurora bill. So it gets a switch, on by default: unlike
+aurora it is the same order of size as the poll it rides on, and it shipped
+before the switch existed.
 
 ## How often the content changes
 

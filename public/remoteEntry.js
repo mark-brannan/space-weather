@@ -67,6 +67,9 @@ const ADVISORY_OUTLOOK_URL =
 const NOAA_SCALES_URL = 'https://www.spaceweather.gov/noaa-scales-explanation'
 const AURORA_URL =
   'https://www.spaceweather.gov/communities/aurora-dashboard-experimental'
+// NOAA's own page for the D-RAP model, for the same reason: the checkbox can
+// show what it is offering rather than only naming a four-letter product.
+const DRAP_URL = 'https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap'
 
 let React = null
 
@@ -451,6 +454,9 @@ function createPanel(React) {
       'div',
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
+      // No parenthetical for the off case, unlike aurora above: switched off
+      // this one really is zero, and the zero says so.
+      row('HF absorption (D-RAP)', day.drap),
       row(
         // Zero a day, but not zero: the webapp can still be asked for a grid,
         // and a bill that reads "off" would be understating what a press costs.
@@ -640,6 +646,26 @@ function createPanel(React) {
             ' fetch the grid once, when you ask it to. Nothing is fetched' +
             ' until the vessel has a position. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
+        )
+      }),
+
+      h(Check, {
+        id: 'noaa-drap-enabled',
+        checked: settings.drapEnabled,
+        onChange: (value) => set('drapEnabled', value),
+        label: 'Publish HF absorption (NOAA D-RAP)',
+        help: h(
+          'span',
+          null,
+          'The highest radio frequency D-region absorption is blocking.' +
+            ' Frequencies below it are absorbed; those above it should get' +
+            ' through, barring other factors. NOAA serves one grid covering' +
+            ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
+            ' on each fetch of the "everything else" interval below, hourly' +
+            ' by default. Switching it off stops it' +
+            ' completely \u2014 unlike the aurora grid there is no on-demand' +
+            ' fetch. ',
+          h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
 

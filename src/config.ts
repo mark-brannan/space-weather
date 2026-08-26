@@ -5,6 +5,7 @@ export interface Settings {
   sendAdvisoryOutlook: boolean
   auroraEnabled: boolean
   auroraInterval: number
+  drapEnabled: boolean
   alarmLevel: number
   popupLevel: number
   updateInterval: number
@@ -97,6 +98,23 @@ export const schema = {
         ' has a position.',
       default: false
     },
+    drapEnabled: {
+      type: 'boolean',
+      title: 'Publish HF absorption (NOAA D-RAP)',
+      // Same reasoning as auroraEnabled: the user is being told what the
+      // setting costs, so the measured number lives here. Per fetch;
+      // public/config-panel.js does the daily arithmetic.
+      description:
+        'The highest radio frequency D-region absorption is blocking.' +
+        ' Frequencies below it are absorbed; those above it should get' +
+        ' through, barring other factors. NOAA serves one grid covering the' +
+        ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
+        ' fetch of the interval below, hourly by default, against 5 KB for' +
+        ' everything else in them. Switching this off' +
+        ' stops it completely \u2014 unlike the aurora grid there is no' +
+        ' on-demand fetch.',
+      default: true
+    },
     auroraInterval: {
       type: 'number',
       title: 'Aurora fetch interval',
@@ -112,7 +130,7 @@ export const schema = {
       title: 'How often to fetch from NOAA',
       description:
         'in minutes. Covers observations, forecasts and alerts alike, which' +
-        ' together come to about 5 KB per poll.',
+        ' together come to about 5 KB per poll, plus 3.3 KB when D-RAP is on.',
       default: 60
     }
   }
@@ -156,6 +174,11 @@ export function settingsFrom(props: any): Settings {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
+    // On by default, unlike aurora: it is the same order of size as the poll
+    // it rides along with, and a config saved before this setting existed was
+    // already fetching it, so defaulting off would silently stop publishing a
+    // path that install already had.
+    drapEnabled: p.drapEnabled !== false,
     alarmLevel,
     popupLevel: popupBand(p.popupLevel, alarmLevel),
     // `observationsInterval` and `notificationsInterval` are the two settings

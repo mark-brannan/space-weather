@@ -13,6 +13,7 @@ import {
   OUTLOOK27_WIRE_KB,
   SUNSPOT_WIRE_KB,
   dailyKb,
+  DRAP_WIRE_KB,
   formatKb,
   gScaleForKp,
   ladderFor,
@@ -370,7 +371,7 @@ describe('dailyKb', () => {
   it('counts nothing for aurora while aurora is off', () => {
     expect(dailyKb(settings).aurora).toBe(0)
     expect(dailyKb(settings).total).toBe(
-      dailyKb(settings).other + dailyKb(settings).fixed
+      dailyKb(settings).other + dailyKb(settings).drap + dailyKb(settings).fixed
     )
   })
 
@@ -378,7 +379,24 @@ describe('dailyKb', () => {
     const day = dailyKb({ ...settings, auroraEnabled: true })
     expect(day.other).toBeCloseTo((1440 / 60) * OTHER_WIRE_KB)
     expect(day.aurora).toBeCloseTo((1440 / 120) * AURORA_WIRE_KB)
-    expect(day.total).toBeCloseTo(day.aurora + day.other + day.fixed)
+    expect(day.drap).toBeCloseTo((1440 / 60) * DRAP_WIRE_KB)
+    expect(day.total).toBeCloseTo(day.aurora + day.other + day.drap + day.fixed)
+  })
+
+  it('drops D-RAP from the bill when it is switched off', () => {
+    // The reason it gets a switch at all: it is a large enough share of the
+    // poll that turning it off has to show up in the figure.
+    const on = dailyKb(settings)
+    const off = dailyKb({ ...settings, drapEnabled: false })
+    expect(off.drap).toBe(0)
+    expect(on.total - off.total).toBeCloseTo(on.drap)
+    expect(off.other).toBe(on.other)
+  })
+
+  it('scales D-RAP with the interval it actually rides on', () => {
+    const base = dailyKb(settings)
+    const faster = dailyKb({ ...settings, updateInterval: 30 })
+    expect(faster.drap).toBeCloseTo(base.drap * 2)
   })
 
   it('does not move the bulletins when an interval is halved', () => {

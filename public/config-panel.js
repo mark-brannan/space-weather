@@ -25,6 +25,7 @@ export const DEFAULTS = Object.freeze({
   popupLevel: 4,
   auroraEnabled: false,
   auroraInterval: 120,
+  drapEnabled: true,
   updateInterval: 60
 })
 
@@ -47,6 +48,13 @@ export const SCALE_NAMES = Object.freeze([
  */
 export const AURORA_WIRE_KB = 145
 export const OTHER_WIRE_KB = 5
+/**
+ * D-RAP follows `updateInterval` like the row above, but is priced separately
+ * rather than folded into it: at two thirds of that whole row it is much too
+ * big to disappear into a rounding, and it is the only part of that interval
+ * the user can switch off.
+ */
+export const DRAP_WIRE_KB = 3.3
 
 /**
  * The two bulletins that keep their own cadence, which neither interval field
@@ -112,12 +120,12 @@ export function dailyKb(settings) {
         minutes(settings.auroraInterval, DEFAULTS.auroraInterval)) *
       AURORA_WIRE_KB
     : 0
-  const other =
-    (MINUTES_PER_DAY /
-      minutes(settings.updateInterval, DEFAULTS.updateInterval)) *
-    OTHER_WIRE_KB
+  const polls =
+    MINUTES_PER_DAY / minutes(settings.updateInterval, DEFAULTS.updateInterval)
+  const other = polls * OTHER_WIRE_KB
+  const drap = settings.drapEnabled ? polls * DRAP_WIRE_KB : 0
   const fixed = fixedKb(settings)
-  return { aurora, other, fixed, total: aurora + other + fixed }
+  return { aurora, other, drap, fixed, total: aurora + other + drap + fixed }
 }
 
 /**
@@ -393,6 +401,7 @@ export function panelSettings(configuration) {
     popupLevel: popupBand(c.popupLevel, alarmLevel),
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
+    drapEnabled: c.drapEnabled !== false,
     updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)
   }
 }

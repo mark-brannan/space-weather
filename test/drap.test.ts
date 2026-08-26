@@ -114,3 +114,13 @@ describe('D-RAP product', () => {
     expect(h.published.length).toBe(2) // one refresh's worth: frequency + validTime
   })
 })
+
+describe('the D-RAP switch', () => {
+  it('is on unless the saved config says otherwise', () => {
+    // A config saved before this setting existed was already fetching D-RAP,
+    // so an absent key must not silently stop publishing the path.
+    expect(drap.enabled!(settingsFrom({}))).toBe(true)
+    expect(drap.enabled!(settingsFrom({ drapEnabled: false }))).toBe(false)
+    expect(drap.enabled!(settingsFrom({ drapEnabled: true }))).toBe(true)
+  })
+})
