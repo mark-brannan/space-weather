@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   cutoffAt,
+  distanceKm,
   greatCirclePoints,
   gridSummary,
   legendStops,
@@ -9,7 +10,7 @@ import {
   subsolarPoint
 } from '../public/drapMap.js'
 import { drapCellColor, MARINE_SSB_BAND_EDGES_HZ } from '../public/hf.js'
-import { parseDrapGrid } from '../src/parse'
+import { drapFrequencyAt, parseDrapGrid } from '../src/parse'
 import { fixture } from './fixtures'
 
 const REAL = 'drap-global-frequencies.2026_08_20.txt'
@@ -33,9 +34,10 @@ describe('legendStops', () => {
 
 describe('cutoffAt', () => {
   // The map's number under the boat and the number on the Signal K path have
-  // to be the same reading; 41N/-178E is an exact grid point in the fixture.
+  // to be the same reading; drapFrequencyAt is what the vessel's own path
+  // publishes it from, so the two must never disagree.
   it('reads the cell the published value comes from', () => {
-    expect(cutoffAt(grid, 41, -178)).toBeCloseTo(2.9, 5)
+    expect(cutoffAt(grid, 41, -178)).toBe(drapFrequencyAt(grid, 41, -178))
   })
 
   it('wraps longitude at the antimeridian', () => {
@@ -105,6 +107,25 @@ describe('greatCirclePoints', () => {
     expect(points.every((p) => p.latitude === 12 && p.longitude === 34)).toBe(
       true
     )
+  })
+
+  /**
+   * The slerp this used to use divides by sin(deltaAngular), which only gets
+   * close to zero near the exact antipode rather than hitting it -- so a
+   * path that isn't quite antipodal is exactly where the old bug bit, not
+   * the antipode itself.
+   */
+  it('stays finite and monotonic near the exact antipode', () => {
+    const from = { latitude: 10, longitude: 20 }
+    const to = { latitude: -9.9999, longitude: -159.9999 }
+    const points = greatCirclePoints(from, to)
+    for (const p of points) {
+      expect(Number.isFinite(p.latitude)).toBe(true)
+      expect(Number.isFinite(p.longitude)).toBe(true)
+    }
+    for (let i = 1; i < points.length; i++) {
+      expect(distanceKm(points[i - 1], points[i])).toBeLessThan(150)
+    }
   })
 })
 

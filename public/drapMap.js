@@ -11,7 +11,8 @@ import { MARINE_SSB_BAND_EDGES_HZ, drapCellColor } from './hf.js'
 import { drawCoastline } from './geo.js'
 
 const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
-const TOP_MHZ = MARINE_SSB_BAND_EDGES_HZ[MARINE_SSB_BAND_EDGES_HZ.length - 1] / 1e6
+const TOP_MHZ =
+  MARINE_SSB_BAND_EDGES_HZ[MARINE_SSB_BAND_EDGES_HZ.length - 1] / 1e6
 
 /** The legend: one swatch per band edge, labelled by what it kills. */
 export function legendStops() {
@@ -36,16 +37,29 @@ export function legendStops() {
  */
 export function cutoffAt(grid, latitude, longitude) {
   if (!grid || !Array.isArray(grid.frequenciesMHz)) return null
+  if (!Array.isArray(grid.latitudes) || !Array.isArray(grid.longitudes)) {
+    return null
+  }
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
-  // Clamped: the last row's centre is 89 degrees from the pole's own 90, so
-  // a position at the pole itself rounds one row past the end of the grid.
+  const latCount = grid.latitudes.length
+  const lonCount = grid.longitudes.length
+  if (latCount < 2 || lonCount < 2) return null
+  // Row 0 is the northernmost latitude, column 0 the westernmost longitude,
+  // and the step is whatever gap separates the first two samples -- the same
+  // geometry `drapLattice` (src/tiles.ts) derives from the grid rather than
+  // assuming NOAA's usual 90x90 / 2x4 degree shape.
+  const latStep = Math.abs(grid.latitudes[0] - grid.latitudes[1])
+  const lonStep = Math.abs(grid.longitudes[1] - grid.longitudes[0])
+  // Clamped: the last row's centre is short of the pole's own 90, so a
+  // position at the pole itself would otherwise round one row past the end
+  // of the grid.
   const row = Math.min(
-    89,
-    Math.max(0, Math.round((89 - clampLat(latitude)) / 2))
+    latCount - 1,
+    Math.max(0, Math.round((grid.latitudes[0] - clampLat(latitude)) / latStep))
   )
-  const wrapped = ((((longitude + 180) % 360) + 360) % 360) - 180
-  const col = Math.round((wrapped + 178) / 4) % 90
-  const value = grid.frequenciesMHz[row]?.[(col + 90) % 90]
+  const wrapped = (((longitude - grid.longitudes[0]) % 360) + 360) % 360
+  const col = Math.round(wrapped / lonStep) % lonCount
+  const value = grid.frequenciesMHz[row]?.[col]
   return Number.isFinite(value) ? value : null
 }
 
@@ -85,30 +99,43 @@ export function bearingDeg(from, to) {
  * stepped over. Bounded at both ends because the interesting cases are a
  * 30 km harbour hop (which still needs both endpoints) and an antipodal
  * Winlink path (which does not need four thousand samples to be honest).
+ *
+ * Walked from the initial bearing rather than slerped between the two
+ * endpoint vectors: the slerp weights divide by sin(deltaAngular), and near
+ * the exact antipode that denominator gets small without ever hitting the
+ * `deltaAngular === 0` guard, so two huge, nearly-opposite vectors get
+ * summed and the cancellation is numerically garbage. Walking the bearing
+ * forward never divides by the path length, so it stays stable all the way
+ * to (and through) the antipode.
  */
 export function greatCirclePoints(from, to, stepKm = 100) {
   const total = distanceKm(from, to)
   const steps = Math.min(400, Math.max(2, Math.ceil(total / stepKm)))
+  const totalAngular = total / EARTH_RADIUS_KM
   const φ1 = toRad(from.latitude)
   const λ1 = toRad(from.longitude)
-  const φ2 = toRad(to.latitude)
-  const λ2 = toRad(to.longitude)
-  const δ = total / EARTH_RADIUS_KM
+  const θ = toRad(bearingDeg(from, to))
   const points = []
   for (let i = 0; i <= steps; i++) {
-    const f = i / steps
-    if (δ === 0) {
+    if (totalAngular === 0) {
       points.push({ latitude: from.latitude, longitude: from.longitude })
       continue
     }
-    const a = Math.sin((1 - f) * δ) / Math.sin(δ)
-    const b = Math.sin(f * δ) / Math.sin(δ)
-    const x = a * Math.cos(φ1) * Math.cos(λ1) + b * Math.cos(φ2) * Math.cos(λ2)
-    const y = a * Math.cos(φ1) * Math.sin(λ1) + b * Math.cos(φ2) * Math.sin(λ2)
-    const z = a * Math.sin(φ1) + b * Math.sin(φ2)
+    const δ = (i / steps) * totalAngular
+    const φ2 = Math.asin(
+      Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ)
+    )
+    const λ2 =
+      λ1 +
+      Math.atan2(
+        Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
+        Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2)
+      )
     points.push({
-      latitude: toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))),
-      longitude: toDeg(Math.atan2(y, x))
+      latitude: toDeg(φ2),
+      // Normalised to -180..180, the same range atan2 always returned before
+      // -- λ1 + a step can otherwise walk past either edge.
+      longitude: ((((toDeg(λ2) + 180) % 360) + 360) % 360) - 180
     })
   }
   return points
