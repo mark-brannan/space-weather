@@ -72,6 +72,14 @@ conditional-GET table below.
 At their intervals (three-hourly and four-hourly) that is roughly 2.4 KB and
 4.8 KB a day, so neither gets a setting either.
 
+`/json/goes/primary/xray-flares-7-day.json` was measured 2026-08-26 by a
+single gzipped GET, ahead of the HF tile work (#110/#122) that would fetch it.
+The decoded size varies with how many flares the week held.
+
+| Endpoint | Wire | Decoded |
+| --- | --- | --- |
+| `/json/goes/primary/xray-flares-7-day.json` | 4.9 KB | 27.5 KB |
+
 ### The sunspot number is much cheaper from DSD.txt than from its own products
 
 Measured 2026-08-20, same method, on the two SWPC endpoints that carry a
