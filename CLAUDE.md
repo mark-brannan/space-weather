@@ -202,8 +202,8 @@ wondering why a change did not show up. Argument in
 npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 ```
 
-`scripts/mock-webapp.mjs` serves `public/` and answers the ten Signal K paths
-it understands with fabricated data, so the real
+`scripts/mock-webapp.mjs` serves `public/` and answers the Signal K paths it
+understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders; a switcher strip
 picks between five states that are mostly impractical to reach against a live
 server. `--upstream <base-url>` trades those for a running server's real
