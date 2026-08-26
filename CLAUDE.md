@@ -41,17 +41,12 @@ cap**. `test/offline.test.ts` asserts the no-network property so a stray request
 fails locally instead of only in the registry. Always test against a captured
 payload in `examples/`, never the live service.
 
-**NOAA changes payload shapes without notice.** This has happened at least
-twice and both times it silently broke published data:
-
-- the solar wind summaries went from `{"Bt": 5, "Bz": -3}` to
-  `[{"bt": 4, "bz_gsm": -1}]`, which made the plugin publish `NaN` for months
-- the planetary K-index forecast alternates between a header-row table and a
-  list of records
-
-So: **capture a dated fixture into `examples/` before writing a parser**, and
-make the parser accept the old shape as well as the new one. `parseSolarWind`
-and `kpRows` in `parse.ts` are the pattern to copy.
+**NOAA changes payload shapes without notice.** Capture a dated fixture into
+`examples/` before writing a parser, and make the parser accept the old shape
+as well as the new one — `parseSolarWind` and `kpRows` in `parse.ts` are the
+pattern to copy. It has silently broken published data twice before; history
+in
+[docs/design-decisions.md](docs/design-decisions.md#noaa-changes-payload-shapes-without-notice).
 
 **How NOAA's endpoints actually behave is measured in
 [docs/noaa-products.md](docs/noaa-products.md)** — wire sizes, publish cadence,
@@ -116,45 +111,28 @@ Kp carry **no** `units` key — the admin UI renders the string verbatim, so
 **Never publish `NaN`.** Return `null` from a parser instead. Several fixtures
 exist specifically to pin this.
 
-**`auroraEnabled` governs the schedule, not the capability.** It says what the
-plugin may spend on its own initiative; a press is not the plugin's own
-initiative. So `aurora-refresh` fetches whether or not the product is
-scheduled, and the setting being off is exactly the case it exists for —
-otherwise the only route to one aurora reading is to turn the recurring fetch
-on, wait out an interval, and turn it off again, which is four steps and leaves
-a recurring cost behind when the last one is forgotten. Three things fall out of
-that and none are optional:
+**`auroraEnabled` governs the schedule, not the capability** — `aurora-refresh`
+fetches whether or not the product is scheduled, since a press is not the
+plugin's own initiative. Four things follow and none are optional: `start()`
+only publishes metadata for products it schedules, so when aurora isn't one
+of them the `aurora-refresh` route has to publish aurora's `metadata()`
+itself, before the first value; a successful manual fetch defers the next
+scheduled run by a full interval, and `refreshOnce` holds one refresh per
+product so a second caller joins it rather than starting its own; a
+`'not-ready'` result refunds the cooldown; and a `refresh()` that returns
+without publishing is not a success — the route diffs the cache's
+`fetchedAt` and answers 502 rather than claim a refresh that didn't happen.
+The webapp's own polling never turns into a NOAA fetch; `plugin.test.ts`
+pins that an on-demand fetch starts no schedule of its own.
+Argument in
+[docs/design-decisions.md](docs/design-decisions.md#auroraenabled-governs-the-schedule-not-the-capability).
 
-- `start()` publishes `metadata()` only for the products it schedules, so the
-  route publishes aurora's itself before the first value. Without it the
-  probability lands on a path with no units, no zones and no display name.
-- A successful manual fetch defers the next scheduled run by a full interval.
-  The payload has just been bought; a refresh a minute before the tick must not
-  buy it twice, which is the same argument the two-hour default rests on.
-  Deferring cannot cover a run whose timer has already fired, so `refreshOnce`
-  holds one refresh per product and a second caller joins it rather than
-  starting its own.
-- The cooldown counts fetches, not presses — a scheduled one holds it down too
-  — and `'not-ready'` refunds it: the position check is ahead of the fetch, so
-  nothing went to NOAA and there is nothing to bound. That case lands on a boat
-  still waiting for its first fix, which is the worst one to make wait another
-  minute.
-- A `refresh()` that returns without publishing is not a success. It returns
-  normally when the payload carried no usable grid, so the route compares the
-  cache's `fetchedAt` across the call and answers 502 when nothing new landed;
-  otherwise the button reports a refresh that did not happen, over a reading
-  that has not moved.
-
-The webapp may never turn its own polling into a NOAA fetch — the map draws
-from cache, the poll reads Signal K, and only a press reaches NOAA.
-`plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
-
-**Tile rendering must not block the event loop.** Measured on a 20-tile
-screenful: `zlib.deflateSync` back-to-back blocks for the whole 75ms with zero
-timer ticks, while awaiting the async form one tile at a time holds the worst
-lag to ~2.5ms for 11ms more wall clock. `Promise.all` over tiles is worse than
-either — it runs every rasterize synchronously before awaiting anything. This
-is a plugin inside somebody's navigation server; it does not get to stall it.
+**Tile rendering must not block the event loop.** Render tiles async, one at a
+time — `Promise.all` over tiles is worse than a blocking loop, since it runs
+every rasterize synchronously before awaiting anything. This is a plugin
+inside somebody's navigation server; it does not get to stall it. Measurements
+in
+[docs/design-decisions.md](docs/design-decisions.md#tile-rendering-must-not-block-the-event-loop).
 
 **`main` must stay in package.json.** The server loads plugins with
 `require()` on an absolute directory path, and Node's CommonJS resolver
@@ -164,16 +142,14 @@ argument in
 [docs/design-decisions.md](docs/design-decisions.md#main-must-stay-in-packagejson).
 
 **The icon lives in two places for two different readers, and the second copy
-is generated.** The App Store resolves `signalk.appIcon` server-side against
-the package root, so `./icon.svg` works there. The admin Webapps page reads the
-*top-level* `appIcon` and loads it as a plain URL from the browser, and
-`mountWebModules` in signalk-server serves `public/` as the webapp's root when
-that directory exists — so the file has to be at `public/icon.svg` or the page
-renders a broken image. **A symlink cannot be that file**: npm's packlist skips
-symlinked files instead of following them, and the copy is simply missing from
-the tarball. `scripts/sync-icon.mjs` generates it on `prebuild` and `prepare`;
-it is gitignored like `dist/`, and `icon.test.ts` fails if the wiring comes
-undone. Don't commit a second copy, and don't reintroduce the symlink.
+is generated.** The App Store resolves `signalk.appIcon` server-side, but the
+admin Webapps page loads the top-level `appIcon` as a plain URL from the
+browser, so it also needs `public/icon.svg`. `scripts/sync-icon.mjs` generates
+that copy on `prebuild` and `prepare` — it is gitignored like `dist/`, and
+`icon.test.ts` fails if the wiring comes undone. Don't commit a second copy,
+and don't reintroduce a symlink: npm's packlist skips symlinked files, so it
+would go missing from the tarball. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-icon-lives-in-two-places-and-the-second-copy-is-generated).
 
 ## Conventions
 
