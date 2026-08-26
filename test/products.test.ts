@@ -9,9 +9,7 @@ import { outlook27 } from '../src/products/outlook27'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import { sunspot } from '../src/products/sunspot'
-import { fixture, fixtureJson } from './fixtures'
-
-const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+import { FLARE_ENDPOINT, fixture, fixtureJson } from './fixtures'
 
 describe('scales product', () => {
   it('publishes observed levels and forecast probabilities from a captured payload', async () => {

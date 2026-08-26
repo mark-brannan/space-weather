@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { ENDPOINTS } from '../public/signalk.js'
+import { ValueUpdate } from '../src/parse.js'
+import { scales } from '../src/products/scales.js'
+import { harness } from './harness.js'
 
 /**
  * Captured NOAA payloads live in examples/ and are the only input these tests
@@ -64,6 +68,28 @@ export const SYNTHETIC_HOSTILE_SCALES_FIXTURES = [
   'noaa-scales.hostile-out-of-range.json'
 ]
 
+/**
+ * Real X-ray flare captures. A list rather than one name so a new capture is
+ * swept by everything that reads it, with no second edit.
+ */
+export const FLARE_FIXTURES = [
+  'xray-flares-latest.2026_08_06.json',
+  'xray-flares-latest.2026_08_25.json'
+]
+
+/**
+ * Solar wind arrives on two endpoints, so a capture is a pair: speed and
+ * magnetic field from the same moment. Paired here rather than as two lists
+ * because reading a speed from one day against a Bz from another would be a
+ * fixture nobody captured.
+ */
+export const SOLAR_WIND_FIXTURES = [
+  {
+    speed: 'solar-wind-speed.2026_08_01.json',
+    magField: 'solar-wind-mag-field.2026_08_01.json'
+  }
+]
+
 export const SYNTHETIC_FLARE_FIXTURES = [
   'xray-flares-latest.x-class-peaked.json',
   'xray-flares-latest.x-class-rising.json',
@@ -110,4 +136,89 @@ export function matchZone(zones: any[], value: number): number {
     const { upper = Infinity, lower = -Infinity } = zone
     return typeof value === 'number' && value < upper && value >= lower
   })
+}
+
+/**
+ * The endpoint the flare class arrives on. Shared because two files stub it:
+ * products.test.ts pairs it with a scales payload, dead-fields.test.ts sweeps
+ * every captured flare payload past it.
+ */
+export const FLARE_ENDPOINT = '/json/goes/primary/xray-flares-latest.json'
+
+const SCALES_ENDPOINT = '/products/noaa-scales.json'
+
+type Leaf = { value: unknown; timestamp: string }
+
+/** A GET on a non-leaf path returns the subtree below it, leaves and all. */
+export type ApiNode = Leaf | { [key: string]: ApiNode }
+
+/** The dotted path a vessel URL addresses; `null` for the plugin's own routes. */
+function pathOf(url: string): string | null {
+  const vessel = '/signalk/v1/api/vessels/self/'
+  return url.startsWith(vessel)
+    ? url.slice(vessel.length).replace(/\//g, '.')
+    : null
+}
+
+/**
+ * What a GET on each endpoint would return, built from what the product
+ * published. A path it never published 404s, reaching the webapp as `null`.
+ */
+function apiTree(
+  batches: { values: ValueUpdate[]; timestamp: string }[]
+): Record<string, ApiNode | null> {
+  const data: Record<string, ApiNode | null> = {}
+  for (const [id, url] of Object.entries<string>(ENDPOINTS)) {
+    const base = pathOf(url)
+    if (base === null) continue
+    let node: ApiNode | null = null
+    // Each batch stamps its own leaves. `scales.refresh` publishes the flare
+    // class and the scale levels in separate calls with separate timestamps,
+    // so flattening first and stamping everything from the last batch would
+    // report the scales time for the flare leaf -- a surface reading a value
+    // from one place and its freshness from another, which is the family of
+    // bug this corpus exists to catch.
+    for (const { values, timestamp } of batches) {
+      for (const { path, value } of values) {
+        if (path !== base && !path.startsWith(base + '.')) continue
+        const rest = path === base ? [] : path.slice(base.length + 1).split('.')
+        const leaf: Leaf = { value, timestamp }
+        if (rest.length === 0) {
+          node = leaf
+          continue
+        }
+        node ??= {}
+        let cursor = node as Record<string, ApiNode>
+        for (const key of rest.slice(0, -1))
+          cursor = (cursor[key] ??= {}) as Record<string, ApiNode>
+        cursor[rest[rest.length - 1]] = leaf
+      }
+    }
+    data[id] = node
+  }
+  return data
+}
+
+/**
+ * Runs the real Scales product over one captured payload, offline, and returns
+ * the result the way the Signal K API would serve it to the webapp -- the whole
+ * path from NOAA's bytes to what a card module reads, with no hand-written
+ * middle.
+ *
+ * `flareFixture` is optional because most scales fixtures do not pair with a
+ * flare capture. Left off, the flare endpoint is unstubbed and the client
+ * throws, which is the best-effort case the product already handles.
+ */
+export async function publishedScalesTree(
+  scalesFixture: string,
+  flareFixture?: string
+): Promise<Record<string, ApiNode | null>> {
+  const responses: Record<string, unknown> = {
+    [SCALES_ENDPOINT]: fixtureJson(scalesFixture)
+  }
+  if (flareFixture) responses[FLARE_ENDPOINT] = fixtureJson(flareFixture)
+
+  const h = harness(responses)
+  await scales.refresh(h.ctx)
+  return apiTree(h.published)
 }
