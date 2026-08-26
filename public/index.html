@@ -437,7 +437,19 @@
   .map-body { margin-top: 14px; }
   .map-controls { display: flex; gap: 8px; align-items: center; }
   .map-controls select { padding: 4px 8px; font-size: 0.7rem; }
-  #auroraMapCanvas { display: block; width: 100%; height: 320px; border-radius: 4px; }
+  /* The regional aurora window fills this fixed box; the D-RAP layer is the
+     whole globe and sets its own height (2:1, equirectangular) in JS instead. */
+  #auroraMapCanvas { display: block; width: 100%; height: 320px; border-radius: 4px; color: var(--text-dim); }
+  #auroraMapCanvas.probe-cursor { cursor: crosshair; }
+  .drap-legend { display: flex; align-items: center; gap: 0; }
+  .drap-legend .swatch { width: 22px; height: 10px; }
+  .drap-legend .swatch:first-of-type { border-radius: 2px 0 0 2px; }
+  .drap-legend .swatch:last-of-type { border-radius: 0 2px 2px 0; }
+  .drap-legend .caption { margin-right: 8px; }
+  .drap-legend .edge { margin-left: 8px; }
+  .drap-probe { margin-top: 10px; font-size: 0.78rem; line-height: 1.5; }
+  .drap-probe b { color: var(--text); font-weight: 400; }
+  .drap-probe .verdict { display: block; margin-top: 2px; color: var(--text-dim); }
   .map-footer {
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
     gap: 10px; margin-top: 10px; font-size: 0.72rem; color: var(--text-dim);
@@ -448,10 +460,6 @@
   .map-legend .bar {
     width: 90px; height: 8px; border-radius: 4px;
     background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
-  }
-  /* The D-RAP ramp, stop for stop: DRAP_BAND_RAMP in public/hf.js. */
-  .map-legend .bar.drap {
-    background: linear-gradient(90deg, rgb(140,214,74), rgb(226,220,34), rgb(250,166,26), rgb(246,92,30), rgb(204,24,70));
   }
 
   /* line-height is explicit because the two-line trim measures against it. */
@@ -626,7 +634,7 @@
       <div class="map-header">
         <div>
           <h2 id="mapTitle">Regional Aurora</h2>
-          <span class="map-extent">&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span></span>
+          <span class="map-extent" id="mapExtent">&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span></span>
         </div>
         <div class="map-controls">
           <select id="mapLayer" class="btn-outline" aria-label="Map layer">
@@ -673,10 +681,11 @@
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise } from './hero.js';
 import { scalesCard } from './scales.js';
-import { drapCellColor, hfCard, solarCard } from './hf.js';
+import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 import { drawCoastline } from './geo.js';
+import { cutoffAt, drawDrapMap, gridSummary, legendStops, pathAbsorption, positionAt } from './drapMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1478,10 +1487,12 @@ import { drawCoastline } from './geo.js';
   // automatically, so opening the map never forces an off-cycle NOAA fetch.
   const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
   const DRAP_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-grid'
-  // Which layer the map is drawing. Both are the same picture of the same
-  // window around the vessel, off the same kind of server-side capture, so
-  // they share the toggle, the canvas and every failure path -- only the
-  // grid, the ink and the legend differ.
+  // Which layer the map is drawing. Both come off the same kind of
+  // server-side capture, so they share the toggle, the canvas and every
+  // failure path -- only the grid, the projection, the ink and the legend
+  // differ. Aurora stays a window around the vessel; D-RAP draws the whole
+  // globe, because a path to a station can cross a dayside or a polar cap the
+  // vessel is nowhere near.
   let mapLayer = 'aurora'
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error | no-position
@@ -1494,6 +1505,10 @@ import { drawCoastline } from './geo.js';
   // allowed either way, and the server is the one that decides that.
   let auroraScheduled = false
   let drapScheduled = false
+  // The last great-circle scored by a click on the D-RAP layer, or null
+  // before one has been asked for. Reset on every fresh load so a stale path
+  // from a previous grid never survives onto a new one.
+  let drapProbe = null
 
   function lonScaleFactor(centerLat) {
     // Longitude degrees compress toward the poles; scale the window's
@@ -1515,6 +1530,67 @@ import { drawCoastline } from './geo.js';
     return body // { fetchedAt, grid }
   }
 
+  // --- the D-RAP absorption probe -----------------------------------------
+  //
+  // The vessel's own cutoff says which bands are absorbed *here*; clicking
+  // the D-RAP layer scores the great circle to wherever was clicked instead
+  // -- no station list, no callsign lookup, nothing to configure: the map is
+  // the input. See docs/design-decisions.md.
+  const MHZ = 1e6
+  const KM_TO_NM = 0.539957
+  const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
+  const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
+
+  function drapLegendHtml() {
+    const swatches = legendStops()
+      .map((stop) => `<span class="swatch" style="background:${stop.color}" title="${stop.mhz} MHz absorbed"></span>`)
+      .join('')
+    return `<div class="map-legend drap-legend"><span class="caption">Cutoff</span>${swatches}<span class="edge">2 &rarr; 25 MHz</span></div>`
+  }
+
+  // What the number means for somebody about to transmit: the bands it takes
+  // out, named. The same band list the HF tile's strip is drawn from.
+  function absorbedWording(mhz) {
+    const absorbed = bandStrip(mhz * MHZ).filter((band) => band.absorbed)
+    if (!absorbed.length) return 'No marine SSB band is absorbed on this path.'
+    if (absorbed.length === bandStrip(mhz * MHZ).length)
+      return 'Every marine SSB band is absorbed somewhere on this path.'
+    return `Marine bands up to ${absorbed[absorbed.length - 1].label} MHz are absorbed somewhere on this path.`
+  }
+
+  function drapProbeHtml(grid) {
+    // A grid with nothing on it draws a blank map, which is the right
+    // picture and an ambiguous one -- blank is also what a failed load looks
+    // like.
+    const summary = gridSummary(grid)
+    if (summary && summary.quiet) {
+      return `<div class="drap-probe">Nothing anywhere on the globe is absorbing a marine SSB band right now
+        &mdash; the worst cell on the grid is <b>${summary.maxMHz.toFixed(1)} MHz</b>, below the 2 MHz band.
+        <span class="verdict">The map is blank because the model is quiet, not because it failed to load.</span></div>`
+    }
+    if (!lastPosition) {
+      return `<div class="drap-probe">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
+    }
+    const here = cutoffAt(grid, lastPosition.latitude, lastPosition.longitude)
+    const atVessel = here === null
+      ? 'no reading'
+      : here === 0 ? 'nothing absorbed' : `${here.toFixed(1)} MHz`
+    if (!drapProbe) {
+      return `<div class="drap-probe">At the vessel: <b>${atVessel}</b>.
+        <span class="verdict">Click the map to score the path from here to anywhere &mdash; the worst cell
+        along a great circle is what a band has to clear, not the cell you are sitting in.</span></div>`
+    }
+    const end = drapProbe.points[drapProbe.points.length - 1]
+    return `<div class="drap-probe">
+      Path to <b>${fmtLat(end.latitude)} ${fmtLon(end.longitude)}</b>,
+      <b>${Math.round(drapProbe.distanceKm * KM_TO_NM).toLocaleString()} nmi</b>
+      at <b>${Math.round(drapProbe.bearingDeg).toString().padStart(3, '0')}&deg;T</b>.
+      Worst cutoff <b>${drapProbe.worstMHz.toFixed(1)} MHz</b>
+      (${fmtLat(drapProbe.worstAt.latitude)} ${fmtLon(drapProbe.worstAt.longitude)}),
+      mean <b>${drapProbe.meanMHz.toFixed(1)} MHz</b>. At the vessel: <b>${atVessel}</b>.
+      <span class="verdict">${absorbedWording(drapProbe.worstMHz)}</span></div>`
+  }
+
   // Everything that differs between the two layers, in one place, so the
   // loader below reads as one flow rather than as a pair of branches.
   // A function, not a const object: the refresh URLs and button labellers it
@@ -1523,6 +1599,7 @@ import { drawCoastline } from './geo.js';
   const mapLayers = () => ({
     aurora: {
       title: 'Regional Aurora',
+      extent: '&plusmn;25&deg; latitude around <span id="vesselPos">the vessel</span>',
       gridUrl: AURORA_GRID_URL,
       refreshUrl: AURORA_REFRESH_URL,
       draw: (canvas, grid, position) => drawAuroraMap(canvas, grid, position),
@@ -1533,11 +1610,15 @@ import { drawCoastline } from './geo.js';
       relabel: labelAuroraButton
     },
     drap: {
-      title: 'Regional HF Absorption',
+      // Not regional: a path to a station can cross the dayside or a polar
+      // cap the vessel is nowhere near, so the whole globe is the picture.
+      title: 'HF Absorption',
+      extent: 'Worldwide &mdash; click anywhere for the path from <span id="vesselPos">the vessel</span>',
       gridUrl: DRAP_GRID_URL,
       refreshUrl: DRAP_REFRESH_URL,
-      draw: (canvas, grid, position) => drawDrapMap(canvas, grid, position),
-      legend: '<div class="map-legend"><span class="bar drap"></span>Marine SSB bands absorbed, none &rarr; all</div>',
+      draw: (canvas, grid, position) =>
+        drawDrapMap(canvas, grid, { position, probe: drapProbe }),
+      legend: drapLegendHtml(),
       stamp: (entry) => `<span>Valid <b>${fmtTime(entry.grid.validTime)}</b></span>`,
       empty: 'No D-RAP grid has been fetched yet.',
       fetchTitle: 'Fetches the D-RAP grid from NOAA now.',
@@ -1616,75 +1697,6 @@ import { drawCoastline } from './geo.js';
     ctx.globalAlpha = 1
   }
 
-  /**
-   * The same window and the same projection as the aurora map, filled from the
-   * D-RAP grid instead: one rectangle per 2x4 degree cell, coloured by how
-   * many marine SSB bands the cutoff there has taken. Cells below the lowest
-   * marine band are left unpainted -- absorption nobody aboard can hear is not
-   * worth the ink, and it is what keeps the picture readable on a quiet day,
-   * when most of the globe carries a small non-zero number.
-   */
-  function drawDrapMap(canvas, grid, position) {
-    const dpr = window.devicePixelRatio || 1
-    const cssW = canvas.clientWidth || 800, cssH = 320
-    canvas.width = cssW * dpr
-    canvas.height = cssH * dpr
-    const ctx = canvas.getContext('2d')
-    ctx.scale(dpr, dpr)
-
-    const styles = getComputedStyle(document.documentElement)
-    ctx.fillStyle = styles.getPropertyValue('--grid').trim()
-    ctx.fillRect(0, 0, cssW, cssH)
-    const text = styles.getPropertyValue('--text').trim()
-
-    const latSpan = 25
-    const lonSpan = 40 / lonScaleFactor(position.latitude)
-    const lonCenter = ((position.longitude % 360) + 360) % 360
-    const x = (lon) => {
-      let d = ((lon % 360) + 360) % 360 - lonCenter
-      if (d > 180) d -= 360
-      if (d < -180) d += 360
-      return cssW / 2 + (d / lonSpan) * (cssW / 2)
-    }
-    const y = (lat) => cssH / 2 - ((lat - position.latitude) / latSpan) * (cssH / 2)
-
-    const latStep = Math.abs(grid.latitudes[0] - grid.latitudes[1])
-    const lonStep = Math.abs(grid.longitudes[1] - grid.longitudes[0])
-    const cellW = Math.max(1, (cssW / (2 * lonSpan)) * lonStep)
-    const cellH = Math.max(1, (cssH / (2 * latSpan)) * latStep)
-
-    for (let row = 0; row < grid.latitudes.length; row++) {
-      const lat = grid.latitudes[row]
-      if (lat < position.latitude - latSpan - latStep || lat > position.latitude + latSpan + latStep) continue
-      for (let column = 0; column < grid.longitudes.length; column++) {
-        const colour = drapCellColor(grid.frequenciesMHz[row][column] * 1e6)
-        if (!colour) continue
-        const px = x(grid.longitudes[column])
-        if (px < -cellW || px > cssW + cellW) continue
-        ctx.fillStyle = colour
-        ctx.fillRect(px - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
-      }
-    }
-
-    // Over the cells, under the vessel marker: the absorption is the reading,
-    // the coastline is only what makes it locatable.
-    drawCoastline(ctx, x, y, { color: text, lonCenter })
-
-    // Vessel marker, drawn the same way the aurora map draws it.
-    const px = x(position.longitude), py = y(position.latitude)
-    ctx.beginPath()
-    ctx.arc(px, py, 5, 0, Math.PI * 2)
-    ctx.fillStyle = text
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(px, py, 9, 0, Math.PI * 2)
-    ctx.strokeStyle = text
-    ctx.globalAlpha = 0.5
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-    ctx.globalAlpha = 1
-  }
-
   // NOAA's own OVATION scale, sampled from the legend on their published
   // forecast image at 5% intervals, so this map and the chart-plotter tile
   // overlay (src/tiles.ts, same table) agree with each other and with the
@@ -1711,7 +1723,11 @@ import { drawCoastline } from './geo.js';
 
   async function loadMap() {
     const body = document.getElementById('mapBody')
-    if (!lastPosition) {
+    // Aurora and the vessel marker need a fix to centre or place; the D-RAP
+    // layer draws the whole globe and only loses the marker and the probe
+    // without one -- same reason the product itself no longer waits for a
+    // position before fetching.
+    if (!lastPosition && mapLayer !== 'drap') {
       mapState = 'no-position'
       body.innerHTML = `<div class="empty-state">No vessel position available yet, so there is nothing to center the map on.</div>`
       return
@@ -1719,6 +1735,10 @@ import { drawCoastline } from './geo.js';
     const layer = mapLayers()[mapLayer]
     const loadId = ++mapLoadId
     mapState = 'loading'
+    // A stale probe from whatever was on screen before must not survive onto
+    // a freshly loaded grid -- it would score a path against numbers this
+    // picture no longer shows.
+    drapProbe = null
     body.innerHTML = `<div class="empty-state">Loading the cached grid&hellip;</div>`
     try {
       const entry = await fetchGridCache(layer.gridUrl)
@@ -1726,6 +1746,7 @@ import { drawCoastline } from './geo.js';
       mapState = 'ready'
       body.innerHTML = `
         <canvas id="auroraMapCanvas"></canvas>
+        ${mapLayer === 'drap' ? '<div id="mapProbe"></div>' : ''}
         <div class="map-footer">
           ${layer.legend}
           <div>
@@ -1740,7 +1761,19 @@ import { drawCoastline } from './geo.js';
       canvas._grid = entry.grid
       canvas._position = lastPosition
       canvas._layer = mapLayer
+      canvas.classList.toggle('probe-cursor', mapLayer === 'drap')
       layer.draw(canvas, entry.grid, lastPosition)
+      if (mapLayer === 'drap') {
+        document.getElementById('mapProbe').innerHTML = drapProbeHtml(entry.grid)
+        canvas.addEventListener('click', (event) => {
+          if (!lastPosition) return
+          const rect = canvas.getBoundingClientRect()
+          const target = positionAt(canvas, event.clientX - rect.left, event.clientY - rect.top)
+          drapProbe = target && pathAbsorption(canvas._grid, lastPosition, target)
+          layer.draw(canvas, canvas._grid, canvas._position)
+          document.getElementById('mapProbe').innerHTML = drapProbeHtml(canvas._grid)
+        })
+      }
       const refreshButton = document.getElementById('mapRefresh')
       refreshButton.addEventListener('click', () =>
         handleRefreshClick(refreshButton, layer.refreshUrl, async () => {
@@ -1902,7 +1935,9 @@ import { drawCoastline } from './geo.js';
 
   document.getElementById('mapLayer').addEventListener('change', (event) => {
     mapLayer = event.target.value
-    document.getElementById('mapTitle').textContent = mapLayers()[mapLayer].title
+    const layer = mapLayers()[mapLayer]
+    document.getElementById('mapTitle').textContent = layer.title
+    document.getElementById('mapExtent').innerHTML = layer.extent
     // A load in flight for the layer just left is now stale; loadMap's own id
     // check drops its result if it lands after this. Only redraw a map that
     // is actually open; switching the layer with the body hidden must not
@@ -1996,13 +2031,34 @@ import { drawCoastline } from './geo.js';
     // Position reads as the aurora map's extent now ("+/-25 degrees latitude
     // around <here>"), which is the only thing the webapp ever did with it.
     // The fallback has to stay a noun phrase that sentence can end on.
-    document.getElementById('vesselPos').textContent = pos
+    const posText = pos
       ? `${pos.latitude.toFixed(4)}°, ${pos.longitude.toFixed(4)}°`
       : 'the vessel';
+    document.getElementById('vesselPos').textContent = posText;
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
     // map is already centered on -- only overwrite it with an actual value.
-    if (pos) lastPosition = pos;
+    if (pos) {
+      const moved =
+        !lastPosition ||
+        lastPosition.latitude !== pos.latitude ||
+        lastPosition.longitude !== pos.longitude;
+      lastPosition = pos;
+      // The absorption map's paths all start at the boat, so a boat that has
+      // moved makes the drawn path and its numbers stale.
+      if (moved && mapState === 'ready' && mapLayer === 'drap') {
+        const canvas = document.getElementById('auroraMapCanvas');
+        if (canvas && canvas._grid) {
+          if (drapProbe) {
+            const end = drapProbe.points[drapProbe.points.length - 1];
+            drapProbe = pathAbsorption(canvas._grid, pos, end);
+          }
+          canvas._position = pos;
+          mapLayers()[mapLayer].draw(canvas, canvas._grid, pos);
+          document.getElementById('mapProbe').innerHTML = drapProbeHtml(canvas._grid);
+        }
+      }
+    }
   }
 
   refresh();

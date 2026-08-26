@@ -1,0 +1,217 @@
+import { describe, expect, it } from 'vitest'
+import {
+  cutoffAt,
+  greatCirclePoints,
+  gridSummary,
+  legendStops,
+  pathAbsorption,
+  positionAt,
+  subsolarPoint
+} from '../public/drapMap.js'
+import { drapCellColor, MARINE_SSB_BAND_EDGES_HZ } from '../public/hf.js'
+import { parseDrapGrid } from '../src/parse'
+import { fixture } from './fixtures'
+
+const REAL = 'drap-global-frequencies.2026_08_20.txt'
+const grid = parseDrapGrid(fixture(REAL))!
+
+describe('legendStops', () => {
+  // hf.js's ramp is already pinned against src/tiles.ts by
+  // test/hf-render.test.ts, and the map's fill reuses drapCellColor directly
+  // rather than keeping its own copy -- so what is left to check here is only
+  // that the legend names one swatch per marine SSB band edge, in order.
+  it('has one stop per marine SSB band edge, ascending', () => {
+    const stops = legendStops()
+    expect(stops.map((s) => s.mhz)).toEqual(
+      MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
+    )
+    for (const stop of stops) {
+      expect(stop.color).toBe(drapCellColor(stop.mhz * 1e6))
+    }
+  })
+})
+
+describe('cutoffAt', () => {
+  // The map's number under the boat and the number on the Signal K path have
+  // to be the same reading; 41N/-178E is an exact grid point in the fixture.
+  it('reads the cell the published value comes from', () => {
+    expect(cutoffAt(grid, 41, -178)).toBeCloseTo(2.9, 5)
+  })
+
+  it('wraps longitude at the antimeridian', () => {
+    expect(cutoffAt(grid, 41, 182)).toBe(cutoffAt(grid, 41, -178))
+    expect(cutoffAt(grid, 41, -538)).toBe(cutoffAt(grid, 41, -178))
+  })
+
+  it('has an answer at the poles rather than falling off the grid', () => {
+    expect(cutoffAt(grid, 90, 0)).not.toBeNull()
+    expect(cutoffAt(grid, -90, 0)).not.toBeNull()
+  })
+
+  it('is null rather than NaN for a position it cannot use', () => {
+    expect(cutoffAt(grid, NaN, 0)).toBeNull()
+    expect(cutoffAt(null, 0, 0)).toBeNull()
+  })
+})
+
+describe('greatCirclePoints', () => {
+  it('starts and ends where it was asked to', () => {
+    const from = { latitude: 37.8, longitude: -122.4 }
+    const to = { latitude: -33.9, longitude: 151.2 }
+    const points = greatCirclePoints(from, to)
+    expect(points[0].latitude).toBeCloseTo(from.latitude, 6)
+    expect(points[points.length - 1].longitude).toBeCloseTo(to.longitude, 6)
+  })
+
+  /**
+   * A great circle is not the straight line on an equirectangular map, and
+   * the difference is the whole point: the short way from California to Japan
+   * goes near the Aleutians, which is exactly where a polar cap absorption
+   * event lives.
+   */
+  it('follows the great circle, not the rhumb line', () => {
+    const points = greatCirclePoints(
+      { latitude: 37.8, longitude: -122.4 },
+      { latitude: 35.7, longitude: 139.7 }
+    )
+    const north = Math.max(...points.map((p) => p.latitude))
+    expect(north).toBeGreaterThan(45)
+  })
+
+  /** No cell on the path may be stepped over: the grid is 2 degrees tall. */
+  it('samples finer than a grid cell', () => {
+    const points = greatCirclePoints(
+      { latitude: 0, longitude: 0 },
+      { latitude: 0, longitude: 20 }
+    )
+    for (let i = 1; i < points.length; i++) {
+      expect(
+        Math.abs(points[i].longitude - points[i - 1].longitude)
+      ).toBeLessThan(2)
+    }
+  })
+
+  it('bounds the sample count on a very long path', () => {
+    const points = greatCirclePoints(
+      { latitude: 60, longitude: 0 },
+      { latitude: -60, longitude: 180 }
+    )
+    expect(points.length).toBeLessThanOrEqual(401)
+  })
+
+  it('handles a path of no length', () => {
+    const here = { latitude: 12, longitude: 34 }
+    const points = greatCirclePoints(here, here)
+    expect(points.every((p) => p.latitude === 12 && p.longitude === 34)).toBe(
+      true
+    )
+  })
+})
+
+describe('pathAbsorption', () => {
+  it('reports the worst cell on the path, not the one under the boat', () => {
+    // A synthetic grid with one bad band across the equator: a path from well
+    // north to well south has to cross it, and the endpoints are clear.
+    const synthetic = {
+      validTime: grid.validTime,
+      latitudes: grid.latitudes,
+      longitudes: grid.longitudes,
+      frequenciesMHz: grid.latitudes.map((lat) =>
+        grid.longitudes.map(() => (Math.abs(lat) < 10 ? 18 : 0))
+      )
+    }
+    const probe = pathAbsorption(
+      synthetic,
+      { latitude: 50, longitude: 0 },
+      { latitude: -50, longitude: 0 }
+    )
+    expect(cutoffAt(synthetic, 50, 0)).toBe(0)
+    expect(probe!.worstMHz).toBe(18)
+    expect(Math.abs(probe!.worstAt!.latitude)).toBeLessThan(10)
+    // The mean is the other half of the pair: one bad band across an
+    // otherwise clear path is not a path that is bad end to end.
+    expect(probe!.meanMHz).toBeLessThan(probe!.worstMHz)
+  })
+
+  it('carries the bearing and distance the operator would point at', () => {
+    const probe = pathAbsorption(
+      grid,
+      { latitude: 0, longitude: 0 },
+      { latitude: 0, longitude: 90 }
+    )
+    expect(probe!.bearingDeg).toBeCloseTo(90, 0)
+    expect(probe!.distanceKm).toBeCloseTo(10007, -2)
+  })
+
+  it('is null without a grid or an endpoint', () => {
+    expect(pathAbsorption(null, { latitude: 0, longitude: 0 }, null)).toBeNull()
+    expect(pathAbsorption(grid, null, { latitude: 0, longitude: 0 })).toBeNull()
+  })
+})
+
+describe('subsolarPoint', () => {
+  /**
+   * The one mark that makes the picture readable: D-region absorption is a
+   * dayside phenomenon, so the blob belongs near the sun. Checked against the
+   * two solstices and an equinox, where the answer is known without a model.
+   */
+  it('puts the sun over the tropics at the solstices', () => {
+    expect(
+      subsolarPoint(new Date('2026-06-21T12:00:00Z')).latitude
+    ).toBeCloseTo(23.4, 0)
+    expect(
+      subsolarPoint(new Date('2026-12-21T12:00:00Z')).latitude
+    ).toBeCloseTo(-23.4, 0)
+    expect(
+      Math.abs(subsolarPoint(new Date('2026-03-20T12:00:00Z')).latitude)
+    ).toBeLessThan(1)
+  })
+
+  it('puts it near Greenwich at noon UTC and near the dateline at midnight', () => {
+    expect(
+      Math.abs(subsolarPoint(new Date('2026-03-20T12:00:00Z')).longitude)
+    ).toBeLessThan(3)
+    expect(
+      Math.abs(subsolarPoint(new Date('2026-03-20T00:00:00Z')).longitude)
+    ).toBeGreaterThan(177)
+  })
+})
+
+describe('positionAt', () => {
+  it('maps the corners and centre of the canvas onto the globe', () => {
+    const canvas = {
+      clientWidth: 720,
+      clientHeight: 360,
+      width: 720,
+      height: 360
+    }
+    expect(positionAt(canvas as any, 0, 0)).toEqual({
+      latitude: 90,
+      longitude: -180
+    })
+    expect(positionAt(canvas as any, 360, 180)).toEqual({
+      latitude: 0,
+      longitude: 0
+    })
+  })
+})
+
+describe('gridSummary', () => {
+  it('tells a quiet grid from one that failed to load', () => {
+    const quiet = {
+      latitudes: grid.latitudes,
+      longitudes: grid.longitudes,
+      frequenciesMHz: grid.latitudes.map(() => grid.longitudes.map(() => 1.2))
+    }
+    expect(gridSummary(quiet)!.quiet).toBe(true)
+    expect(gridSummary(quiet)!.maxMHz).toBe(1.2)
+    expect(gridSummary(null)).toBeNull()
+    expect(gridSummary({ frequenciesMHz: [] })).toBeNull()
+  })
+
+  it('finds the worst cell and where it is', () => {
+    const summary = gridSummary(grid)!
+    expect(summary.maxMHz).toBe(Math.max(...grid.frequenciesMHz.flat()))
+    expect(grid.latitudes).toContain(summary.at!.latitude)
+  })
+})
