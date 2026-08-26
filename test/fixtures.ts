@@ -43,6 +43,52 @@ export const ADVISORY_FIXTURES = [
   'advisory-outlook.2026_08_03.txt'
 ]
 
+/**
+ * Invented payloads, in `examples/synthetic/`. Real captures prove what NOAA
+ * does send; these prove the plugin survives what it might -- and, more to the
+ * point of #120, they carry the value combinations a real quiet sky never
+ * produces. `synthetic-fixtures.test.ts` asserts this list names every file in
+ * that directory, so one added and never read cannot go unnoticed.
+ */
+export const SYNTHETIC_SCALES_FIXTURES = [
+  'noaa-scales.all-slots-distinct.json',
+  'noaa-scales.storm-in-progress.json',
+  'noaa-scales.quiet-with-forecast.json',
+  'noaa-scales.solar-radiation-only.json',
+  'noaa-scales.extreme-all.json'
+]
+
+export const SYNTHETIC_HOSTILE_SCALES_FIXTURES = [
+  'noaa-scales.hostile-types.json',
+  'noaa-scales.hostile-missing-observed.json',
+  'noaa-scales.hostile-out-of-range.json'
+]
+
+export const SYNTHETIC_FLARE_FIXTURES = [
+  'xray-flares-latest.x-class-peaked.json',
+  'xray-flares-latest.x-class-rising.json',
+  'xray-flares-latest.hostile-empty.json',
+  'xray-flares-latest.hostile-nulls.json'
+]
+
+/**
+ * Neither is valid JSON, on purpose: read as text, never parsed directly.
+ *
+ * The two halves of what a read landing mid-rewrite looks like. NOAA rewrites
+ * these files in place, so a *shorter* new payload leaves the tail of the
+ * longer old one behind -- that is the torn-with-tail one, and it has a
+ * complete leading value to recover. The truncated one does not, and must not
+ * be recovered into a half value.
+ */
+export const SYNTHETIC_TRUNCATED_FIXTURE = 'noaa-scales.hostile-truncated.json'
+export const SYNTHETIC_TORN_FIXTURE = 'noaa-scales.hostile-torn-with-tail.json'
+
+export const SYNTHETIC_TEXT_FIXTURES = [
+  'wwv.no-storms.txt',
+  'wwv.all-three-storms.txt',
+  'drap-global-frequencies.warning-in-force.txt'
+]
+
 export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']
 
 export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']

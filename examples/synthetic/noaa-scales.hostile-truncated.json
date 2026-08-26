@@ -1,0 +1,16 @@
+{
+ "-1": {
+  "DateStamp": "2026-08-01",
+  "TimeStamp": "05:33:00",
+  "R": {
+   "Scale": "2",
+   "Text": "moderate",
+   "MinorProb": null,
+   "MajorProb": null
+  },
+  "S": {
+   "Scale": "0",
+   "Text": "none",
+   "Prob": null
+  },
+  "G": {

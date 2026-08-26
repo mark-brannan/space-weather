@@ -1,0 +1,19 @@
+:Product: Geophysical Alert Message wwv.txt
+:Issued: 2026 May 11 0305 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+#
+#          Geophysical Alert Message
+#
+Solar-terrestrial indices for 10 May follow.
+Solar flux 214 and estimated planetary A-index 152.
+The estimated planetary K-index at 0300 UTC on 11 May was 8.67.
+
+Space weather for the past 24 hours has been extreme.
+Geomagnetic storms reaching the G5 level occurred.
+Solar radiation storms reaching the S3 level occurred.
+Radio blackouts reaching the R3 level occurred.
+
+Space weather for the next 24 hours is predicted to be severe.
+Geomagnetic storms reaching the G4 level are likely.
+Solar radiation storms reaching the S2 level are likely.
+Radio blackouts reaching the R2 level are likely.

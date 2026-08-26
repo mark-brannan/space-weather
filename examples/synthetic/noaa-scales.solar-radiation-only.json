@@ -1,0 +1,97 @@
+{
+ "-1": {
+  "DateStamp": "2026-04-01",
+  "TimeStamp": "12:00:00",
+  "R": {
+   "Scale": "0",
+   "Text": "none",
+   "MinorProb": null,
+   "MajorProb": null
+  },
+  "S": {
+   "Scale": "3",
+   "Text": "strong",
+   "Prob": null
+  },
+  "G": {
+   "Scale": "0",
+   "Text": "none"
+  }
+ },
+ "0": {
+  "DateStamp": "2026-04-02",
+  "TimeStamp": "12:00:00",
+  "R": {
+   "Scale": "0",
+   "Text": "none",
+   "MinorProb": null,
+   "MajorProb": null
+  },
+  "S": {
+   "Scale": "2",
+   "Text": "moderate",
+   "Prob": null
+  },
+  "G": {
+   "Scale": "0",
+   "Text": "none"
+  }
+ },
+ "1": {
+  "DateStamp": "2026-04-02",
+  "TimeStamp": "00:00:00",
+  "R": {
+   "Scale": null,
+   "Text": null,
+   "MinorProb": "10",
+   "MajorProb": "1"
+  },
+  "S": {
+   "Scale": null,
+   "Text": null,
+   "Prob": "99"
+  },
+  "G": {
+   "Scale": "0",
+   "Text": "none"
+  }
+ },
+ "2": {
+  "DateStamp": "2026-04-03",
+  "TimeStamp": "00:00:00",
+  "R": {
+   "Scale": null,
+   "Text": null,
+   "MinorProb": "10",
+   "MajorProb": "1"
+  },
+  "S": {
+   "Scale": null,
+   "Text": null,
+   "Prob": "75"
+  },
+  "G": {
+   "Scale": "0",
+   "Text": "none"
+  }
+ },
+ "3": {
+  "DateStamp": "2026-04-04",
+  "TimeStamp": "00:00:00",
+  "R": {
+   "Scale": null,
+   "Text": null,
+   "MinorProb": "10",
+   "MajorProb": "1"
+  },
+  "S": {
+   "Scale": null,
+   "Text": null,
+   "Prob": "40"
+  },
+  "G": {
+   "Scale": "0",
+   "Text": "none"
+  }
+ }
+}

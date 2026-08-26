@@ -1,0 +1,13 @@
+:Product: Geophysical Alert Message wwv.txt
+:Issued: 2026 Jul 04 0305 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+#
+#          Geophysical Alert Message
+#
+Solar-terrestrial indices for 03 July follow.
+Solar flux 82 and estimated planetary A-index 4.
+The estimated planetary K-index at 0300 UTC on 04 July was 1.00.
+
+No space weather storms were observed for the past 24 hours.
+
+No space weather storms are predicted for the next 24 hours.
