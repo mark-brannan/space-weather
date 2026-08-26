@@ -94,8 +94,7 @@ export const schema = {
         ' times everything else this plugin downloads put together, so the' +
         ' interval below sets what it costs a day. This only governs the' +
         ' recurring fetch \u2014 with it off, the webapp can still fetch the' +
-        ' grid once, when you ask it to. Nothing is fetched until the vessel' +
-        ' has a position.',
+        ' grid once, when you ask it to.',
       default: false
     },
     drapEnabled: {
@@ -110,9 +109,9 @@ export const schema = {
         ' through, barring other factors. NOAA serves one grid covering the' +
         ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
         ' fetch of the interval below, hourly by default, against 5 KB for' +
-        ' everything else in them. Switching this off' +
-        ' stops it completely \u2014 unlike the aurora grid there is no' +
-        ' on-demand fetch.',
+        ' everything else in them. This only governs the recurring fetch' +
+        ' \u2014 with it off, the webapp can still fetch the grid once, when' +
+        ' you ask it to.',
       default: true
     },
     auroraInterval: {

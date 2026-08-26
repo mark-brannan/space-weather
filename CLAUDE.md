@@ -108,20 +108,30 @@ Kp carry **no** `units` key — the admin UI renders the string verbatim, so
 **Never publish `NaN`.** Return `null` from a parser instead. Several fixtures
 exist specifically to pin this.
 
-**`auroraEnabled` governs the schedule, not the capability** — `aurora-refresh`
-fetches whether or not the product is scheduled, since a press is not the
-plugin's own initiative. Four things follow and none are optional: `start()`
-only publishes metadata for products it schedules, so when aurora isn't one of
-them the `aurora-refresh` route has to publish aurora's `metadata()` itself
-before the first value; a successful manual fetch defers the next scheduled
-run by a full interval, and `refreshOnce` holds one refresh per product so a
-second caller joins it rather than starting its own; a `'not-ready'` result
-refunds the cooldown; and a `refresh()` that returns without publishing is not
-a success — the route diffs the cache's `fetchedAt` and answers 502 rather
-than claim a refresh that didn't happen. The webapp's own polling never turns
-into a NOAA fetch; `plugin.test.ts` pins that an on-demand fetch starts no
-schedule of its own. Argument in
-[docs/design-decisions.md](docs/design-decisions.md#auroraenabled-governs-the-schedule-not-the-capability).
+**A global grid is fetched whether or not the vessel has a position.** Aurora
+and D-RAP both buy one grid covering the whole globe, so nothing about the
+fetch waits on a fix. The grid is cached (`src/cache/`) and the value at the
+vessel is published *out of* it: `refresh()` returns `'awaiting-position'`, and
+the scheduler retries through `publishFromCache()` rather than `refresh()`, so
+waiting for GPS never becomes repeat NOAA traffic. Those retry timers are a
+separate map from `productTimers`, because membership of that map is what says
+a product is scheduled and a manual refresh must not make it one. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#a-global-grid-is-worth-fetching-before-there-is-anywhere-to-index-it).
+
+**`auroraEnabled` and `drapEnabled` govern the schedule, not the capability** —
+`aurora-refresh` and `drap-refresh` fetch whether or not the product is
+scheduled, since a press is not the plugin's own initiative. Three things
+follow and none are optional: `start()` only publishes metadata for products it
+schedules, so an unscheduled product's refresh route publishes its own
+`metadata()` before the first value; a successful manual fetch defers the next
+scheduled run by a full interval, and `refreshOnce` holds one refresh per
+product so a second caller joins it rather than starting its own; and a
+`refresh()` that returns without publishing is not a success — the route diffs
+the cache's `fetchedAt` and answers 502 rather than claim a refresh that didn't
+happen. The webapp's own polling never turns into a NOAA fetch;
+`plugin.test.ts` pins that an on-demand fetch starts no schedule of its own.
+Argument in
+[docs/design-decisions.md](docs/design-decisions.md#auroraenabled-and-drapenabled-govern-the-schedule-not-the-capability).
 
 **Tile rendering must not block the event loop.** Render tiles async, one at a
 time — `Promise.all` over tiles is worse than a blocking loop, since it runs

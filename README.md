@@ -29,6 +29,7 @@ The plugin currently surfaces:
 * The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices) under `environment.noaa.swpc.kp.forecast.outlook27` — the peak Kp expected over the next solar rotation, the day it falls on, the first day forecast to reach storm level, and the full daily series (`series`) of 10.7cm flux, planetary A index and largest Kp — see [The 27-day outlook](#the-27-day-outlook)
 * The [planetary A index](https://www.swpc.noaa.gov/products/geophysical-alert-wwv-text) at `environment.noaa.swpc.a_index` and the [sunspot number](https://www.swpc.noaa.gov/products/solar-cycle-progression) at `environment.noaa.swpc.sunspot_number` — with the 10.7cm flux and Kp above, the four numbers HF operators read conditions in, see [Reading conditions like an HF operator](#reading-conditions-like-an-hf-operator)
 * Aurora probability at the vessel's own position (`environment.noaa.swpc.aurora.probability`), from NOAA's OVATION model — not fetched on a schedule by default, on bandwidth, and fetchable on demand from the webapp even then, see [Configuration](#configuration)
+* The highest HF frequency D-region absorption is blocking at the vessel's own position (`environment.noaa.swpc.drap.highest_affected_frequency`, in Hz), from NOAA's [D-RAP model](https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap), with the grid's own validity time at `drap.validTime`. Frequencies below it are absorbed; those above it should get through, barring other factors this doesn't measure. Zoned by which marine SSB bands fall under the cutoff, because the number is a frequency rather than a severity — 9.9 MHz absorbed ends the working day for someone on 8 MHz and means nothing to someone on 22
 
 NOAA explains their "scales" and effects for geomagnetic storms ("G"), solar radiation storms ("S"), and radio blackouts ("R") here: <https://www.spaceweather.gov/noaa-scales-explanation>
 
@@ -138,20 +139,21 @@ Each tile carries `Last-Modified` from the fetch behind it, so a client can tell
 
 ## Configuration
 
-Six settings, all optional, all with working defaults:
+Seven settings, all optional, all with working defaults:
 
 * `alarmLevel` (default 5, "Extreme") — which NOAA level is visible **and audible**. "Never" removes the sound without hiding the storm.
 * `popupLevel` (default 4, "Severe") — which NOAA level is visible and silent. Never louder than `alarmLevel`; moving one past the other takes it along, except a "Never" popup, which leaves the alarm where it is. Both apply to the G, S and R scales and to Kp. See [Alarm zones](#alarm-zones).
 
 In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
-* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined; needs a vessel position. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
+* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
+* `drapEnabled` (default on) — fetches NOAA's D-RAP grid every `updateInterval`, publishing the highest frequency D-region absorption is blocking at your position. One grid covers the whole globe, so it costs the same everywhere: about 3.3 KB per fetch, against 5 KB for everything else in the same poll. Same bargain as `auroraEnabled` — it governs the recurring fetch, and with it off the webapp can still fetch the grid once, when you ask it to.
 * `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 
-On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same five settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
+On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
 
-Five settings were removed in 0.13.0. Configs that set the old keys still work — the intervals carry over, the rest are ignored — and the plugin's own configuration screen writes the six current keys and nothing else, so saving once clears the old ones out of the file. It cannot change what the plugin is running: every current key is written explicitly, so a dropped key had nothing left to say.
+Five legacy settings are no longer supported. Configs that set the old keys still work — the intervals carry over, the rest are ignored — and the plugin's own configuration screen writes the current keys and nothing else, so saving once clears the old ones out of the file. It cannot change what the plugin is running: every current key is written explicitly, so a dropped key had nothing left to say.
 
 * `zoneAlertThreshold` — replaced by `alarmLevel`, which names the level that sounds rather than the level worth noticing. A saved value carries over and keeps behaving the same way. A config saved before `popupLevel` existed gets the band one below its alarm level, which is the ladder it already had.
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
@@ -210,9 +212,9 @@ The banner answers one question — is anything happening right now? — and a q
 | ![Quiet after a storm](docs/screenshots/hero-all-clear.png) | ![Stale data](docs/screenshots/hero-stale.png) |
 | Quiet, and specific about what the last 24 hours actually held. | No update in three hours. Not an all-clear — go look at the server log. |
 
-The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. Both the tile and the map have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
+The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. The Aurora tile, the map and the HF Radio tile each have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
 
-That button works whether or not `auroraEnabled` is on, and with it off — where it reads **Fetch once** — pressing it is the only thing that ever fetches the grid. So the aurora is available on a boat that has decided not to spend 145 KB every couple of hours on it: leave the recurring fetch off, and ask for a reading on the night you want one. Nothing else on the page reaches NOAA; the map draws from whatever the plugin last cached, and the periodic poll only reads your own server.
+Those buttons work whether or not `auroraEnabled` and `drapEnabled` are on, and with one off — where the button reads **Fetch once** — pressing it is the only thing that ever fetches that grid. So the aurora is available on a boat that has decided not to spend 145 KB every couple of hours on it: leave the recurring fetch off, and ask for a reading on the night you want one. Nothing else on the page reaches NOAA; the map draws from whatever the plugin last cached, and the periodic poll only reads your own server.
 
 ![The aurora map](docs/screenshots/aurora-map.png)
 

@@ -454,12 +454,16 @@ function createPanel(React) {
       'div',
       { className: 'bg-body-tertiary border rounded p-3 small' },
       row('Observations, forecasts and alerts', day.other),
-      // No parenthetical for the off case, unlike aurora above: switched off
-      // this one really is zero, and the zero says so.
-      row('HF absorption (D-RAP)', day.drap),
+      // Zero a day, but not zero, for either grid: switched off, the webapp
+      // can still be asked for one, and a bill that reads "off" would be
+      // understating what a press costs.
       row(
-        // Zero a day, but not zero: the webapp can still be asked for a grid,
-        // and a bill that reads "off" would be understating what a press costs.
+        settings.drapEnabled
+          ? 'HF absorption (D-RAP)'
+          : 'HF absorption (D-RAP, on demand only)',
+        day.drap
+      ),
+      row(
         settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (on demand only)',
         day.aurora
       ),
@@ -643,8 +647,7 @@ function createPanel(React) {
             ' at the vessel position and keeping the chart overlay tiles' +
             ' current. Off by default on bandwidth: it is the one large' +
             ' payload this plugin fetches. With it off the webapp can still' +
-            ' fetch the grid once, when you ask it to. Nothing is fetched' +
-            ' until the vessel has a position. ',
+            ' fetch the grid once, when you ask it to. ',
           h(NoaaLink, { href: AURORA_URL, text: "NOAA's aurora forecast" })
         )
       }),
@@ -662,9 +665,8 @@ function createPanel(React) {
             ' through, barring other factors. NOAA serves one grid covering' +
             ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
             ' on each fetch of the "everything else" interval below, hourly' +
-            ' by default. Switching it off stops it' +
-            ' completely \u2014 unlike the aurora grid there is no on-demand' +
-            ' fetch. ',
+            ' by default. With it off the webapp can still fetch the grid' +
+            ' once, when you ask it to. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),

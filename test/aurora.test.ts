@@ -8,6 +8,7 @@ import {
   parseAuroraPayload,
   zonesForAurora
 } from '../src/parse'
+import { readAuroraCache } from '../src/cache/auroraCache'
 import { aurora } from '../src/products/aurora'
 import { fixtureJson, matchZone } from './fixtures'
 
@@ -193,6 +194,9 @@ describe('aurora product', () => {
       errors,
       fetched,
       dataDir,
+      setPosition: (next: unknown) => {
+        position = next
+      },
       ctx: {
         client,
         publisher,
@@ -217,34 +221,61 @@ describe('aurora product', () => {
     )
   })
 
-  it('does not fetch at all when the vessel has no position', async () => {
-    // The link may be metered and this is the largest payload; nothing to
-    // do with a global grid and no position.
+  it('fetches and caches the grid with no vessel position at all', async () => {
+    // The grid is global: the same 145 KB whatever the boat's position, and
+    // the map and the chart-plotter tiles want all of it regardless. Waiting
+    // for a fix only delayed the capture; it never made it cheaper.
     const h = harness(undefined, fixtureJson(REAL))
     const result = await aurora.refresh(h.ctx as any)
 
-    expect(h.fetched).toEqual([])
+    expect(h.fetched).toEqual(['/json/ovation_aurora_latest.json'])
     expect(h.published).toEqual([])
     expect(h.errors).toEqual([])
-    // 'not-ready' rather than a silent skip: a GPS fix can take minutes after
-    // boot, and on an hourly product a silent skip means an hour of nothing.
-    expect(result).toBe('not-ready')
+    // 'awaiting-position' rather than a silent skip: a GPS fix can take
+    // minutes after boot, and the caller retries out of the cache.
+    expect(result).toBe('awaiting-position')
+    expect(readAuroraCache(h.dataDir)).not.toBeNull()
+  })
+
+  it('publishes from the cache once a position turns up, with no second fetch', async () => {
+    const h = harness(undefined, fixtureJson(REAL))
+    await aurora.refresh(h.ctx as any)
+
+    h.setPosition({ latitude: 70, longitude: 20 })
+    expect(aurora.publishFromCache!(h.ctx as any)).toBe(true)
+
+    expect(h.fetched.length).toBe(1)
+    expect(
+      h.published.find(
+        (v: any) => v.path === 'environment.noaa.swpc.aurora.probability'
+      )
+    ).toBeDefined()
+  })
+
+  it('keeps asking only while the position is what is missing', async () => {
+    const h = harness(undefined, fixtureJson(REAL))
+    await aurora.refresh(h.ctx as any)
+    expect(aurora.publishFromCache!(h.ctx as any)).toBe(false)
+
+    // Nothing cached is not a wait -- no retry will produce a grid.
+    const empty = harness(undefined, fixtureJson(REAL))
+    expect(aurora.publishFromCache!(empty.ctx as any)).toBe(true)
   })
 
   it('reports ready once a position appears', async () => {
     const h = harness({ latitude: 70, longitude: 20 }, fixtureJson(REAL))
-    expect(await aurora.refresh(h.ctx as any)).not.toBe('not-ready')
+    expect(await aurora.refresh(h.ctx as any)).toBeUndefined()
   })
 
-  it('ignores a position that is not usable', async () => {
+  it('still fetches when the position is not usable', async () => {
     for (const bad of [
       {},
       { latitude: 'x', longitude: 2 },
       { latitude: null }
     ]) {
       const h = harness(bad, fixtureJson(REAL))
-      await aurora.refresh(h.ctx as any)
-      expect(h.fetched).toEqual([])
+      expect(await aurora.refresh(h.ctx as any)).toBe('awaiting-position')
+      expect(h.published).toEqual([])
     }
   })
 

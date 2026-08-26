@@ -603,6 +603,7 @@
     <div class="tile span-4" id="hfTile">
       <div class="tile-head">
         <h2>HF Radio</h2>
+        <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
         <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
           target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
           on the way out, at this position. Filled bands are absorbed; the rest are only
@@ -1121,7 +1122,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // so it gets its own sentence rather than a 0.0 MHz headline.
     const lead = cutoffHz === null
       ? `<div class="hf-cutoff"><span class="n">${DASH}</span></div>
-         <div class="hf-cutoff-sub">No D-RAP reading &mdash; needs a vessel position.</div>`
+         <div class="hf-cutoff-sub">No D-RAP reading yet &mdash; it needs a fetched grid and a vessel position.</div>`
       : cutoffHz === 0
         ? `<div class="hf-cutoff"><span class="n">None</span></div>
            <div class="hf-cutoff-sub">No D-region absorption predicted here.</div>`
@@ -1469,6 +1470,7 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // route. Only changes what this page says and offers -- the fetch itself is
   // allowed either way, and the server is the one that decides that.
   let auroraScheduled = false
+  let drapScheduled = false
 
   function lonScaleFactor(centerLat) {
     // Longitude degrees compress toward the poles; scale the window's
@@ -1650,10 +1652,11 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
   // NOAA without one -- the poll below only reads the server, and the map is
   // drawn from whatever the plugin last cached.
   const AURORA_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-refresh'
+  const DRAP_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-refresh'
 
-  async function forceAuroraRefresh() {
-    const res = await fetch(AURORA_REFRESH_URL, { headers: { Accept: 'application/json' } })
-    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(AURORA_REFRESH_URL)
+  async function forceRefresh(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
     const body = await res.json().catch(() => null)
     if (!res.ok) {
       const err = new Error((body && body.error) || `Server responded ${res.status}`)
@@ -1664,15 +1667,14 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     return body
   }
 
-  // One short label per refusal, because they ask for different things: two of
-  // them are a wait, one is a login, one is a server that isn't running and one
-  // is NOAA being unreachable. The full sentence goes on the button's title so
+  // One short label per refusal, because they ask for different things: one is
+  // a wait, one is a login, one is a server that isn't running and one is NOAA
+  // being unreachable. The full sentence goes on the button's title so
   // the label can stay the width of a button.
   function refreshFailureLabel(failure) {
     switch (failure.kind) {
       case 'auth': return 'Not logged in'
       case 'cooldown': return failure.retryAfterSeconds ? `Wait ${failure.retryAfterSeconds}s` : 'Too soon'
-      case 'no-position': return 'No position'
       case 'stopped': return 'Plugin stopped'
       case 'upstream': return 'NOAA error'
       default: return 'Fetch failed'
@@ -1694,20 +1696,33 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       : 'Automatic updates are off. Fetches the aurora grid once, now (~145 KB).'
   }
 
+  // The D-RAP grid is small, so the disclosure is about what the press does
+  // rather than what it costs -- the opposite of aurora's, where the payload
+  // is the whole argument.
+  function labelDrapButton(button) {
+    if (!button || button.disabled || button.dataset.holding) return
+    button.textContent = drapScheduled ? 'Refresh' : 'Fetch once'
+    button.title = drapScheduled
+      ? 'Fetch the D-RAP grid now instead of waiting for the next update.'
+      : 'Automatic updates are off. Fetches the D-RAP grid once, now.'
+  }
+
   function labelAuroraButtons() {
     labelAuroraButton(document.getElementById('auroraRefresh'))
     labelAuroraButton(document.getElementById('mapRefresh'))
   }
 
-  async function handleAuroraRefreshClick(button) {
+  // One handler for both products' buttons: the request, the refusals and the
+  // way a refusal is held on the button are the same for either, and only the
+  // URL, the label and what has to be redrawn afterwards differ.
+  async function handleRefreshClick(button, url, after, relabel) {
     const original = button.textContent
     const originalTitle = button.title
     button.disabled = true
     button.textContent = 'Fetching…'
     try {
-      await forceAuroraRefresh()
-      await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      if (mapState !== 'idle') await loadAuroraMap() // re-reads the fresh cache for any state but idle (never opened)
+      await forceRefresh(url)
+      await after()
     } catch (err) {
       const failure = refreshFailure(err instanceof AuthRequiredError ? { auth: true } : err)
       if (failure.kind === 'auth') document.getElementById('authBanner').classList.add('show')
@@ -1719,18 +1734,30 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         button.textContent = original
         button.title = originalTitle
         delete button.dataset.holding
-        labelAuroraButton(button)
+        relabel(button)
       }, 4000)
       return
     }
     button.textContent = original
     button.disabled = false
-    labelAuroraButton(button)
+    relabel(button)
+  }
+
+  function handleAuroraRefreshClick(button) {
+    return handleRefreshClick(button, AURORA_REFRESH_URL, async () => {
+      await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
+      if (mapState !== 'idle') await loadAuroraMap() // re-reads the fresh cache for any state but idle (never opened)
+    }, labelAuroraButton)
   }
 
   document.getElementById('auroraRefresh').addEventListener('click', () =>
     handleAuroraRefreshClick(document.getElementById('auroraRefresh'))
   )
+
+  document.getElementById('hfRefresh').addEventListener('click', () => {
+    const button = document.getElementById('hfRefresh')
+    handleRefreshClick(button, DRAP_REFRESH_URL, refresh, labelDrapButton)
+  })
 
   document.getElementById('mapToggle').addEventListener('click', () => {
     const body = document.getElementById('mapBody')
@@ -1785,6 +1812,8 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
     // `settings` is what the plugin resolved, not what was saved, so a config
     // that never set auroraEnabled reads as the default it is actually running.
     auroraScheduled = status?.settings?.auroraEnabled === true;
+    drapScheduled = status?.settings?.drapEnabled === true;
+    labelDrapButton(document.getElementById('hfRefresh'));
 
     // Read once, up front: both the aurora tile (issue #109 -- the reading is
     // *at* this position, so it belongs here too, not only on the regional

@@ -27,10 +27,14 @@ export function auroraCardState({ probability, scheduled, running = true }) {
 /**
  * Which refusal a manual fetch hit.
  *
- * The route has five distinct ones and at least two of them are actionable —
- * wait n seconds, wait for a GPS fix. Collapsing them all into "failed", which
- * is what the button used to say, hides exactly the ones the user can do
- * something about.
+ * The route has four distinct ones and the actionable one -- wait n seconds --
+ * is the one that matters most. Collapsing them all into "failed", which is
+ * what the button used to say, hides exactly the one the user can do something
+ * about.
+ *
+ * There is no "no position" refusal any more: the grid is global, so the fetch
+ * no longer waits on a fix and the route no longer refuses for the want of
+ * one.
  */
 export function refreshFailure(err) {
   if (!err) return { kind: 'failed' }
@@ -42,8 +46,6 @@ export function refreshFailure(err) {
         ? { kind: 'cooldown', retryAfterSeconds: seconds }
         : { kind: 'cooldown' }
     }
-    case 409:
-      return { kind: 'no-position' }
     case 503:
       return { kind: 'stopped' }
     case 502:

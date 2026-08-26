@@ -27,10 +27,12 @@ export interface Product {
   /** Static metadata, published once per start. */
   metadata?: (settings: Settings) => Meta[]
   /**
-   * Returning 'not-ready' means a precondition is missing rather than the
-   * fetch having failed — the vessel has no position fix yet, say. The caller
-   * retries shortly instead of waiting out a whole interval, which on an
-   * hourly product would mean an hour of silence after boot.
+   * Returning 'awaiting-position' means the fetch happened and is cached, but
+   * the vessel has no position to index it at yet. The caller retries shortly
+   * instead of waiting out a whole interval — which on an hourly product would
+   * mean an hour of silence after boot — and retries through
+   * `publishFromCache` rather than through here, so the wait for a GPS fix
+   * cannot turn into repeat NOAA traffic.
    *
    * Returning `{ nextDelayMinutes }` overrides `intervalMinutes` for the next
    * scheduled run only — for a product whose natural cadence varies over
@@ -40,5 +42,17 @@ export interface Product {
    */
   refresh: (
     ctx: ProductContext
-  ) => Promise<void | 'not-ready' | { nextDelayMinutes: number }>
+  ) => Promise<void | 'awaiting-position' | { nextDelayMinutes: number }>
+  /**
+   * Publish whatever the cached payload yields at the vessel's position, with
+   * no network I/O at all. Only a product that caches a *global* payload has
+   * one: the fetch is worth making before there is anywhere to index it, and
+   * this is what turns the capture into a value once there is.
+   *
+   * Returns false only while a position is still missing -- the one state a
+   * retry can fix. Anything else (no cache, an unparseable one, a position
+   * that falls outside the grid) is true: it is over, and asking again in five
+   * seconds would not change it.
+   */
+  publishFromCache?: (ctx: ProductContext) => boolean
 }

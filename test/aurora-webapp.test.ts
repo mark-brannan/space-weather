@@ -52,7 +52,6 @@ describe('refreshFailure', () => {
   it('keeps the refusals the user can act on apart', () => {
     expect(refreshFailure({ auth: true }).kind).toBe('auth')
     expect(refreshFailure({ status: 429 }).kind).toBe('cooldown')
-    expect(refreshFailure({ status: 409 }).kind).toBe('no-position')
     expect(refreshFailure({ status: 503 }).kind).toBe('stopped')
     expect(refreshFailure({ status: 502 }).kind).toBe('upstream')
   })
