@@ -8,9 +8,13 @@ name: Claude PR Review
 # `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`).
 # Swap to `anthropic_api_key` for metered API billing instead.
 
+# Scoped deliberately narrow (2026-08-26): one review per PR, on open or
+# ready-for-review only — no re-review on every push. Three full reviews of
+# one two-fix PR (#145) is what the wide version cost, and the findings are
+# advisory either way.
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, ready_for_review]
     # A board-only pull request merges as soon as `version` is green, so a
     # reviewer started here would post into a closed PR that nobody reopens.
     # `paths-ignore` skips the run only when kanban.md is the whole diff; a
@@ -40,62 +44,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # This runner has no dotfiles: AGENTS.md's "Open loops" section points
-      # at ~/.claude/CLAUDE.md's standing orders (mark-brannan/dotfiles#15),
-      # which is exactly the file that doesn't exist here without this step.
-      # Pinned to the commit that merged #15, not `main` -- a later dotfiles
-      # commit (or a compromised one) must not be able to silently change
-      # what this reviewer treats as its own instructions. Bump the SHA
-      # through a reviewed change here when the standing orders move.
-      #
-      # Best-effort and all-or-nothing: fetch into a temp dir with timeouts
-      # and only install once both files land, so a stalled request can't
-      # eat the job's 20-minute budget and a partial fetch can't leave one
-      # file updated and the other stale. Either both files land or neither
-      # does -- the reviewer just runs without the extra context.
-      - name: Sync standing orders from dotfiles
-        run: |
-          dotfiles_sha=bcf104bc877bb14d11cd8fea1eabdd3b04d65289
-          raw_base="https://raw.githubusercontent.com/mark-brannan/dotfiles/$dotfiles_sha/.claude"
-          tmp_dir="$(mktemp -d)"
-          backup_dir="$(mktemp -d)"
-          cleanup() { rm -rf "$tmp_dir" "$backup_dir"; }
-          trap cleanup EXIT
-
-          mkdir -p "$HOME/.claude/rules"
-
-          if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
-               "$raw_base/CLAUDE.md" -o "$tmp_dir/CLAUDE.md" &&
-             curl --fail --silent --show-error --location --connect-timeout 10 --max-time 60 \
-               "$raw_base/rules/code.md" -o "$tmp_dir/code.md" &&
-             [ -s "$tmp_dir/CLAUDE.md" ] && [ -s "$tmp_dir/code.md" ]; then
-            # Both files are fetched and verified non-empty before either live
-            # file is touched. Back up whatever is already there so a failure
-            # partway through the install can be undone instead of leaving one
-            # file updated and the other stale.
-            [ -f "$HOME/.claude/CLAUDE.md" ] && cp "$HOME/.claude/CLAUDE.md" "$backup_dir/CLAUDE.md"
-            [ -f "$HOME/.claude/rules/code.md" ] && cp "$HOME/.claude/rules/code.md" "$backup_dir/code.md"
-
-            if mv "$tmp_dir/CLAUDE.md" "$HOME/.claude/CLAUDE.md" &&
-               mv "$tmp_dir/code.md" "$HOME/.claude/rules/code.md"; then
-              : # both installed
-            else
-              echo "::warning::install of dotfiles standing orders failed partway, restoring previous state"
-              if [ -f "$backup_dir/CLAUDE.md" ]; then
-                mv "$backup_dir/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-              else
-                rm -f "$HOME/.claude/CLAUDE.md"
-              fi
-              if [ -f "$backup_dir/code.md" ]; then
-                mv "$backup_dir/code.md" "$HOME/.claude/rules/code.md"
-              else
-                rm -f "$HOME/.claude/rules/code.md"
-              fi
-            fi
-          else
-            echo "::warning::couldn't fetch dotfiles standing orders, reviewing without them"
-          fi
-
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -104,39 +52,30 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            You are the independent reviewer for this repository. The PR was
-            most likely written by another Claude session; your job is to
-            challenge it, not to extend it courtesy. You share no context with
-            the author -- everything you assert must come from the repo, the
-            diff, or something you ran yourself.
+            You are the independent reviewer for this repository. You share
+            no context with the author -- everything you assert must come
+            from the repo, the diff, or something you ran yourself.
 
-            First read CLAUDE.md and AGENTS.md in full. They are the gate
-            list. Review the PR against them, with extra suspicion anywhere
-            the diff touches a documented constraint: tests that reach the
-            network, anything that could publish NaN, non-SI units or a
-            `units` key on a dimensionless value, notification loudness or
-            the alarm-level ladder, config settings that don't clear the bar
-            in AGENTS.md, tests asserting display strings, version-bump
-            handling, `main` in package.json.
+            Check the diff against this repo's hard constraints ONLY:
+            tests that reach the network, anything that could publish NaN,
+            non-SI units or a `units` key on a dimensionless value, a
+            weakened gate (a deleted or loosened test, a skipped fixture),
+            version-bump handling per AGENTS.md "Versions", and `main`
+            staying in package.json. Run `npm ci`, `npm run build`,
+            `npm test` and `npm run format:check` yourself.
 
-            Verify, don't trust: run `npm ci`, `npm run build`, `npm test`,
-            and `npm run format:check` yourself and compare against what the
-            PR description claims. If a claim in the description doesn't
-            match what you observe, say so bluntly.
+            Report VIOLATIONS of those constraints, and nothing else. No
+            style opinions, no questions, no requests for justification,
+            no suggestions on code that already satisfies the constraints.
+            If you are not sure something is a violation, it is not a
+            finding -- drop it.
 
-            Challenge the author to explain, not just to fix: where the
-            motivation is missing, where a gate was weakened (a deleted or
-            loosened test, a new network touch, a widened type, a skipped
-            fixture), or where the description says "and also" -- one logical
-            change per PR is the rule here. Ask the question that forces a
-            justification.
-
-            Post your findings as inline comments via
+            Post each violation as an inline comment via
             mcp__github_inline_comment__create_inline_comment (with
-            `confirmed: true`) anchored to the lines they concern, and one
-            top-level summary via `gh pr comment`. In the summary, list what
-            you checked and what you ran, even when everything passed --
-            "looks good" with no evidence is worthless. Do not push commits
+            `confirmed: true`) anchored to the line it concerns, then one
+            top-level summary via `gh pr comment`: a single line per
+            violation, or "Checked the constraints above; no violations.
+            build/test/format all pass." when clean. Do not push commits
             or edit code; you review, the author fixes.
 
           claude_args: |
