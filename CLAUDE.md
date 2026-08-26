@@ -514,11 +514,36 @@ precisely a disagreement between the two.
 Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
 push. No npm token should ever live on a developer machine.
 
-Version bumps are automatic in two layers, so a real release never depends on
-remembering: `.husky/pre-commit` auto-patch-bumps `package.json` at commit
-time if nothing on the branch has already given it an explicit bump (compared
-against the latest git tag, not the immediate parent commit). `.github/workflows/auto-version.yml`
-then tags and publishes whatever version lands on `main`, whether that came
-from the hook or from an explicit `npm version minor`/`major` before
-committing. Bump explicitly yourself for anything more than the smallest
-change; let the hook cover the rest.
+The number is decided **before** the merge and the release happens **after** it,
+and those are deliberately not the same moment. `.husky/pre-commit` writes the
+patch at commit time; `.github/workflows/version-gate.yml` blocks a pull request
+that changed what ships without one. The hook is the convenience, the gate is
+the guarantee — and only while the ruleset requires the `version` check, since a
+red gate nothing requires can be merged past. `auto-version.yml` catches on
+`main` what the gate should have caught, and fails loudly rather than exiting 0.
+None of them write to `main`, so the ruleset keeps requiring a pull request and
+a signed commit for every change.
+
+**Ahead of the latest tag, never merely different from it.** A stale branch
+differs from it too, which is how #123 squash-merged at a version already on
+npm and never published.
+
+**A merge does not publish. `release.yml` does, on a debounce.** It runs hourly
+and tags `main` only once nothing has merged for `RELEASE_WINDOW_HOURS`, so a
+busy afternoon ships one release when the afternoon ends instead of one per
+pull request — 59 releases in the first 24 days is what the merge-publishes
+design cost. A `workflow_dispatch` run skips the wait and flushes whatever is
+pending immediately; it skips nothing else, since the tag is still what says
+what has already been published.
+
+**So the gate requires a version past the latest tag and pointedly not past
+`main`'s own.** Between a merge and the window closing, `main` sits at a version
+that has not shipped, and a second pull request is meant to *join* it there.
+That shared number is the batching, and it is why released versions stay
+contiguous instead of skipping the ones a second concurrent branch would
+otherwise have minted. Only a tagged version is spent. Do not reintroduce a
+check that a pull request be ahead of the base — it was there when every merge
+published, and under the window it is exactly what puts the gaps back.
+
+All of the above read one file, `scripts/publish-impact.sh`, pinned by
+`test/publish-impact.test.ts`.

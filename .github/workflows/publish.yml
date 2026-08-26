@@ -13,7 +13,7 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-  # auto-version.yml triggers this via `gh workflow run publish.yml --ref
+  # release.yml triggers this via `gh workflow run publish.yml --ref
   # <tag>` (workflow_dispatch, not workflow_call) after it tags a merge that
   # needed publishing. workflow_call was tried first and doesn't work here:
   # npm's OIDC trusted-publisher check rejects the token minted for a
@@ -22,7 +22,7 @@ on:
   # steps succeed under a direct push or workflow_dispatch trigger of this
   # same file. workflow_dispatch matches how the trusted publisher on
   # npmjs.com is actually configured (this file, this repo), so that's the
-  # path both a human and auto-version.yml use to publish out of band.
+  # path both a human and release.yml use to publish out of band.
 
 permissions:
   contents: write # write, not read: this workflow also creates the GitHub Release below
