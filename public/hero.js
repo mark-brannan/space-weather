@@ -199,9 +199,15 @@ export function heroState(input, now = Date.now()) {
     return { kind: 'brewing', letter: 'G', level: timer.level, timer }
   }
 
+  // What is still running, for the states below that lead with the day's
+  // maximum instead. Both used to say nothing was in force, which is false
+  // whenever the lead is a level of its own: an R2 now under an R3 earlier
+  // read as "conditions have since eased" while the R2 was still on.
+  const inForce = lead.level >= IN_FORCE ? { letter: lead.letter, level: lead.level } : null
+
   const peak = worstOf(peak24h)
   if (peak && peak.level >= NOTABLE) {
-    return { kind: 'all-clear', peak, timer }
+    return { kind: 'all-clear', peak, inForce, timer }
   }
 
   // Below the alert floor the plugin still raises nothing, but the banner has
@@ -220,7 +226,7 @@ export function heroState(input, now = Date.now()) {
   // news. At level 1-2 nothing ended, so the honest report is just what
   // happened.
   if (peak && peak.level >= IN_FORCE) {
-    return { kind: 'recent', peak, timer }
+    return { kind: 'recent', peak, inForce, timer }
   }
 
   return { kind: 'quiet', peak: null, timer }

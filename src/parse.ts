@@ -1430,7 +1430,10 @@ function dailySolarRow(line: string): DailySolarIndices | null {
  * `state === normal` as "already quiet" would leave exactly the reported case
  * untouched.
  */
-export function isRaised(value: any): boolean {
+export function isRaised(value: {
+  state?: unknown
+  method?: unknown
+}): boolean {
   return (
     value.state !== NotificationStates.NORMAL ||
     (Array.isArray(value.method) && value.method.length > 0)
@@ -1489,7 +1492,7 @@ function lastRecordForEnergy(json: any, energy: string): any {
 // ---------------------------------------------------------------------------
 
 export interface DrapGrid {
-  validTime: string | null
+  validTime: string
   /** 89 down to -89, step -2. */
   latitudes: number[]
   /** -178 up to 178, step 4. */
@@ -1540,6 +1543,10 @@ export function parseDrapGrid(rawText: string): DrapGrid | null {
   // auroraCell avoids by returning null on an inexact match rather than
   // approximating.
   if (latitudes.length !== 90 || longitudes.length !== 90) return null
+  // The header is torn by the same rewrite the rows are, and a grid whose
+  // valid time did not survive it has no way to say how old it is. Publishing
+  // it stamped with the local clock dates a NOAA reading by when we read it.
+  if (!validTime) return null
 
   return { validTime, latitudes, longitudes, frequenciesMHz: rows }
 }

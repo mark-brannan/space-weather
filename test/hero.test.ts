@@ -190,6 +190,33 @@ describe('heroState', () => {
     expect(result.peak).toEqual({ letter: 'G', level: 2 })
   })
 
+  it('carries the level still in force under a bigger earlier peak', () => {
+    // Both states lead with the day's maximum, and the page used to append
+    // "nothing in force" / "conditions have since eased" to each. Neither is
+    // true while a quieter level is still running.
+    const clear = state({
+      observed: { R: 2 },
+      peak24h: { R: 3 },
+      series: series(2, 3)
+    })
+    expect(clear.kind).toBe('all-clear')
+    expect(clear.inForce).toEqual({ letter: 'R', level: 2 })
+
+    const recent = state({ observed: { G: 1 }, peak24h: { G: 2 } })
+    expect(recent.kind).toBe('recent')
+    expect(recent.inForce).toEqual({ letter: 'G', level: 1 })
+  })
+
+  it('reports nothing in force when the day peaked and then went quiet', () => {
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      peak24h: { G: 3 },
+      series: series(2, 2)
+    })
+    expect(result.kind).toBe('all-clear')
+    expect(result.inForce).toBeNull()
+  })
+
   it('is quiet only when nothing rose above background at all', () => {
     const result = state({ observed: { G: 0 }, peak24h: { G: 0, S: 0, R: 0 } })
     expect(result.kind).toBe('quiet')

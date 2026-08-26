@@ -9,7 +9,10 @@ import { SCALES_FIXTURES, fixtureJson } from './fixtures.js'
 const dotted = (webappPath: string) => webappPath.replace(/\//g, '.') + '.'
 
 /** Every G/S/R level the plugin publishes under `base` for one payload. */
-function levelsAt(json: any, base: string): Record<string, number> {
+function levelsAt(
+  json: Record<string, unknown>,
+  base: string
+): Record<string, number> {
   const range = NOAA_SCALE_RANGES.find((r) => SCALES_BASE + r.subPath === base)
   if (!range) throw new Error(`no NOAA range publishes ${base}`)
   const values = transformJsonScaleRange(

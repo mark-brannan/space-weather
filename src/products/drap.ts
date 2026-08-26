@@ -109,7 +109,7 @@ export const drap: Product = {
         { path: `${DRAP_BASE}.highest_affected_frequency`, value: frequencyHz },
         { path: `${DRAP_BASE}.validTime`, value: grid.validTime }
       ],
-      grid.validTime ?? new Date().toISOString()
+      grid.validTime
     )
   }
 }

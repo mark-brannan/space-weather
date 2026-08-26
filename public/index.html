@@ -843,22 +843,35 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       sub.textContent = `Expect ${uncapitalise(impact('G', state.level))}`;
       timerSev = sevClass(state.level);
     } else if (state.kind === 'all-clear') {
-      // A real storm ended, so the relief is the news and the chip says so.
-      chip.className = 'chip sev-1'; chip.textContent = 'All Clear';
-      headline.textContent = 'Space weather is quiet.';
-      sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.`;
+      // A real storm ended, so the relief is the news and the chip says so --
+      // unless a quieter level is still running, in which case the chip has
+      // to say that instead or it contradicts the subtext right below it.
+      if (state.inForce) {
+        setChip(chip, state.inForce.level, `${state.inForce.letter}${state.inForce.level} · ${sevWord(state.inForce.level)}`);
+        headline.textContent = 'Space weather has eased, not cleared.';
+        sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; ${state.inForce.letter}${state.inForce.level} still in force.`;
+      } else {
+        chip.className = 'chip sev-1'; chip.textContent = 'All Clear';
+        headline.textContent = 'Space weather is quiet.';
+        sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.`;
+      }
     } else if (state.kind === 'recent') {
       // Nothing in force this minute, but NOAA reports the 24-hour maximum as
       // the day's condition and WWV says it out loud. Nothing ended here, so
       // there is no relief to report -- just what the day has been.
       setChip(chip, state.peak.level, `${state.peak.letter}${state.peak.level} · ${sevWord(state.peak.level)}`);
       headline.innerHTML = `${SCALE_NOUNS[state.peak.letter]} reached ${level(state.peak.letter + state.peak.level)} in the past 24 hours.`;
-      sub.textContent = `${impact(state.peak.letter, state.peak.level)} Nothing in force right now.`;
+      sub.textContent = `${impact(state.peak.letter, state.peak.level)} ${state.inForce ? `${state.inForce.letter}${state.inForce.level} still in force.` : 'Nothing in force right now.'}`;
       timerSev = sevClass(state.peak.level);
     } else {
       chip.className = 'chip sev-1'; chip.textContent = 'Quiet';
       headline.textContent = 'Space weather is quiet.';
-      sub.textContent = 'Nothing above background in the last 24 hours, none forecast through 72 hours.';
+      // The forecast only bounds G3-and-above (see timerFor's escalation), and
+      // with no series at all it bounds nothing -- so the second clause is a
+      // claim this page can only make in one of the two cases.
+      sub.textContent = state.timer.kind === 'forecast-clear'
+        ? 'Nothing above background in the last 24 hours, and no G3 or stronger in the forecast.'
+        : 'Nothing above background in the last 24 hours.';
     }
 
     renderTimer(state.timer, timerSev, state.kind === 'storm' && state.letter !== 'G');

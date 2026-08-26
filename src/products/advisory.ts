@@ -159,7 +159,12 @@ function clearShortIdPaths(publisher: Publisher, now: Date) {
   // alongside whatever legacy children are left, so the entries are only
   // known to maybe carry a notification.
   const existing = publisher.selfPath(ADVISORY_BASE) as
-    Record<string, { value?: { id?: string } } | undefined> | undefined
+    | Record<
+        string,
+        | { value?: { id?: string; state?: unknown; method?: unknown } }
+        | undefined
+      >
+    | undefined
   if (!existing) return
 
   for (const [leaf, entry] of Object.entries(existing)) {

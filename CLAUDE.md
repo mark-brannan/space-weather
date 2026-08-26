@@ -111,7 +111,7 @@ frequency argument.
 **That conservatism is about notifications, never about what the page says.**
 The webapp describes conditions in NOAA's own vocabulary — None / Minor /
 Moderate / Strong / Severe / Extreme, `SEV_WORDS` in `index.html`, mirroring
-`SCALE_WORDS` in `parse.ts` — because "what is the sky doing" is a fact and
+`NoaaScaleNames` in `parse.ts` — because "what is the sky doing" is a fact and
 "how loud should this be" is a preference. The two got answered with one word
 once: the banner carried the notification-state ladder, so an R2 that NOAA's
 front page and the WWV bulletin both called *moderate* rendered as **Quiet**,

@@ -878,8 +878,16 @@ describe('parseDrapGrid', () => {
     const full = fixture('drap-global-frequencies.2026_08_20.txt')
     const lines = full.split('\n')
     const dataStart = lines.findIndex((line) => /^\s*-?\d+\s*\|/.test(line))
+    // Without this the slice below could drop every data row and the parser
+    // would return null for the wrong reason, passing the test on nothing.
+    expect(dataStart).toBeGreaterThanOrEqual(0)
     const truncated = lines.slice(0, dataStart + 45).join('\n')
     expect(parseDrapGrid(truncated)).toBeNull()
+  })
+
+  it('rejects a grid whose valid time did not survive the read', () => {
+    const full = fixture('drap-global-frequencies.2026_08_20.txt')
+    expect(parseDrapGrid(full.replace(/Product Valid At.*/, ''))).toBeNull()
   })
 })
 
