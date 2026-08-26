@@ -676,6 +676,7 @@ import { scalesCard } from './scales.js';
 import { drapCellColor, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
+import { drawCoastline } from './geo.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1596,6 +1597,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
       ctx.fillRect(x(lon) - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
     }
 
+    // Over the cells, under the vessel marker: the probability is the reading,
+    // the coastline is only what makes it locatable.
+    drawCoastline(ctx, x, y, { color: text, lonCenter })
+
     // Vessel marker.
     const px = x(position.longitude), py = y(position.latitude)
     ctx.beginPath()
@@ -1660,6 +1665,10 @@ import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js'
         ctx.fillRect(px - cellW / 2, y(lat) - cellH / 2, cellW + 0.5, cellH + 0.5)
       }
     }
+
+    // Over the cells, under the vessel marker: the absorption is the reading,
+    // the coastline is only what makes it locatable.
+    drawCoastline(ctx, x, y, { color: text, lonCenter })
 
     // Vessel marker, drawn the same way the aurora map draws it.
     const px = x(position.longitude), py = y(position.latitude)
