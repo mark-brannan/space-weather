@@ -24,7 +24,7 @@
   },
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "prebuild": "node scripts/sync-icon.mjs",
+    "prebuild": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
     "build": "tsc",
     "typecheck": "tsc -p tsconfig.test.json",
     "watch": "npm run build -- -w",
@@ -32,7 +32,7 @@
     "dev:webapp": "node scripts/mock-webapp.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "node scripts/sync-icon.mjs && (husky || true)"
+    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs && (husky || true)"
   },
   "repository": {
     "type": "git",
@@ -59,6 +59,8 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "coast-wright": "^0.0.1-alpha.0",
+    "coastlines": "^0.0.1-alpha.0",
     "husky": "^9.1.7",
     "prettier": "^3.4.2",
     "typescript": "^7.0.2",

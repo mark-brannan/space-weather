@@ -116,6 +116,11 @@ dist
 # "files") but has no business being a second copy under version control.
 /public/icon.svg
 
+# Generated from the "coastlines" and "coast-wright" npm packages by
+# scripts/sync-coastline.mjs, same reasoning as public/icon.svg above.
+/public/coastline.js
+/public/vendor/
+
 # Contact sheets from scripts/screenshots/states.mjs. Review material for a
 # pull request that changes the webapp, not repo content: pinning one would
 # mean regenerating it on every unrelated change to the page.

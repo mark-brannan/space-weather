@@ -8,7 +8,7 @@
 // pins the webapp's copy against the server's. A second copy here would be a
 // third place the same ramp could drift.
 import { MARINE_SSB_BAND_EDGES_HZ, drapCellColor } from './hf.js'
-import { drawCoastline } from './geo.js'
+import { drawCoastline, limn } from './geo.js'
 
 const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
 const TOP_MHZ =
@@ -339,27 +339,12 @@ export function drawDrapMap(canvas, grid, options = {}) {
   ctx.stroke()
 
   if (probe?.points?.length) {
-    ctx.strokeStyle = ink
-    ctx.globalAlpha = 0.9
-    ctx.lineWidth = 1.5
-    ctx.beginPath()
-    let previousX = null
-    for (const point of probe.points) {
-      const x = p.x(point.longitude)
-      const y = p.y(point.latitude)
-      // A path crossing the antimeridian would otherwise be drawn as a line
-      // straight back across the whole map.
-      if (previousX !== null && Math.abs(x - previousX) > width / 2) {
-        ctx.moveTo(x, y)
-      } else if (previousX === null) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-      previousX = x
-    }
-    ctx.stroke()
-    ctx.globalAlpha = 1
+    // The probed path is a ring of [lon, lat] like the coastline; limn
+    // already breaks it at the seam against lonCenter rather than the
+    // antimeridian, which is the same guard this used to hand-roll in pixel
+    // space against `width / 2`.
+    const path = probe.points.map((point) => [point.longitude, point.latitude])
+    limn(ctx, [path], p.x, p.y, { color: ink, alpha: 0.9, width: 1.5 })
 
     if (probe.worstAt) {
       ctx.fillStyle = ink

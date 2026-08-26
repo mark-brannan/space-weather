@@ -34,10 +34,10 @@ describe('the coastline asset', () => {
   it('stays small enough that its size is never the argument', () => {
     // The whole case for shipping geography at all is that it costs a
     // rounding error against a tarball carrying a megabyte of screenshots
-    // (issue #32). A later regeneration at a finer tolerance, or somebody
-    // dropping a raw Natural Earth file in here, would quietly spend that
-    // argument -- this is the number that has to hold, not the tolerance
-    // constants in scripts/gen-coastline.mjs.
+    // (issue #32). A coarser fidelity profile from the "coastlines" package,
+    // or a raw Natural Earth file dropped in here by hand, would quietly
+    // spend that argument -- this is the number that has to hold, not the
+    // tolerance the "portolani" generator was tuned with.
     const asset = fileURLToPath(
       new URL('../public/coastline.js', import.meta.url)
     )
