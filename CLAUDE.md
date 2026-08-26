@@ -402,7 +402,7 @@ loads `/admin/` first.
 `scripts/screenshots/states.mjs` is the other half of that package, and the two
 answer different questions. `capture.mjs` shoots a live server and rewrites the
 five PNGs the README ships; `states.mjs` starts `scripts/mock-webapp.mjs`
-itself, walks every state it declares in both themes, and writes a gitignored
+itself, walks every state it declares, and writes a gitignored
 `.hero-states/` with the PNGs and an `index.html` contact sheet. Nothing is
 committed — these are review material for one pull request, and pinning them
 would mean recapturing on every unrelated change to the page.
@@ -410,6 +410,10 @@ would mean recapturing on every unrelated change to the page.
 ```shell
 node scripts/screenshots/states.mjs        # --out, --port, --theme
 ```
+
+Defaults to dark only, since that's the only rendering worth reviewing on a
+pull request; pass `--theme light` for a one-off check of the light theme,
+which the app still supports.
 
 It reads the state list off the mock's own startup line rather than importing
 it, so a state added there appears here with no second edit. The clip is the
