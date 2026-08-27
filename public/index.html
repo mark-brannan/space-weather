@@ -383,6 +383,10 @@
     background: color-mix(in srgb, var(--sev-4) 55%, transparent);
     border-color: var(--sev-4); color: var(--text);
   }
+  /* Reference marks at 2/6/12/18 MHz -- common marine SSB calling
+     frequencies. There's no continuous axis here to draw a line across, so
+     the "line" is a left edge on the chip nearest each frequency instead. */
+  .hf-band.ref { border-left: 2px solid var(--amber); }
   /* Wraps between the two keys but never inside one: at kiosk width the tile
      is ~245px and "Not blocked from below" broke away from its own swatch. */
   .hf-bands-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 10px; }
@@ -1074,8 +1078,15 @@ import { DEFAULT_RADIUS_DEG, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpac
         : `<div class="hf-cutoff"><span class="n">${(cutoffHz / 1e6).toFixed(1)}</span><span class="u">MHz and below</span></div>
            <div class="hf-cutoff-sub">Absorbed by 1&nbsp;dB or more &mdash; ${bandsAbsorbed} of ${bands.length} marine SSB bands.</div>`;
 
+    // Marine SSB calling frequencies -- 2, 6, 12, 18 MHz -- get a reference
+    // mark on the band chip they fall in. There's no continuous axis to draw
+    // a line across, so the mark is the chip's own left edge.
+    const REF_MHZ = [2, 6, 12, 18];
     const strip = `<div class="hf-bands">${bands
-      .map((b) => `<div class="hf-band${b.absorbed ? ' absorbed' : ''}" title="${b.label} MHz band">${b.label}</div>`)
+      .map(
+        (b) =>
+          `<div class="hf-band${b.absorbed ? ' absorbed' : ''}${REF_MHZ.includes(Number(b.label)) ? ' ref' : ''}" title="${b.label} MHz band">${b.label}</div>`
+      )
       .join('')}</div>
       <div class="hf-bands-legend">
         <span><i class="absorbed"></i>Absorbed</span>
