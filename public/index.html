@@ -1807,7 +1807,10 @@ import { cutoffAt, drawDrapMap, gridSummary, legendStops, pathAbsorption, positi
 
   document.getElementById('hfRefresh').addEventListener('click', () => {
     const button = document.getElementById('hfRefresh')
-    handleRefreshClick(button, DRAP_REFRESH_URL, refresh, labelDrapButton)
+    handleRefreshClick(button, DRAP_REFRESH_URL, async () => {
+      await refresh()
+      if (mapState !== 'idle') await loadMap() // same as the aurora tile's button: pick up the fresh grid if the map is open
+    }, labelDrapButton)
   })
 
   document.getElementById('mapLayer').addEventListener('change', (event) => {
