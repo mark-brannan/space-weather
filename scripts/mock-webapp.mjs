@@ -3,6 +3,7 @@
 //
 //   node scripts/mock-webapp.mjs [port]     # default 8731
 //   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
+//   node scripts/mock-webapp.mjs --host 127.0.0.1 [port]   # loopback only
 //
 // index.html ships unmodified except for a strip appended to it. Everything
 // fake is on the wire: every path ROUTES understands is answered here (and
@@ -263,13 +264,51 @@ async function handleGrid(name, res) {
 const argv = process.argv.slice(2)
 let upstreamArg = null
 let portArg = null
+let hostArg = null
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--upstream') upstreamArg = argv[++i]
   else if (argv[i].startsWith('--upstream='))
     upstreamArg = argv[i].slice('--upstream='.length)
+  else if (argv[i] === '--host') hostArg = argv[++i]
+  else if (argv[i].startsWith('--host='))
+    hostArg = argv[i].slice('--host='.length)
   else if (portArg === null) portArg = argv[i]
 }
 const PORT = Number(portArg || 8731)
+// Binds every interface by default: the point of this rig is to put a change in
+// front of somebody on another device, and 127.0.0.1 only resolves on the
+// machine running it. --host narrows it back for a hostile network.
+const HOST = hostArg || '0.0.0.0'
+
+// Printed rather than guessed at, so the URL to paste into a phone is in the
+// output instead of requiring an `ip addr` on the side.
+function listenUrls() {
+  // An IPv6 literal is only a valid authority in brackets, and --host takes
+  // one verbatim.
+  const authority = (addr) => (addr.includes(':') ? `[${addr}]` : addr)
+  if (HOST !== '0.0.0.0' && HOST !== '::')
+    return [`http://${authority(HOST)}:${PORT}/`]
+  // Node 18.0.x reports `family` as the number 4 rather than 'IPv4' (and 6
+  // rather than 'IPv6'), and package.json still supports >=18, so a string
+  // compare alone would print nothing but loopback there -- exactly the case
+  // this function exists for.
+  const six = HOST === '::'
+  const wanted = six ? ['IPv6', 6] : ['IPv4', 4]
+  // Link-local is not internal, but it is not shareable either: an fe80::/10
+  // URL needs a zone identifier, and this machine's zone is meaningless on
+  // the device the link is being pasted into. Same for 169.254/16.
+  const linkLocal = (a) =>
+    /^fe[89ab][0-9a-f]:/i.test(a) || a.startsWith('169.254.')
+  const addrs = Object.values(os.networkInterfaces())
+    .flat()
+    .filter((n) => n && wanted.includes(n.family) && !n.internal)
+    .map((n) => n.address)
+    .filter((a) => !linkLocal(a))
+  return [
+    `http://${six ? '[::1]' : '127.0.0.1'}:${PORT}/`,
+    ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
+  ]
+}
 // Trailing slash stripped once here so every proxied request can just concatenate
 // base + path without re-checking for a double slash.
 const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
@@ -754,8 +793,9 @@ http
       res.writeHead(404).end('not found')
     }
   })
-  .listen(PORT, '127.0.0.1', () => {
-    console.log(`mock signalk + webapp on http://127.0.0.1:${PORT}/`)
+  .listen(PORT, HOST, () => {
+    for (const url of listenUrls())
+      console.log(`mock signalk + webapp on ${url}`)
     if (UPSTREAM)
       console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
     else console.log(`states: ${Object.keys(STATES).join(', ')}`)
