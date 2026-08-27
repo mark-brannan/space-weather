@@ -538,15 +538,18 @@
   /* Ticks sit in their own row below the bar, not as lines drawn over the
      gradient -- overlaid on the colour they read as mucky, and a bare number
      with no unit reads as part of the scale rather than a label for it. */
-  .scale-ticks { position: relative; height: 12px; font-size: 0.6rem; color: var(--text-dim); white-space: nowrap; }
+  .scale-ticks { position: relative; height: 12px; font-size: 0.5rem; color: var(--text-dim); white-space: nowrap; }
   .scale-tick { position: absolute; top: 0; }
+  /* A thin mark directly under the bar at each labelled edge, so the number
+     below it reads as pointing at a spot on the gradient instead of
+     floating near it -- the label itself can still be shifted a few percent
+     to keep its text from overlapping its neighbour without losing that
+     connection (Mark, 2026-08-27: "I can't tell where they're supposed to
+     line up"). */
+  .tick-marks { position: relative; height: 4px; }
+  .tick-mark { position: absolute; top: 0; width: 1px; height: 4px; background: var(--text-dim); }
   .scale-tick.align-center { transform: translateX(-50%); }
   .scale-tick.align-right { transform: translateX(-100%); }
-  /* Band-edge ticks doubled, and in the same amber as the Kp line and the
-     aurora ring, so they read from across the cabin instead of blending
-     into the dim grey every other scale tick uses (Mark's round-3 review). */
-  .drap-legend .scale-ticks { height: 24px; }
-  .drap-legend .scale-tick { font-size: 1.2rem; color: var(--amber); }
   .map-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
 
   /* line-height is explicit because the two-line trim measures against it. */
@@ -763,7 +766,7 @@ import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
 import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
-import { bandEdgeTicks, gridSummary, legendStops, pathAbsorption } from './drapMap.js';
+import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
@@ -1613,39 +1616,28 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       .join('')}</div>`
   }
 
-  function auroraLegendHtml() {
-    return `<div class="map-legend"><span class="bar"></span>
-      ${scaleTicksHtml([
-        { fraction: 0, label: '0%' },
-        { fraction: 0.5, label: '50%' },
-        { fraction: 1, label: '100%' }
-      ])}</div>`
+  // A mark directly under the bar at each tick's exact fraction -- unlike
+  // the label below it, this is never shifted to dodge a neighbour, so it's
+  // what actually answers "which colour does this number mean".
+  function tickMarksHtml(ticks) {
+    return `<div class="tick-marks">${ticks
+      .map((tick) => `<span class="tick-mark" style="left:${(tick.fraction * 100).toFixed(1)}%"></span>`)
+      .join('')}</div>`
   }
 
-  // One tick per marine SSB band edge is nine labels on a ~190px bar --
-  // `bandEdgeTicks` stays that granular because the map's own contours draw
-  // one per edge too, but the legend's row is too narrow to caption all nine
-  // without them overlapping into unreadable text (Mark's round-3 review).
-  // Greedy left-to-right thinning, forcing the topmost edge back in even if
-  // it collides with its neighbour -- it's the edge nearest the top of NOAA's
-  // own scale, and the one a reader most wants named.
-  function thinTicks(ticks, minGapFraction) {
-    if (!ticks.length) return []
-    const kept = [ticks[0]]
-    for (let i = 1; i < ticks.length; i++) {
-      if (ticks[i].fraction - kept[kept.length - 1].fraction >= minGapFraction) {
-        kept.push(ticks[i])
-      }
-    }
-    const last = ticks[ticks.length - 1]
-    if (kept[kept.length - 1] !== last) {
-      if (last.fraction - kept[kept.length - 1].fraction < minGapFraction) {
-        kept[kept.length - 1] = last
-      } else {
-        kept.push(last)
-      }
-    }
-    return kept
+  // 10/50/90, not 0/50/100: NOAA's own aurora legend carries those three, and
+  // they are the ones a reader acts on -- 0% and 100% label the ends of the
+  // bar, which are already visible as the ends of the bar. Marks under each,
+  // matching the D-RAP legend directly above it.
+  const AURORA_TICKS = [
+    { fraction: 0.1, label: '10%' },
+    { fraction: 0.5, label: '50%' },
+    { fraction: 0.9, label: '90%' }
+  ]
+
+  function auroraLegendHtml() {
+    return `<div class="map-legend"><span class="bar"></span>
+      ${tickMarksHtml(AURORA_TICKS)}${scaleTicksHtml(AURORA_TICKS)}</div>`
   }
 
   function drapLegendHtml() {
@@ -1653,19 +1645,28 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const gradient = stops
       .map((stop, i) => `${stop.color} ${((i / (stops.length - 1)) * 100).toFixed(1)}%`)
       .join(', ')
-    // Rounded to whole MHz here (the map's own contours still draw from the
-    // exact edges) -- a legend tick is read at a glance, and "16.36 MHz" ate
-    // most of the room a thinned set of ticks was trying to buy back.
-    const ticks = mapControls.bandEdges
-      ? scaleTicksHtml(
-          thinTicks(bandEdgeTicks(), 0.34).map((tick) => ({
-            fraction: tick.fraction,
-            label: `${Math.round(tick.mhz)} MHz`
-          }))
-        )
-      : ''
+    // NOAA's own labels -- every 5 MHz to 35 -- not the marine SSB band edges
+    // this used to carry. The band edges are the more useful *answer* ("which
+    // of my bands has gone under") but they are not the scale NOAA draws, and
+    // a reader arriving from NOAA's product, or looking at a radio that tunes
+    // the whole band rather than the marine channels, reads them as an
+    // unexplained deviation (Mark, 2026-08-27). They remain the map's
+    // contours and the whole of the HF tile's strip; only the axis is NOAA's.
+    // Always drawn: this is the legend's axis, so it is not the band-contour
+    // checkbox's to switch off.
+    const shown = legendMhzTicks()
+    const chrome =
+      tickMarksHtml(shown) +
+      scaleTicksHtml(
+        // Unit on the last only -- it reads as the axis's unit rather than
+        // needing to repeat it at every tick.
+        shown.map((tick, i) => ({
+          fraction: tick.fraction,
+          label: i === shown.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
+        }))
+      )
     return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
-      style="background:linear-gradient(90deg, ${gradient})"></span></span>${ticks}</div>`
+      style="background:linear-gradient(90deg, ${gradient})"></span></span>${chrome}</div>`
   }
 
   // What the number means for somebody about to transmit: the bands it takes

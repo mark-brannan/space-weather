@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   LEGEND_MAX_MHZ,
   bandEdgeTicks,
+  legendMhzTicks,
   cutoffAt,
   distanceKm,
   greatCirclePoints,
@@ -52,6 +53,25 @@ describe('bandEdgeTicks', () => {
       expect(tick.fraction).toBeGreaterThanOrEqual(0)
       expect(tick.fraction).toBeLessThanOrEqual(1)
     }
+  })
+})
+
+describe('legendMhzTicks', () => {
+  // The numbers NOAA prints on its own D-RAP colorbar. Pinned literally, not
+  // derived, because the whole point of the change that introduced them is
+  // that the axis matches NOAA's rather than following from anything here.
+  it("labels every 5 MHz to the bar's own maximum", () => {
+    expect(legendMhzTicks().map((t) => t.mhz)).toEqual([
+      0, 5, 10, 15, 20, 25, 30, 35
+    ])
+  })
+
+  it('spans the full bar, ends included', () => {
+    const ticks = legendMhzTicks()
+    expect(ticks[0].fraction).toBe(0)
+    expect(ticks[ticks.length - 1].fraction).toBe(1)
+    for (const tick of ticks)
+      expect(tick.fraction).toBeCloseTo(tick.mhz / LEGEND_MAX_MHZ, 10)
   })
 })
 
