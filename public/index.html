@@ -350,6 +350,11 @@
     opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 5;
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
+  /* HF Radio sits rightmost in the grid -- opening its bubble from the
+     icon's left edge runs the fixed 265px width past the viewport's own
+     right edge, not just the tile's. Anchor from the icon's right edge
+     instead so it opens leftward. */
+  .info.bubble-left .bubble { left: auto; right: 0; }
 
   /* HF Radio. The cutoff leads because it is the only number here measured
      at the boat and in the present tense; everything under it is context. */
@@ -618,7 +623,7 @@
       <div class="tile-head">
         <h2>HF Radio</h2>
         <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
-        <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
+        <a class="info bubble-left" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
           target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
           on the way out, at this position. Filled bands are absorbed; the rest are only
           &ldquo;not blocked from below&rdquo; &mdash; nothing here measures the F2 layer, so no
@@ -1023,7 +1028,10 @@ import { cutoffAt, drawDrapMap, gridSummary, legendStops, pathAbsorption, positi
       ? `<div class="hf-cutoff"><span class="n">${DASH}</span></div>
          <div class="hf-cutoff-sub">No D-RAP reading yet &mdash; it needs a fetched grid and a vessel position.</div>`
       : cutoffHz === 0
-        ? `<div class="hf-cutoff"><span class="n">None</span></div>
+        // "None" here reads as "no reading", the exact opposite of what a
+        // measured zero means -- so the headline stays a word only DASH
+        // (missing) and this (measured, clear) can't be confused for.
+        ? `<div class="hf-cutoff"><span class="n">Clear</span></div>
            <div class="hf-cutoff-sub">No D-region absorption predicted here.</div>`
         : `<div class="hf-cutoff"><span class="n">${(cutoffHz / 1e6).toFixed(1)}</span><span class="u">MHz and below</span></div>
            <div class="hf-cutoff-sub">Absorbed by 1&nbsp;dB or more &mdash; ${bandsAbsorbed} of ${bands.length} marine SSB bands.</div>`;
