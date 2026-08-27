@@ -26,6 +26,7 @@ export const DEFAULTS = Object.freeze({
   auroraEnabled: false,
   auroraInterval: 120,
   drapEnabled: true,
+  drapInterval: 60,
   updateInterval: 60
 })
 
@@ -49,10 +50,11 @@ export const SCALE_NAMES = Object.freeze([
 export const AURORA_WIRE_KB = 145
 export const OTHER_WIRE_KB = 5
 /**
- * D-RAP follows `updateInterval` like the row above, but is priced separately
- * rather than folded into it: at two thirds of that whole row it is much too
- * big to disappear into a rounding, and it is the only part of that interval
- * the user can switch off.
+ * D-RAP follows its own `drapInterval` rather than `updateInterval`, and is
+ * priced separately rather than folded into the row above: at two thirds of
+ * that whole row it was much too big to disappear into a rounding even before
+ * it got a rate of its own, and it is the only part of that interval the user
+ * can switch off.
  */
 export const DRAP_WIRE_KB = 3.3
 
@@ -123,7 +125,11 @@ export function dailyKb(settings) {
   const polls =
     MINUTES_PER_DAY / minutes(settings.updateInterval, DEFAULTS.updateInterval)
   const other = polls * OTHER_WIRE_KB
-  const drap = settings.drapEnabled ? polls * DRAP_WIRE_KB : 0
+  const drap = settings.drapEnabled
+    ? (MINUTES_PER_DAY /
+        minutes(settings.drapInterval, DEFAULTS.drapInterval)) *
+      DRAP_WIRE_KB
+    : 0
   const fixed = fixedKb(settings)
   return { aurora, other, drap, fixed, total: aurora + other + drap + fixed }
 }
@@ -387,9 +393,24 @@ function popupBand(raw, alarmLevel) {
   return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
 }
 
+/** The lower of two possibly-absent minute values. Mirrors `smaller` in src/config.ts. */
+function smaller(a, b) {
+  const values = [a, b].map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  return values.length > 0 ? Math.min(...values) : undefined
+}
+
 export function panelSettings(configuration) {
   const c = configuration ?? {}
   const alarmLevel = scaleValue(c.alarmLevel, DEFAULTS.alarmLevel)
+  // Mirrors `settingsFrom`: a config saved before `updateInterval` existed
+  // still carries `observationsInterval` / `notificationsInterval`, and the
+  // smaller of the two is the cadence that install was actually polling at.
+  // Resolved once so the field shown for it and the drapInterval fallback
+  // below agree with each other and with the plugin.
+  const updateInterval = minutes(
+    c.updateInterval ?? smaller(c.observationsInterval, c.notificationsInterval),
+    DEFAULTS.updateInterval
+  )
   return {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
     alarmLevel,
@@ -402,7 +423,16 @@ export function panelSettings(configuration) {
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     drapEnabled: c.drapEnabled !== false,
-    updateInterval: minutes(c.updateInterval, DEFAULTS.updateInterval)
+    // Mirrors `settingsFrom`: absent falls back to the resolved
+    // `updateInterval` above (what a pre-split config was actually fetching
+    // D-RAP at), not straight to the 60-minute default -- an explicit but
+    // invalid `drapInterval` still lands on 60, since it names its own
+    // setting, wrong value and all.
+    drapInterval:
+      c.drapInterval === undefined
+        ? updateInterval
+        : minutes(c.drapInterval, DEFAULTS.drapInterval),
+    updateInterval
   }
 }
 

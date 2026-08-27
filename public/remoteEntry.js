@@ -153,7 +153,37 @@ function createPanel(React) {
   const NoaaLink = ({ href, text }) =>
     h('a', { href, target: '_blank', rel: 'noopener noreferrer' }, text)
 
-  const Check = ({ id, checked, onChange, label, help }) =>
+  /**
+   * The fetch rate for a checkbox's own product, inline with its label rather
+   * than in the shared row below -- so the cost a box turns on lives next to
+   * the box, and `flex-wrap` on the row it sits in is the whole answer to a
+   * narrow screen: the pair drops to its own line with no breakpoint to get
+   * wrong.
+   */
+  const Rate = ({ id, label, value, onChange, disabled }) =>
+    h(
+      'span',
+      { className: 'd-inline-flex align-items-center gap-2' },
+      h(
+        'label',
+        { className: 'form-label mb-0 small text-nowrap', htmlFor: id },
+        label
+      ),
+      h('input', {
+        className: 'form-control form-control-sm',
+        style: { width: '5.5em' },
+        id,
+        type: 'number',
+        min: 1,
+        step: 'any',
+        disabled,
+        value,
+        onChange: (event) => onChange(event.target.value)
+      }),
+      h('span', { className: 'small text-muted text-nowrap' }, 'minutes')
+    )
+
+  const Check = ({ id, checked, onChange, label, help, rate }) =>
     h(
       'div',
       { className: 'form-check mb-4' },
@@ -165,9 +195,14 @@ function createPanel(React) {
         onChange: (event) => onChange(event.target.checked)
       }),
       h(
-        'label',
-        { className: 'form-check-label fw-semibold', htmlFor: id },
-        label
+        'div',
+        { className: 'd-flex flex-wrap align-items-center gap-3' },
+        h(
+          'label',
+          { className: 'form-check-label fw-semibold', htmlFor: id },
+          label
+        ),
+        rate
       ),
       help && h('div', { className: 'form-text' }, help)
     )
@@ -640,6 +675,13 @@ function createPanel(React) {
         checked: settings.auroraEnabled,
         onChange: (value) => set('auroraEnabled', value),
         label: "Keep NOAA's aurora forecast grid up to date",
+        rate: h(Rate, {
+          id: 'noaa-aurora-interval',
+          label: 'Aurora, every',
+          disabled: !settings.auroraEnabled,
+          value: settings.auroraInterval,
+          onChange: (value) => set('auroraInterval', value)
+        }),
         help: h(
           'span',
           null,
@@ -657,6 +699,13 @@ function createPanel(React) {
         checked: settings.drapEnabled,
         onChange: (value) => set('drapEnabled', value),
         label: 'Publish HF absorption (NOAA D-RAP)',
+        rate: h(Rate, {
+          id: 'noaa-drap-interval',
+          label: 'HF absorption, every',
+          disabled: !settings.drapEnabled,
+          value: settings.drapInterval,
+          onChange: (value) => set('drapInterval', value)
+        }),
         help: h(
           'span',
           null,
@@ -664,56 +713,30 @@ function createPanel(React) {
             ' Frequencies below it are absorbed; those above it should get' +
             ' through, barring other factors. NOAA serves one grid covering' +
             ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
-            ' on each fetch of the "everything else" interval below, hourly' +
-            ' by default. With it off the webapp can still fetch the grid' +
-            ' once, when you ask it to. ',
+            ' on each fetch of the interval above, hourly by default. With it' +
+            ' off the webapp can still fetch the grid once, when you ask it' +
+            ' to. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
         )
       }),
 
-      h(
-        'div',
-        { className: 'row g-3 mb-3' },
-        h(
-          'div',
-          { className: 'col-sm-6' },
-          h(Field, {
-            label: 'Aurora, every (minutes)',
-            htmlFor: 'noaa-aurora-interval',
-            children: h('input', {
-              className: 'form-control',
-              id: 'noaa-aurora-interval',
-              type: 'number',
-              // `min` is the whole of the validation, and `step` has to stay
-              // off it: a step of 5 from a base of 1 makes 60 and 120 -- the
-              // two defaults -- step mismatches, and an invalid control blocks
-              // the form silently. Nothing here submitted at all.
-              min: 1,
-              step: 'any',
-              disabled: !settings.auroraEnabled,
-              value: settings.auroraInterval,
-              onChange: (event) => set('auroraInterval', event.target.value)
-            })
-          })
-        ),
-        h(
-          'div',
-          { className: 'col-sm-6' },
-          h(Field, {
-            label: 'Everything else, every (minutes)',
-            htmlFor: 'noaa-update-interval',
-            children: h('input', {
-              className: 'form-control',
-              id: 'noaa-update-interval',
-              type: 'number',
-              min: 1,
-              step: 'any',
-              value: settings.updateInterval,
-              onChange: (event) => set('updateInterval', event.target.value)
-            })
-          })
-        )
-      ),
+      h(Field, {
+        label: 'Everything else, every (minutes)',
+        htmlFor: 'noaa-update-interval',
+        children: h('input', {
+          className: 'form-control',
+          id: 'noaa-update-interval',
+          type: 'number',
+          // `min` is the whole of the validation, and `step` has to stay off
+          // it: a step of 5 from a base of 1 makes 60 and 120 -- two of the
+          // defaults on this screen -- step mismatches, and an invalid
+          // control blocks the form silently. Nothing here submitted at all.
+          min: 1,
+          step: 'any',
+          value: settings.updateInterval,
+          onChange: (event) => set('updateInterval', event.target.value)
+        })
+      }),
 
       h(Field, { children: h(Budget, { settings }) }),
 

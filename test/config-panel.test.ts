@@ -169,6 +169,27 @@ describe('panelSettings', () => {
     }
   })
 
+  it('shows the same drapInterval the plugin would actually run', () => {
+    // The panel and settingsFrom resolve the fallback independently; both have
+    // to land on the same number for the screen to describe what is running.
+    for (const configuration of [
+      { updateInterval: 30 },
+      { drapInterval: 10, updateInterval: 30 },
+      { drapInterval: 'soon', updateInterval: 30 },
+      // A config with no updateInterval at all, only the two keys it
+      // replaced -- the case where the panel's own fallback used to stop
+      // short of `settingsFrom`'s migration.
+      { observationsInterval: 15, notificationsInterval: 20 }
+    ]) {
+      expect(panelSettings(configuration).drapInterval).toBe(
+        settingsFrom(configuration).drapInterval
+      )
+      expect(panelSettings(configuration).updateInterval).toBe(
+        settingsFrom(configuration).updateInterval
+      )
+    }
+  })
+
   // What the panel saves replaces the saved configuration rather than patching
   // it, so this is exactly what ends up in the file on disk.
   describe('as the whole saved configuration', () => {
@@ -393,10 +414,12 @@ describe('dailyKb', () => {
     expect(off.other).toBe(on.other)
   })
 
-  it('scales D-RAP with the interval it actually rides on', () => {
+  it('scales D-RAP with its own interval, not the "everything else" one', () => {
     const base = dailyKb(settings)
-    const faster = dailyKb({ ...settings, updateInterval: 30 })
-    expect(faster.drap).toBeCloseTo(base.drap * 2)
+    const fasterOther = dailyKb({ ...settings, updateInterval: 30 })
+    expect(fasterOther.drap).toBeCloseTo(base.drap)
+    const fasterDrap = dailyKb({ ...settings, drapInterval: 30 })
+    expect(fasterDrap.drap).toBeCloseTo(base.drap * 2)
   })
 
   it('does not move the bulletins when an interval is halved', () => {

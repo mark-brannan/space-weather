@@ -6,6 +6,7 @@ export interface Settings {
   auroraEnabled: boolean
   auroraInterval: number
   drapEnabled: boolean
+  drapInterval: number
   alarmLevel: number
   popupLevel: number
   updateInterval: number
@@ -109,10 +110,20 @@ export const schema = {
         ' through, barring other factors. NOAA serves one grid covering the' +
         ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
         ' fetch of the interval below, hourly by default, against 5 KB for' +
-        ' everything else in them. This only governs the recurring fetch' +
-        ' \u2014 with it off, the webapp can still fetch the grid once, when' +
-        ' you ask it to.',
+        ' everything else. This only governs the recurring fetch \u2014 with' +
+        ' it off, the webapp can still fetch the grid once, when you ask it' +
+        ' to.',
       default: true
+    },
+    drapInterval: {
+      type: 'number',
+      title: 'D-RAP fetch interval',
+      description:
+        'in minutes. Separate from the interval below, because D-RAP is the' +
+        ' one part of it a user can switch off: its own rate lets that choice' +
+        ' also control what it costs, rather than only whether it runs at' +
+        ' all.',
+      default: 60
     },
     auroraInterval: {
       type: 'number',
@@ -128,8 +139,8 @@ export const schema = {
       type: 'number',
       title: 'How often to fetch from NOAA',
       description:
-        'in minutes. Covers observations, forecasts and alerts alike, which' +
-        ' together come to about 5 KB per poll, plus 3.3 KB when D-RAP is on.',
+        'in minutes. Covers observations, forecasts and alerts alike,' +
+        ' together about 5 KB per poll.',
       default: 60
     }
   }
@@ -169,6 +180,19 @@ export function settingsFrom(props: any): Settings {
     p.alarmLevel ?? shiftUp(p.zoneAlertThreshold ?? p.minScaleAlert),
     NoaaScaleValues.EXTREME
   )
+  // `observationsInterval` and `notificationsInterval` are the two settings
+  // this replaced. Both are still read so a saved config keeps its cadence
+  // instead of silently snapping back to 60, and the smaller wins, since that
+  // is the rate the install was already polling at. Resolved once, up front,
+  // because drapInterval's own fallback needs the *normalised* value below --
+  // reading `p.updateInterval` raw there would skip this migration and land a
+  // legacy observations/notifications-only config back on the 60-minute
+  // default instead of the cadence it was actually polling at.
+  const updateInterval = minutes(
+    p.updateInterval ??
+      smaller(p.observationsInterval, p.notificationsInterval),
+    60
+  )
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     auroraEnabled: p.auroraEnabled === true,
@@ -178,17 +202,19 @@ export function settingsFrom(props: any): Settings {
     // already fetching it, so defaulting off would silently stop publishing a
     // path that install already had.
     drapEnabled: p.drapEnabled !== false,
+    // A config saved before this split existed was fetching D-RAP on
+    // `updateInterval`, so that's what a pre-existing install keeps -- the
+    // resolved value, not the raw prop, so it also carries a legacy
+    // observations/notifications-only config's cadence across. An explicit
+    // but invalid `drapInterval` still falls back to 60 rather than borrowing
+    // `updateInterval`: it names its own setting, wrong value and all.
+    drapInterval:
+      p.drapInterval === undefined
+        ? updateInterval
+        : minutes(p.drapInterval, 60),
     alarmLevel,
     popupLevel: popupBand(p.popupLevel, alarmLevel),
-    // `observationsInterval` and `notificationsInterval` are the two settings
-    // this replaced. Both are still read so a saved config keeps its cadence
-    // instead of silently snapping back to 60, and the smaller wins, since that
-    // is the rate the install was already polling at.
-    updateInterval: minutes(
-      p.updateInterval ??
-        smaller(p.observationsInterval, p.notificationsInterval),
-      60
-    )
+    updateInterval
   }
 }
 
