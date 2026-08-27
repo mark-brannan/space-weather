@@ -23,7 +23,7 @@ import { auroraCellColor } from './aurora.js'
 import { drapNoaaColor } from './drap-colors.js'
 import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
 import { auroraSampler, drapSampler, rasterize } from './mapRaster.js'
-import { subsolarPoint } from './drapMap.js'
+import { subsolarPoint, distanceKm } from './drapMap.js'
 import { mapView } from './projection.js'
 
 // The map draws on its own ground, not the page's.
@@ -50,6 +50,15 @@ export const MAP_INK = 'rgba(226,232,240,0.92)'
 // on a quiet day -- one band-edge contour, arcing across the whole dayside --
 // there was nothing to tell the reader which line was theirs.
 export const MAP_TRACK = '#4ad2ff'
+// Tried per Mark's round-3 review: the path itself in the same amber as the
+// Kp line and the band-edge legend ticks, so the "your click cost you this
+// much" line reads as belonging to that number, while the labels (which
+// still have to read as the vessel's own, distinct from the data under
+// them) stay in the blue every other mark on this map already uses. Matches
+// `--amber` in index.html's dark palette -- hardcoded rather than read from
+// the page, same as MAP_INK and MAP_TRACK above: this panel is dark
+// regardless of the page's own theme.
+export const MAP_PROBE_LINE = '#ffb238'
 
 export const MIN_RADIUS_DEG = 15
 export const MAX_RADIUS_DEG = 180
@@ -164,11 +173,11 @@ export function drawSpaceMap(canvas, options = {}) {
 
   ctx.save()
   if (disc) ctx.clip(disc)
-  if (drap) drawSun(ctx, view, now)
-  if (probe?.points?.length) drawProbe(ctx, view, probe, MAP_TRACK)
+  if (drap) drawSun(ctx, view, now, position)
+  if (probe?.points?.length) drawProbe(ctx, view, probe, width, height, MAP_TRACK, options.distanceFormat)
   if (position) {
     const at = view.toPixel(position.longitude, position.latitude)
-    if (at) marker(ctx, at[0], at[1], MAP_TRACK, true)
+    if (at) vesselMarker(ctx, at[0], at[1], MAP_TRACK)
   }
   ctx.restore()
 
@@ -417,12 +426,16 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // spelled out because a bare number sitting on a contour line reads as
   // part of the map, not as a label for it.
   const text = `${Math.trunc(level)} MHz`
-  ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  const half = ctx.measureText(text).width / 2 + 4
+  const size = 13
+  ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  const half = ctx.measureText(text).width / 2 + 3
   const cx = Math.min(view.width - half, Math.max(half, best.x))
-  const box = { x0: cx - half, y0: best.y - 8, x1: cx + half, y1: best.y + 8 }
+  const box = {
+    x0: cx - half,
+    y0: best.y - size / 2 - 2,
+    x1: cx + half,
+    y1: best.y + size / 2 + 2
+  }
   for (const other of placed) {
     const clear =
       box.x1 < other.x0 ||
@@ -432,12 +445,35 @@ function labelContour(ctx, view, segments, level, ink, placed) {
     if (!clear) return
   }
   placed.push(box)
-  ctx.fillStyle = 'rgba(0,0,0,0.75)'
-  ctx.beginPath()
-  ctx.roundRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0, 3)
-  ctx.fill()
-  ctx.fillStyle = ink
-  ctx.fillText(text, cx, best.y)
+  // A halo instead of a solid chip: the box was one more opaque rectangle
+  // competing with the contour it labels, and at 10px in the map's own dim
+  // ink it read as "too small, too subtle, placed where we can't see it"
+  // (Mark's punch-list follow-up). White-on-black-stroke carries over both
+  // the near-black violet at the quiet end of NOAA's ramp and the yellow
+  // peak at the busy end, with no background needed either way.
+  haloText(ctx, cx, best.y, text, { size, color: '#fff7e6' })
+}
+
+/**
+ * Text with a dark stroke instead of a background chip -- legible over any
+ * part of the raster without adding an opaque rectangle of its own. For
+ * marks that sit directly on the data (the band-edge contours, the sun);
+ * `chipLabel` below still earns its chip for the probed path, which crosses
+ * the whole ramp by construction and needs a solid ground under it.
+ */
+function haloText(ctx, x, y, text, options = {}) {
+  const { size = 11, weight = 700, color = MAP_INK } = options
+  ctx.save()
+  ctx.font = `${weight} ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = size / 4
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+  ctx.strokeText(text, x, y)
+  ctx.fillStyle = color
+  ctx.fillText(text, x, y)
+  ctx.restore()
 }
 
 /**
@@ -514,12 +550,19 @@ function marchingSquares(field, cols, rows, step, level, out) {
 
 // --- marks -----------------------------------------------------------------
 
+// A vessel near the subsolar point is a vessel at local midday, exactly
+// where its own marker and any probe labels already crowd the picture --
+// so the sun's label shrinks there rather than piling onto that crowd. 2200
+// km is a couple of hours either side of solar noon at the vessel, wide
+// enough that the shrink happens before the two marks actually overlap.
+const SUN_LABEL_CLEAR_KM = 2200
+
 /**
  * The subsolar point. D-region absorption is a dayside phenomenon, so this is
  * the one mark that makes the picture readable at a glance: the blob belongs
  * near it, and a blob that is not is worth a second look.
  */
-function drawSun(ctx, view, now) {
+function drawSun(ctx, view, now, position) {
   const sun = subsolarPoint(now)
   const at = view.toPixel(sun.longitude, sun.latitude)
   if (!at) return
@@ -531,45 +574,241 @@ function drawSun(ctx, view, now) {
   ctx.beginPath()
   ctx.arc(at[0], at[1], 10, 0, Math.PI * 2)
   ctx.stroke()
+
+  const near = position && distanceKm(position, sun) < SUN_LABEL_CLEAR_KM
+  const size = near ? 8 : 11
+  haloText(ctx, at[0], at[1] - size - 5, 'Sun', {
+    size,
+    color: `rgba(255,236,150,${near ? 0.6 : 0.95})`
+  })
 }
 
-function drawProbe(ctx, view, probe, ink) {
+// The map's own degree/distance formatting, used for the labels drawn on the
+// probed path below and by index.html for the vessel-position caption --
+// kept here rather than duplicated, since a click-scored path and the map
+// that drew it should never disagree about how a coordinate reads.
+export const KM_TO_NM = 0.539957
+export const fmtLat = (lat) => `${Math.abs(lat).toFixed(1)}°${lat < 0 ? 'S' : 'N'}`
+export const fmtLon = (lon) => `${Math.abs(lon).toFixed(1)}°${lon < 0 ? 'W' : 'E'}`
+
+/** Plain nmi formatting -- the fallback when the Signal K server carries no
+ * unit preference for `distance` (older servers, or no preference set), so
+ * the map still reads correctly with nothing extra to fetch. */
+export function formatDistanceNm(km) {
+  return `${Math.round(km * KM_TO_NM).toLocaleString()} nmi`
+}
+
+/**
+ * A probed path draws its own numbers as labels on the map itself, rather
+ * than in a paragraph below it (Mark's test-rig punch list). The vessel's
+ * own reading stays off this map entirely: the HF Radio tile already
+ * publishes it, and repeating it here was the densest duplication on the
+ * punch list.
+ *
+ * Mean, worst, distance and bearing stack directly on top of each other,
+ * because that headline number is what the click was for -- round 2 spread
+ * them across three separate points on the map and Mark's read of it was
+ * that the number the path is actually for got lost among the coordinates
+ * around it. Round 3 moved the whole stack off the line entirely rather than
+ * straddling it (Mark: "that way the metrics don't cover the line") --
+ * offset perpendicular to the path's own direction at the midpoint, toward
+ * whichever side has more room to the canvas edge, so the stack clears the
+ * line whatever angle the path happens to be drawn at. (A first pass offset
+ * only vertically, which does nothing for a path running mostly north-south
+ * -- the stack still sat on top of it.)
+ *
+ * `distanceFormat` is `(km) => string`, threaded down from index.html so this
+ * module -- which has no fetch of its own -- never has to guess the reader's
+ * unit preference; formatDistanceNm above is what it defaults to.
+ */
+function drawProbe(ctx, view, probe, width, height, ink, distanceFormat = formatDistanceNm) {
   const path = probe.points.map((point) => [point.longitude, point.latitude])
   // Dark under, colour over, the same as the coastline and the contours: the
   // path crosses the whole ramp by construction, since scoring it is the
-  // point.
+  // point. The line itself tries the same amber as the Kp line and the
+  // band-edge ticks (Mark's round-3 review) -- the labels stay blue.
   strokeRings(ctx, [path], view, {
     color: 'rgba(0,0,0,0.5)',
     alpha: 1,
     width: 3.4
   })
-  strokeRings(ctx, [path], view, { color: ink, alpha: 0.95, width: 1.8 })
+  strokeRings(ctx, [path], view, { color: MAP_PROBE_LINE, alpha: 0.95, width: 1.8 })
+
+  const midIdx = Math.floor(path.length / 2)
+  const mid = path[midIdx]
+  const midAt = mid && view.toPixel(mid[0], mid[1])
+  const bearing = Math.round(probe.bearingDeg).toString().padStart(3, '0')
+
+  // The direction perpendicular to the path at its midpoint, pointing toward
+  // whichever side has more room before the canvas edge. Shared by the stack
+  // and the destination label below, so the label can be pushed to the side
+  // the stack is NOT on -- a short path puts the target pixel-close to the
+  // midpoint, and without this the two collided regardless of how far the
+  // label was pushed along the line.
+  let stackDir = { x: 0, y: -1 }
+  if (midAt) {
+    const beforeAt = view.toPixel(path[Math.max(0, midIdx - 1)][0], path[Math.max(0, midIdx - 1)][1])
+    const afterAt = view.toPixel(
+      path[Math.min(path.length - 1, midIdx + 1)][0],
+      path[Math.min(path.length - 1, midIdx + 1)][1]
+    )
+    let tx = 1
+    let ty = 0
+    if (beforeAt && afterAt) {
+      const rdx = afterAt[0] - beforeAt[0]
+      const rdy = afterAt[1] - beforeAt[1]
+      const len = Math.hypot(rdx, rdy) || 1
+      tx = rdx / len
+      ty = rdy / len
+    }
+    const candidates = [
+      { x: -ty, y: tx },
+      { x: ty, y: -tx }
+    ]
+    const roomToEdge = (dir) => {
+      const roomX = dir.x > 0 ? (width - midAt[0]) / dir.x : dir.x < 0 ? midAt[0] / -dir.x : Infinity
+      const roomY = dir.y > 0 ? (height - midAt[1]) / dir.y : dir.y < 0 ? midAt[1] / -dir.y : Infinity
+      return Math.min(roomX, roomY)
+    }
+    stackDir = roomToEdge(candidates[0]) >= roomToEdge(candidates[1]) ? candidates[0] : candidates[1]
+  }
+
+  // Also used below to keep the destination label clear of the stack on a
+  // short path, where the two anchors can land close together regardless of
+  // which direction each was pushed in.
+  let stackAnchor = null
+  let stackReach = 0
+  if (midAt) {
+    const lines = [
+      `mean ${probe.meanMHz.toFixed(1)} MHz`,
+      `worst ${probe.worstMHz.toFixed(1)} MHz`,
+      distanceFormat(probe.distanceKm),
+      `${bearing}°T`
+    ]
+    // One size larger than round 2, and a shade more line spacing to match --
+    // the stack is the whole point of a click, so it reads before anything
+    // else on the map does.
+    const lineHeight = 17
+    const clearance = 12 // gap between the line and the nearest edge of the stack
+    const blockHeight = lines.length * lineHeight
+    stackReach = clearance + blockHeight / 2
+    stackAnchor = { x: midAt[0] + stackDir.x * stackReach, y: midAt[1] + stackDir.y * stackReach }
+    let y = stackAnchor.y - ((lines.length - 1) * lineHeight) / 2
+    for (const line of lines) {
+      chipLabel(ctx, stackAnchor.x, y, line, ink, 'center', 13)
+      y += lineHeight
+    }
+  }
+
   if (probe.worstAt) {
     const worst = view.toPixel(probe.worstAt.longitude, probe.worstAt.latitude)
     if (worst) {
+      // The dot stays on the path itself -- the cliff point is still worth
+      // marking -- but its number moved into the stack above, so it isn't
+      // repeated here.
       ctx.fillStyle = ink
       ctx.beginPath()
       ctx.arc(worst[0], worst[1], 3.5, 0, Math.PI * 2)
       ctx.fill()
     }
   }
+
   const end = probe.points[probe.points.length - 1]
   const at = view.toPixel(end.longitude, end.latitude)
-  if (at) marker(ctx, at[0], at[1], ink)
+  if (at) {
+    targetMarker(ctx, at[0], at[1], ink)
+    // Pushed along the same direction the path was already travelling, so
+    // the label lands past the target rather than back over the line, plus
+    // a fixed nudge away from whichever side the stack is on -- on a short
+    // path the along-the-line push alone isn't enough distance to clear the
+    // stack (Mark's round-3 review).
+    const prev = path[path.length - 2] || path[0]
+    const prevAt = view.toPixel(prev[0], prev[1])
+    let dx = 1
+    let dy = 0
+    if (prevAt) {
+      const rawDx = at[0] - prevAt[0]
+      const rawDy = at[1] - prevAt[1]
+      const len = Math.hypot(rawDx, rawDy) || 1
+      dx = rawDx / len
+      dy = rawDy / len
+    }
+    const offset = 16
+    const sideNudge = 14
+    chipLabel(
+      ctx,
+      at[0] + dx * offset - stackDir.x * sideNudge,
+      at[1] + dy * offset - stackDir.y * sideNudge,
+      `${fmtLat(end.latitude)} ${fmtLon(end.longitude)}`,
+      ink,
+      Math.abs(dx) < 0.35 ? 'center' : dx > 0 ? 'left' : 'right',
+      13
+    )
+  }
 }
 
-function marker(ctx, x, y, color, filled = false) {
+/** A dark rounded chip behind a line of text, so a label reads over any part
+ * of the raster underneath it. `align` is which edge `x` names. */
+function chipLabel(ctx, x, y, text, ink, align = 'center', size = 10) {
+  ctx.save()
+  ctx.font = `600 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  ctx.textAlign = align
+  ctx.textBaseline = 'middle'
+  const pad = 4
+  const textWidth = ctx.measureText(text).width
+  const boxW = textWidth + pad * 2
+  const boxH = size + 6
+  const boxX = align === 'left' ? x - pad : align === 'right' ? x - boxW + pad : x - boxW / 2
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'
+  ctx.beginPath()
+  // roundRect landed in every evergreen browser by 2023, but a screenshot
+  // harness or an older embedded WebView's canvas can still lack it --
+  // a square chip beats a thrown exception that blanks the whole map.
+  if (ctx.roundRect) ctx.roundRect(boxX, y - boxH / 2, boxW, boxH, 3)
+  else ctx.rect(boxX, y - boxH / 2, boxW, boxH)
+  ctx.fill()
+  ctx.fillStyle = ink
+  ctx.fillText(text, x, y)
+  ctx.restore()
+}
+
+/** The vessel: a small filled triangle, distinct in shape from a probed
+ * target so the two never read as the same kind of mark. */
+function vesselMarker(ctx, x, y, color) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.fillStyle = color
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, -6.5)
+  ctx.lineTo(4.5, 5.5)
+  ctx.lineTo(0, 2.5)
+  ctx.lineTo(-4.5, 5.5)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+
+/** A probed target: crosshairs, so a clicked point never reads as a second
+ * vessel. */
+function targetMarker(ctx, x, y, color) {
+  ctx.save()
   ctx.strokeStyle = color
-  ctx.lineWidth = 2
+  ctx.lineWidth = 1.6
   ctx.beginPath()
   ctx.arc(x, y, 5, 0, Math.PI * 2)
+  ctx.moveTo(x - 9, y)
+  ctx.lineTo(x - 2.5, y)
+  ctx.moveTo(x + 2.5, y)
+  ctx.lineTo(x + 9, y)
+  ctx.moveTo(x, y - 9)
+  ctx.lineTo(x, y - 2.5)
+  ctx.moveTo(x, y + 2.5)
+  ctx.lineTo(x, y + 9)
   ctx.stroke()
-  if (filled) {
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
+  ctx.restore()
 }
 
 /**
