@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  NOAA_AURORA_RAMP,
   auroraCardState,
+  auroraCellColor,
+  auroraRampColor,
   refreshFailure,
   retryAfterSeconds
 } from '../public/aurora.js'
+import { NOAA_RAMP } from '../src/tiles'
 
 describe('auroraCardState', () => {
   it('shows the value whenever there is one', () => {
@@ -96,5 +100,43 @@ describe('retryAfterSeconds', () => {
     expect(retryAfterSeconds('Wed, 21 Oct 2026 07:28:00 GMT')).toBe(null)
     expect(retryAfterSeconds('0')).toBe(null)
     expect(retryAfterSeconds('-5')).toBe(null)
+  })
+})
+
+describe('the aurora ramp', () => {
+  it('is the same table the chart overlay draws', () => {
+    // Two pictures of one forecast. The webapp map and the chart-plotter
+    // overlay are looked at by the same person, sometimes side by side, and a
+    // reader who saw two different colours for one probability would be right
+    // to distrust both. The table used to live inline in index.html, where
+    // nothing could reach it to check this.
+    expect(NOAA_AURORA_RAMP).toEqual(NOAA_RAMP.map((stop) => [...stop]))
+  })
+
+  it('interpolates between stops rather than banding', () => {
+    // A quiet day is 1-3% over most of the globe, which is inside the first
+    // segment: quantising it would draw hard contours across the whole ocean.
+    const low = auroraRampColor(2.5)
+    expect(low).not.toEqual(auroraRampColor(0))
+    expect(low).not.toEqual(auroraRampColor(5))
+  })
+
+  it('draws nothing at all where the probability is zero', () => {
+    // Transparent rather than the ramp's own 0% colour: the map has an
+    // absorption layer and a coastline underneath it, and "no aurora" must
+    // not paint over either.
+    expect(auroraCellColor(0)[3]).toBe(0)
+    expect(auroraCellColor(-1)[3]).toBe(0)
+  })
+
+  it('fades in rather than switching on at a threshold', () => {
+    // A hard cutoff draws a crisp false edge around the oval -- exactly the
+    // boundary a reader would over-trust on a 1-degree model.
+    const faint = auroraCellColor(0.5)[3]
+    const weak = auroraCellColor(1.5)[3]
+    const strong = auroraCellColor(80)[3]
+    expect(faint).toBeGreaterThan(0)
+    expect(weak).toBeGreaterThan(faint)
+    expect(strong).toBeGreaterThan(weak)
   })
 })

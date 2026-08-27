@@ -30,10 +30,10 @@ import { fixtureJson } from './fixtures.js'
 const leaf = (value: unknown) => ({ value, timestamp: '2026-08-26T12:00:00Z' })
 
 describe('the band-ladder ramp', () => {
-  // No longer a copy of anything in src/tiles.ts: #170 moved the chart-plotter
-  // overlay onto NOAA's own colorbar, leaving this ramp to the HF tile's band
-  // strip and the webapp map -- one stop per marine SSB band the cutoff has
-  // passed.
+  // No longer a copy of anything in src/tiles.ts: #170 moved both D-RAP maps
+  // onto NOAA's own colorbar (public/drap-colors.js, pinned against the tile
+  // renderer by drap-colors.test.ts), leaving this ramp to the HF tile's band
+  // strip -- one stop per marine SSB band the cutoff has passed.
   it('draws nothing below the lowest marine band', () => {
     expect(drapCellColor(0)).toBeNull()
     expect(drapCellColor(1_000_000)).toBeNull()

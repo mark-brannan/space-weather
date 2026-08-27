@@ -149,17 +149,18 @@ function numberOrNull(node) {
 /**
  * The band-ladder ramp: one stop per marine SSB band the cutoff has passed.
  *
- * No longer the chart-plotter overlay's palette. That surface now draws
- * NOAA's published D-RAP colorbar (`NOAA_DRAP_STOPS` in src/tiles.ts), so
- * that a reader comparing this plugin against NOAA's own image of the same
- * grid sees one picture rather than two
+ * No longer a map palette. Both maps -- the chart-plotter overlay and the
+ * webapp's own -- now draw NOAA's published D-RAP colorbar
+ * (`public/drap-colors.js`, mirrored in src/tiles.ts and pinned by
+ * test/drap-colors.test.ts), so that a reader comparing this plugin against
+ * NOAA's own image sees one picture rather than two
  * (https://github.com/mark-brannan/signalk-noaa-space-weather/issues/170).
- * The webapp's own map still draws this ramp, and follows separately.
  *
  * What survives here is the HF tile's band strip, where stops rather than a
  * smooth scale is still the right encoding: the strip is a ladder of bands,
  * not a field of frequencies, and what changes for its reader is a band going
- * under. See `zonesForDrap` in src/parse.ts.
+ * under. See `zonesForDrap` in src/parse.ts. The map carries the same
+ * information as contour lines over NOAA's colours instead.
  */
 export const DRAP_BAND_RAMP = [
   [90, 200, 120],

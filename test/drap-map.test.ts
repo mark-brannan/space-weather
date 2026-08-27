@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  LEGEND_MAX_MHZ,
+  bandEdgeTicks,
   cutoffAt,
   distanceKm,
   greatCirclePoints,
   gridSummary,
   legendStops,
   pathAbsorption,
-  positionAt,
   subsolarPoint
 } from '../public/drapMap.js'
-import { drapCellColor, MARINE_SSB_BAND_EDGES_HZ } from '../public/hf.js'
+import { drapNoaaColor } from '../public/drap-colors.js'
+import { MARINE_SSB_BAND_EDGES_HZ } from '../public/hf.js'
 import { drapFrequencyAt, parseDrapGrid } from '../src/parse'
 import { fixture } from './fixtures'
 
@@ -17,17 +19,38 @@ const REAL = 'drap-global-frequencies.2026_08_20.txt'
 const grid = parseDrapGrid(fixture(REAL))!
 
 describe('legendStops', () => {
-  // hf.js's ramp is already pinned against src/tiles.ts by
-  // test/hf-render.test.ts, and the map's fill reuses drapCellColor directly
-  // rather than keeping its own copy -- so what is left to check here is only
-  // that the legend names one swatch per marine SSB band edge, in order.
-  it('has one stop per marine SSB band edge, ascending', () => {
-    const stops = legendStops()
-    expect(stops.map((s) => s.mhz)).toEqual(
+  // The palette itself is pinned against the server's copy by
+  // test/drap-colors.test.ts. What matters here is that the bar the reader
+  // sees is drawn from the same function the map paints with, over the same
+  // range -- a legend that agreed with nothing would be worse than no legend.
+  it('samples NOAA colorbar across the whole scale, in order', () => {
+    const stops = legendStops(24)
+    expect(stops).toHaveLength(24)
+    expect(stops[0].mhz).toBe(0)
+    expect(stops[stops.length - 1].mhz).toBe(LEGEND_MAX_MHZ)
+    for (let i = 1; i < stops.length; i++) {
+      expect(stops[i].mhz).toBeGreaterThan(stops[i - 1].mhz)
+    }
+    for (const stop of stops) {
+      const [r, g, b, a] = drapNoaaColor(stop.mhz)
+      expect(stop.color).toBe(`rgba(${r},${g},${b},${a.toFixed(3)})`)
+    }
+  })
+})
+
+describe('bandEdgeTicks', () => {
+  it('puts one tick per marine SSB band edge, in order, on the bar', () => {
+    const ticks = bandEdgeTicks()
+    expect(ticks.map((t) => t.mhz)).toEqual(
       MARINE_SSB_BAND_EDGES_HZ.map((hz) => hz / 1e6)
     )
-    for (const stop of stops) {
-      expect(stop.color).toBe(drapCellColor(stop.mhz * 1e6))
+    for (const tick of ticks) {
+      expect(tick.fraction).toBeCloseTo(
+        Math.min(1, tick.mhz / LEGEND_MAX_MHZ),
+        10
+      )
+      expect(tick.fraction).toBeGreaterThanOrEqual(0)
+      expect(tick.fraction).toBeLessThanOrEqual(1)
     }
   })
 })
@@ -195,25 +218,6 @@ describe('subsolarPoint', () => {
     expect(
       Math.abs(subsolarPoint(new Date('2026-03-20T00:00:00Z')).longitude)
     ).toBeGreaterThan(177)
-  })
-})
-
-describe('positionAt', () => {
-  it('maps the corners and centre of the canvas onto the globe', () => {
-    const canvas = {
-      clientWidth: 720,
-      clientHeight: 360,
-      width: 720,
-      height: 360
-    }
-    expect(positionAt(canvas as any, 0, 0)).toEqual({
-      latitude: 90,
-      longitude: -180
-    })
-    expect(positionAt(canvas as any, 360, 180)).toEqual({
-      latitude: 0,
-      longitude: 0
-    })
   })
 })
 

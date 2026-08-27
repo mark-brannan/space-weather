@@ -21,6 +21,17 @@ src/
   products/       one module per NOAA product
 ```
 
+The webapp's map stack:
+
+```
+public/
+  projection.js   the two projections, and the viewport that turns one to pixels
+  mapRaster.js    grid samplers, and the destination-pixel rasteriser
+  spaceMap.js     the drawing: raster, contours, graticule, coastline, marks
+  drap-colors.js  NOAA's D-RAP colorbar, mirrored from tiles.ts
+  geo.js          the coastline, decoded and drawn
+```
+
 **To add a data source: write `src/products/<name>.ts` implementing `Product`,
 add it to `PRODUCTS` in `index.ts`.** Nothing else. That is the whole reason
 for this shape.
@@ -133,9 +144,21 @@ happen. The webapp's own polling never turns into a NOAA fetch;
 Argument in
 [docs/design-decisions.md](docs/design-decisions.md#auroraenabled-and-drapenabled-govern-the-schedule-not-the-capability).
 
-**A webapp map takes its geography from `public/geo.js`; `tiles.ts` draws
-none.** Both the aurora map and the D-RAP absorption map do. A grid of
-numbers without geography is not a map, and no chart
+**The map's data goes through `public/mapRaster.js`; everything with a
+measurable edge is drawn vectorially over it.** One canvas — the products are
+layers, the projection and the extent are controls — and the rasteriser walks
+destination pixels back through the projection, which is what keeps the
+projection a parameter rather than an assumption
+([one map](docs/design-decisions.md#one-map-the-products-are-layers-the-projection-is-a-control)).
+The panel paints its own dark ground, not the page's, because NOAA's colorbar
+was sampled against a black globe
+([dark ground](docs/design-decisions.md#the-map-draws-on-its-own-dark-ground));
+both D-RAP surfaces draw that colorbar, with the marine SSB band edges as
+contours over it rather than as a palette
+([colorbar](docs/design-decisions.md#both-d-rap-surfaces-draw-noaas-colorbar-the-bands-are-contours-over-it)).
+
+**The webapp's map takes its geography from `public/geo.js`; `tiles.ts` draws
+none.** A grid of numbers without geography is not a map, and no chart
 source Signal K can offer works here — they are all Web Mercator, which cannot
 show a pole. The chart overlay is the opposite case: it sits on the user's own
 charts, so a second coastline on top of theirs would be a bug. The asset is
@@ -143,9 +166,12 @@ the `coastlines` and `coast-wright` packages (extracted from this plugin),
 vendored into `public/` on `prebuild`/`prepare` by `scripts/sync-coastline.mjs`
 in the icon pattern; `test/coastline.test.ts` pins its size
 ceiling, which is the whole argument for shipping it
-([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32),
-argument in
-[docs/design-decisions.md](docs/design-decisions.md#every-webapp-map-draws-its-own-coastline-the-chart-overlay-draws-none)).
+([#32](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32)).
+Drawing it splits in two: coast-wright's `limn` takes `x(lon)` and `y(lat)` as
+*separate* functions, which only a cylindrical projection can satisfy, so the
+flat view goes through the library and `strokeRings` in `public/spaceMap.js`
+strokes the azimuthal one against the antipode instead. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#every-webapp-map-draws-its-own-coastline-the-chart-overlay-draws-none).
 
 **Tile rendering must not block the event loop.** Render tiles async, one at a
 time — `Promise.all` over tiles is worse than a blocking loop, since it runs
@@ -229,7 +255,7 @@ npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
 `scripts/mock-webapp.mjs` serves `public/` and answers the Signal K paths it
 understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders; a switcher strip
-picks between five states that are mostly impractical to reach against a live
+picks between seven states that are mostly impractical to reach against a live
 server. `--upstream <base-url>` trades those for a running server's real
 numbers. `scripts/screenshots/` is a **separate npm package** — Playwright
 would blow the registry's offline `npm ci` and its 60 second cap — and holds

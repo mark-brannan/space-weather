@@ -215,11 +215,11 @@ The banner answers one question — is anything happening right now? — and a q
 | ![Quiet after a storm](docs/screenshots/hero-all-clear.png) | ![Stale data](docs/screenshots/hero-stale.png) |
 | Quiet, and specific about what the last 24 hours actually held. | No update in three hours. Not an all-clear — go look at the server log. |
 
-The Aurora tile has a **Show map** button that draws probability near your position from the plugin's own cached NOAA fetch, only loaded when you click it. The Aurora tile, the map and the HF Radio tile each have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
+The **Map** tile draws both grids on one canvas — the aurora oval and HF absorption — from the plugin's own cached NOAA fetches, and it only loads when you press **Show map**. A toolbar turns either layer off, switches between a view centred on your boat — where a straight line across the map is a great circle, so it's the path your signal takes — and the flat rectangle NOAA publishes, and zooms from your own patch of ocean out to the whole world. With absorption showing, **Band edges** draws a line around where each marine SSB band has gone under the cutoff, and clicking anywhere on the map scores the absorption along the path from your boat to that point. The Aurora tile, the map and the HF Radio tile each have a button to fetch fresh data on demand instead of waiting for the next scheduled interval; it's rate-limited to once a minute.
 
 Those buttons work whether or not `auroraEnabled` and `drapEnabled` are on, and with one off — where the button reads **Fetch once** — pressing it is the only thing that ever fetches that grid. So the aurora is available on a boat that has decided not to spend 145 KB every couple of hours on it: leave the recurring fetch off, and ask for a reading on the night you want one. Nothing else on the page reaches NOAA; the map draws from whatever the plugin last cached, and the periodic poll only reads your own server.
 
-![The aurora map](docs/screenshots/aurora-map.png)
+![The map](docs/screenshots/space-map.png)
 
 ## Screenshots
 
