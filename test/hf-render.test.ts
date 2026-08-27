@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   F107_BANDS,
-  DRAP_BAND_RAMP as WEBAPP_DRAP_RAMP,
   MARINE_SSB_BAND_EDGES_HZ as WEBAPP_BAND_EDGES_HZ,
   drapCellColor,
   S1_PFU,
@@ -12,7 +11,6 @@ import {
   trendWord
 } from '../public/hf.js'
 import { ENDPOINTS } from '../public/signalk.js'
-import { DRAP_BAND_RAMP } from '../src/tiles.js'
 import {
   MARINE_SSB_BAND_EDGES_HZ,
   zonesForF107,
@@ -31,14 +29,11 @@ import { fixtureJson } from './fixtures.js'
 
 const leaf = (value: unknown) => ({ value, timestamp: '2026-08-26T12:00:00Z' })
 
-describe('the D-RAP map ramp', () => {
-  // Two pictures of one number -- the webapp's map and the chart-plotter tile
-  // -- drawn from copies of the same table. A drift would put the same cutoff
-  // in two different colours on two screens on the same boat.
-  it('copies DRAP_BAND_RAMP exactly', () => {
-    expect(WEBAPP_DRAP_RAMP).toEqual(DRAP_BAND_RAMP.map((stop) => [...stop]))
-  })
-
+describe('the band-ladder ramp', () => {
+  // No longer a copy of anything in src/tiles.ts: #170 moved the chart-plotter
+  // overlay onto NOAA's own colorbar, leaving this ramp to the HF tile's band
+  // strip and the webapp map -- one stop per marine SSB band the cutoff has
+  // passed.
   it('draws nothing below the lowest marine band', () => {
     expect(drapCellColor(0)).toBeNull()
     expect(drapCellColor(1_000_000)).toBeNull()
