@@ -221,6 +221,10 @@ Those buttons work whether or not `auroraEnabled` and `drapEnabled` are on, and 
 
 ![The map](docs/screenshots/space-map.png)
 
+The coastline under that map costs 8 KB for the whole world, which is why the
+webapp can afford to ship its own instead of needing a chart server. Skeptical?
+[Drag the slider that proves it](https://mark-brannan.github.io/portolani/).
+
 ## Screenshots
 
 | | |
