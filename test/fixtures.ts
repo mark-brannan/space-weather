@@ -149,7 +149,8 @@ export const WWV_FIXTURES = ['wwv.2026_08_20.txt', 'wwv.2026_08_25.txt']
 export const DAILY_SOLAR_FIXTURES = [
   'daily-solar-indices.2026_08_20.txt',
   'daily-solar-indices.2026_08_25.txt',
-  'daily-solar-indices.2026_08_26.txt'
+  'daily-solar-indices.2026_08_26.txt',
+  'daily-solar-indices.2026_08_27.txt'
 ]
 
 export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']
