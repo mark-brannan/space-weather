@@ -1,5 +1,9 @@
 # signalk-noaa-space-weather
 
+[![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
+
+**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** — the plugin's map on a saved NOAA snapshot. No boat, no server, nothing to install.
+
 ## Why should I care about space weather?
 
 **Q:** *Why would I, a mere **sailor**, care about "space weather"*?
@@ -139,6 +143,13 @@ Each tile carries `Last-Modified` from the fetch behind it, so a client can tell
 ### Planned
 
 * Registering the overlay as a Signal K `charts` resource, so it appears in Freeboard-SK with no chart-source configuration at all
+
+## Installation
+
+Search for **signalk-noaa-space-weather** in the Signal K server's AppStore and
+install it from there, then enable it under *Server → Plugin Config*. Or, from
+a shell on the server: `npm install signalk-noaa-space-weather` in `~/.signalk`,
+restart, then enable it under *Server → Plugin Config* the same way.
 
 ## Configuration
 

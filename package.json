@@ -30,6 +30,7 @@
     "watch": "npm run build -- -w",
     "test": "vitest run",
     "dev:webapp": "node scripts/mock-webapp.mjs",
+    "demo:build": "node scripts/build-demo.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs && (husky || true)"

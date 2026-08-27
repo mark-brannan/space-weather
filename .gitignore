@@ -132,3 +132,8 @@ dist
 # one into examples/ with `mv` and then `git add` it (these are untracked, so
 # `git mv` refuses them); the rest are raw material.
 /examples/captures/
+
+# The assembled GitHub Pages demo, from scripts/build-demo.mjs: copies of
+# public/'s map modules with demo/signalk.js swapped in. Same reasoning as
+# dist/.
+/demo-dist/
