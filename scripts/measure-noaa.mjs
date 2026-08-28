@@ -14,11 +14,20 @@
 import { createHash } from 'crypto'
 import { gunzipSync } from 'zlib'
 import { get } from 'https'
+import { pathToFileURL } from 'url'
 
-const API = 'https://services.swpc.noaa.gov'
+export const API = 'https://services.swpc.noaa.gov'
 
-/** Every endpoint the plugin fetches, and the product that owns it. */
-const ENDPOINTS = [
+/**
+ * Every endpoint the plugin fetches, and the product that owns it.
+ *
+ * Exported because two other things read it: `test/endpoint-coverage.test.ts`
+ * pins that nothing in `src/` fetches a path missing from here -- the failure
+ * that let a 42 KB poll be described as 5 KB for weeks -- and
+ * `scripts/check-noaa-live.mjs` measures this same list against the live
+ * service. A second copy of the list would defeat both.
+ */
+export const ENDPOINTS = [
   ['/products/noaa-scales.json', 'scales'],
   ['/json/goes/primary/xray-flares-latest.json', 'scales (flare class)'],
   ['/json/goes/primary/xray-flares-7-day.json', 'scales (24h flare peak)'],
@@ -54,7 +63,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * off, and asking for one reported "unknown" for every endpoint that
  * actually mattered.
  */
-function wireBytes(path) {
+export function wireBytes(path) {
   return new Promise((resolve, reject) => {
     const request = get(
       API + path,
@@ -70,6 +79,7 @@ function wireBytes(path) {
           const body = Buffer.concat(chunks)
           const encoding = response.headers['content-encoding']
           resolve({
+            status: response.statusCode,
             wire,
             decoded: encoding === 'gzip' ? gunzipSync(body).length : body.length,
             encoding: encoding ?? null
@@ -145,23 +155,31 @@ async function cadence() {
   }
 }
 
-const rows = await baseline()
-console.log(`## Measured ${new Date().toISOString().slice(0, 10)}\n`)
-console.log('| Endpoint | Product | Wire | Decoded | Encoding | ETag shape |')
-console.log('| --- | --- | --- | --- | --- | --- |')
-for (const [path, product] of ENDPOINTS) {
-  const r = rows[path]
-  const kb = (n) => (n === null ? '?' : `${(n / 1024).toFixed(1)} KB`)
-  console.log(
-    `| \`${path}\` | ${product} | ${kb(r.wire)} | ${kb(r.decoded)} | ${
-      r.encoding ?? 'none'
-    } | \`${r.etag ?? 'none'}\` |`
-  )
+// Importing this file must not start a six-minute measurement run: the
+// coverage test and the drift script both read ENDPOINTS out of it.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main()
 }
 
-await sleep(PROBE_GAP_MS)
-await probe(rows, `${PROBE_GAP_MS / 1000}s later`)
-await sleep(PROBE_GAP_MS)
-await probe(rows, `${(PROBE_GAP_MS * 2) / 1000}s later`)
+async function main() {
+  const rows = await baseline()
+  console.log(`## Measured ${new Date().toISOString().slice(0, 10)}\n`)
+  console.log('| Endpoint | Product | Wire | Decoded | Encoding | ETag shape |')
+  console.log('| --- | --- | --- | --- | --- | --- |')
+  for (const [path, product] of ENDPOINTS) {
+    const r = rows[path]
+    const kb = (n) => (n === null ? '?' : `${(n / 1024).toFixed(1)} KB`)
+    console.log(
+      `| \`${path}\` | ${product} | ${kb(r.wire)} | ${kb(r.decoded)} | ${
+        r.encoding ?? 'none'
+      } | \`${r.etag ?? 'none'}\` |`
+    )
+  }
 
-if (process.argv.includes('--cadence')) await cadence()
+  await sleep(PROBE_GAP_MS)
+  await probe(rows, `${PROBE_GAP_MS / 1000}s later`)
+  await sleep(PROBE_GAP_MS)
+  await probe(rows, `${(PROBE_GAP_MS * 2) / 1000}s later`)
+
+  if (process.argv.includes('--cadence')) await cadence()
+}

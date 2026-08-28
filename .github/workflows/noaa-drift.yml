@@ -1,0 +1,100 @@
+name: NOAA drift
+
+# Measures the live service against docs/noaa-products.md, through the plugin's
+# own client -- so a run is also the only thing that exercises noaa/client.ts
+# against real NOAA. Everything else in CI is offline by design.
+#
+# Weekly, not daily: the numbers only go stale when a data source changes, the
+# doc is re-measured by hand, and a standing drift reported every morning is
+# noise a week's worth of nobody-reading turns into. A week is short against
+# how long the 5 KB figure stood (weeks, over several releases) and long enough
+# that a fix has somewhere to land.
+#
+# Drift fails the job *and* opens one issue, because a red X on a schedule
+# nobody triggered is easy to miss and impossible to act on later. The issue is
+# reused, not reopened per week, and closed by the next clean run.
+
+on:
+  schedule:
+    - cron: '17 7 * * 1' # Mondays, off the hour release.yml already uses
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: noaa-drift
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The script fetches through dist/, not src/: the point is the built
+      # artefact a server would load.
+      - run: npm run build
+
+      - name: Measure the live endpoints
+        id: measure
+        continue-on-error: true
+        run: node scripts/check-noaa-live.mjs | tee "$RUNNER_TEMP/report.md"
+
+      # continue-on-error keeps the drift verdict actionable rather than
+      # stopping the job at the first red step, so a script that crashed
+      # before reaching a verdict would otherwise pass silently.
+      - name: Fail if the measurement never reached a verdict
+        if: steps.measure.outputs.drift == ''
+        run: |
+          echo "::error::check-noaa-live.mjs reported no verdict; read the step log."
+          exit 1
+
+      - name: Open or update the drift issue
+        if: steps.measure.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: NOAA wire sizes have drifted from docs/noaa-products.md
+        run: |
+          BODY="$RUNNER_TEMP/report.md"
+          printf '\n---\n\n[Run](%s/%s/actions/runs/%s)\n' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> "$BODY"
+
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title \
+            --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")
+          if [ -n "$EXISTING" ]; then
+            # One issue, updated -- a weekly re-open would bury the first
+            # report, which is the one carrying the date the drift started.
+            gh issue comment "$EXISTING" --body-file "$BODY"
+          else
+            gh issue create --title "$TITLE" --body-file "$BODY"
+          fi
+
+      - name: Close the drift issue once the numbers agree
+        if: steps.measure.outputs.drift == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: NOAA wire sizes have drifted from docs/noaa-products.md
+        run: |
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title \
+            --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")
+          [ -n "$EXISTING" ] || exit 0
+          gh issue close "$EXISTING" --comment \
+            "Back in band: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      # A NOAA outage leaves `drift` false and the job green: an endpoint that
+      # did not answer is reported as "could not measure" and never asserted
+      # on. Only a measured size outside the band fails this.
+      - name: Fail on drift
+        if: steps.measure.outputs.drift == 'true'
+        run: |
+          echo "::error::Live wire sizes are outside the band docs/noaa-products.md records."
+          exit 1
