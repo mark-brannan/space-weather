@@ -1101,10 +1101,11 @@ function parseUtcTimestamp(raw: any): Date | null {
 export interface Outlook27Day {
   /** Start of the UTC day the row describes, as an ISO instant. */
   time: string
-  f107: number
-  aIndex: number
+  /** `null` where the column was outside `OUTLOOK_RANGES`; never NaN. */
+  f107: number | null
+  aIndex: number | null
   /** The *largest* Kp expected that day, not a daily mean. */
-  kp: number
+  kp: number | null
 }
 
 export interface Outlook27 {
@@ -1115,6 +1116,11 @@ export interface Outlook27 {
   maxNoaaScale: number | null
   nextStormTime: string | null
   nextStormKp: number | null
+  /**
+   * How many columns across the whole table were rejected as implausible. The
+   * product logs it, so a dropped value is not invisible.
+   */
+  rejected: number
 }
 
 /**
@@ -1133,21 +1139,72 @@ export function parse27DayOutlook(text: string): Outlook27 | null {
   if (days.length === 0) return null
 
   days.sort((a, b) => (a.time < b.time ? -1 : 1))
+  // A rejected Kp column must not be read as a quiet day, so the peak and the
+  // first storm are taken over the days that still carry one.
+  const rated = days.filter(
+    (day): day is Outlook27Day & { kp: number } => day.kp !== null
+  )
   // First day attaining the peak, not the last: for planning, the question is
   // when the disturbed stretch starts.
-  const peak = days.reduce((best, day) => (day.kp > best.kp ? day : best))
+  const peak = rated.length
+    ? rated.reduce((best, day) => (day.kp > best.kp ? day : best))
+    : null
   const nextStorm =
-    days.find((day) => day.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
+    rated.find((day) => day.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
 
   return {
     issued: parseIssueDate(text),
     days,
-    maxKp: peak.kp,
-    maxKpTime: peak.time,
-    maxNoaaScale: gScaleForKp(peak.kp),
+    maxKp: peak ? peak.kp : null,
+    maxKpTime: peak ? peak.time : null,
+    maxNoaaScale: peak ? gScaleForKp(peak.kp) : null,
     nextStormTime: nextStorm ? nextStorm.time : null,
-    nextStormKp: nextStorm ? nextStorm.kp : null
+    nextStormKp: nextStorm ? nextStorm.kp : null,
+    rejected: days.reduce(
+      (count, day) =>
+        count +
+        (day.f107 === null ? 1 : 0) +
+        (day.aIndex === null ? 1 : 0) +
+        (day.kp === null ? 1 : 0),
+      0
+    )
   }
+}
+
+/**
+ * What each outlook column can physically be.
+ *
+ * NOAA reissued the 2026-08-24 outlook fifteen hours later to replace a radio
+ * flux of 1151 for Sep 01 with 120; both payloads are in `examples/`. Only
+ * `Number.isFinite` stood between that and `...outlook27.series`, and a
+ * corrupt Kp column would likewise reach `gScaleForKp`, which has no upper
+ * bound, and publish a G level nothing in the sky supports.
+ *
+ * Kp and the A index are bounded by definition, so their limits need no
+ * re-measuring. F10.7 has no comparable bound in either direction: a weaker
+ * quiet sun than any on record is possible on the low end, and a flare can
+ * put a *raw* flux reading in the hundreds of thousands to millions of sfu
+ * on the high end (the 2006 X4 flare read roughly 1,000,000) -- 1151 was
+ * NOAA's own forecast error, not proof the column has a low ceiling. F10.7's
+ * range is therefore 0 (a flux can't be negative) to a value picked only to
+ * stop a garbage token from reading as a real number on the chart, not to
+ * express any physical limit:
+ *
+ * - The planetary A index is a daily mean of ap, and ap saturates at 400 at
+ *   Kp 9, so 400 is definitional rather than empirical.
+ * - Kp is a 0-9 scale by definition.
+ */
+const OUTLOOK_RANGES = {
+  f107: { min: 0, max: 1e8 },
+  aIndex: { min: 0, max: 400 },
+  kp: { min: 0, max: 9 }
+}
+
+/** The value, or `null` if it is outside the range -- never NaN. */
+function inRange(value: number, range: { min: number; max: number }) {
+  return Number.isFinite(value) && value >= range.min && value <= range.max
+    ? value
+    : null
 }
 
 /**
@@ -1158,6 +1215,11 @@ export function parse27DayOutlook(text: string): Outlook27 | null {
  * plugin's other long-lived parsers have had to absorb a NOAA shape change.
  * The ISO date form is accepted for the same reason; NOAA writes
  * `2026 Aug 10` today.
+ *
+ * An implausible column is nulled on its own rather than taking the row with
+ * it: the day still has a date, and its other two columns are still the best
+ * answer available for it. A row whose every column was rejected carries
+ * nothing and is dropped.
  */
 function outlookRow(line: string): Outlook27Day | null {
   const trimmed = line.trim()
@@ -1170,10 +1232,13 @@ function outlookRow(line: string): Outlook27Day | null {
   const dateTokens = isoDate ? 1 : 3
   if (tokens.length < dateTokens + 3) return null
 
-  const [f107, aIndex, kp] = tokens
+  const [rawF107, rawAIndex, rawKp] = tokens
     .slice(dateTokens, dateTokens + 3)
     .map(Number)
-  if (![f107, aIndex, kp].every(Number.isFinite)) return null
+  const f107 = inRange(rawF107, OUTLOOK_RANGES.f107)
+  const aIndex = inRange(rawAIndex, OUTLOOK_RANGES.aIndex)
+  const kp = inRange(rawKp, OUTLOOK_RANGES.kp)
+  if (f107 === null && aIndex === null && kp === null) return null
 
   const at = new Date(
     isoDate

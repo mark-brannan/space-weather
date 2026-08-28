@@ -153,7 +153,20 @@ export const DAILY_SOLAR_FIXTURES = [
   'daily-solar-indices.2026_08_27.txt'
 ]
 
-export const OUTLOOK27_FIXTURES = ['27-day-outlook.2026_08_12.txt']
+/**
+ * The 08_24 pair is one outlook and its correction: NOAA issued a radio flux
+ * of 1151 for Sep 01 at 0259 UTC and reissued the same table at 1801 with 120.
+ * Keeping both is what lets a test assert the corrupt value never publishes
+ * while the corrected one does.
+ */
+export const OUTLOOK27_FIXTURES = [
+  '27-day-outlook.2026_08_12.txt',
+  '27-day-outlook.2026_08_24_0259.txt',
+  '27-day-outlook.2026_08_24_1801.txt'
+]
+
+export const OUTLOOK27_CORRUPT_FIXTURE = '27-day-outlook.2026_08_24_0259.txt'
+export const OUTLOOK27_CORRECTED_FIXTURE = '27-day-outlook.2026_08_24_1801.txt'
 
 export const KP_FORECAST_FIXTURES = [
   'noaa-planetary-k-index-forecast.2025_04_10.json',

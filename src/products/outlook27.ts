@@ -144,6 +144,16 @@ export const outlook27: Product = {
       return
     }
 
+    if (outlook.rejected > 0) {
+      // NOAA has shipped a corrupt column and corrected it by reissuing (see
+      // parse.ts). Dropping it silently would leave a hole in the series that
+      // reads exactly like a column NOAA never sent.
+      publisher.error(
+        `The 27-day outlook carried ${outlook.rejected} implausible ` +
+          'value(s); those columns were dropped'
+      )
+    }
+
     publisher.debug(
       '27-day outlook days=%s maxKp=%s on %s nextStorm=%s',
       outlook.days.length,

@@ -315,6 +315,26 @@ describe('outlook27 product', () => {
     expect(h.published[0].timestamp).toBe('2026-08-10T01:53:00.000Z')
   })
 
+  it('logs the columns it dropped rather than losing them silently', async () => {
+    // A negative A index has no route to being real, unlike a large F10.7
+    // reading (a flare can put that in the hundreds of thousands of sfu).
+    // The series still publishes, with that one cell null -- but a hole
+    // nobody is told about reads like a column NOAA never sent.
+    const h = harness({
+      [OUTLOOK27_ENDPOINT]:
+        ':Issued: 2026 Aug 10 0153 UTC\n2026 Aug 10   90   -5   4\n'
+    })
+    await outlook27.refresh(h.ctx)
+
+    expect(h.errors).toHaveLength(1)
+    expect(h.errors[0]).toContain('1 implausible')
+    const series: any = h.valueAt(
+      'environment.noaa.swpc.kp.forecast.outlook27.series'
+    )
+    expect(series).toHaveLength(1)
+    expect(series[0].aIndex).toBeNull()
+  })
+
   it('raises no notification for any of it', async () => {
     // The whole design decision of this product: 27-day data is a recurrence
     // estimate, and the server raises a notification off any path carrying
