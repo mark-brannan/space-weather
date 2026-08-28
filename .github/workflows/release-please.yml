@@ -15,6 +15,13 @@ name: Release
 # commit signed by GitHub's own key, which the ruleset accepts. A merge commit
 # carries the unsigned originals through and is rejected.
 #
+# `include-component-in-tag: false` in the config is load-bearing. With a
+# package-name set, release-please's default tag format is
+# `<name>-vX.Y.Z`; no such tag exists here, so it finds no previous release,
+# sweeps the entire history for conventional commits, and proposes a version
+# off an ancient breaking change. It would also tag a ref publish.yml cannot
+# read, since that strips a leading `v`. Tags here are plain `vX.Y.Z`.
+#
 # Version policy lives in release-please-config.json, not here:
 # bump-patch-for-minor-pre-major and bump-minor-pre-major keep `feat` a patch
 # and a breaking change a minor while this is pre-1.0. See AGENTS.md.
