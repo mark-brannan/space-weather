@@ -48,7 +48,13 @@ export function nextAdvisoryDelayMinutes(
 export const advisory: Product = {
   name: 'Advisory Outlook',
   intervalMinutes: () => FALLBACK_MINUTES,
-  enabled: (settings) => settings.sendAdvisoryOutlook,
+  // No `enabled`. `sendAdvisoryOutlook` is titled "Send notifications for..."
+  // and that is all it governs; gating the schedule on it too meant turning
+  // the notification off also stopped the fetch, so the bulletin froze at
+  // whatever it last held and nothing ever ran again to notice. Unlike
+  // `aurora` and `drap`, this product has no manual-refresh route to reveal
+  // that, so it went unseen for weeks. Always scheduled, like `alerts`; the
+  // flag is applied below, where the notification is published.
 
   metadata(): Meta[] {
     return [
@@ -66,7 +72,7 @@ export const advisory: Product = {
     ]
   },
 
-  async refresh({ client, publisher, stopped }) {
+  async refresh({ client, publisher, settings, stopped }) {
     // Best-effort: a cache read failing here should not block the fetch
     // below, only fall back to treating this as "nothing cached yet".
     let lastIssued: Date | null = null
@@ -93,7 +99,7 @@ export const advisory: Product = {
 
     const { idLine, shortId, issued, outlookTeaser } = outlook
     const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
-      { shortId?: string } | undefined
+      { shortId?: string; state?: unknown; method?: unknown } | undefined
 
     const current = {
       id: ID,
@@ -114,12 +120,27 @@ export const advisory: Product = {
       method: methodForState(NotificationStates.ALERT)
     }
 
-    // The tight poll runs every 15 minutes through the pre-issuance window
-    // and re-reads the same bulletin each time; republishing it would put a
-    // delta out to every connected client for a value that has not moved.
-    if (!existing || existing.shortId !== shortId) {
-      publisher.value(ADVISORY_BASE, current, issued.toISOString())
-      publisher.debug('Sending %s: %s', ID, current.message)
+    if (settings.sendAdvisoryOutlook) {
+      // The tight poll runs every 15 minutes through the pre-issuance window
+      // and re-reads the same bulletin each time; republishing it would put a
+      // delta out to every connected client for a value that has not moved.
+      // `isRaised` is checked too, not just `shortId`, so turning the flag
+      // back on re-raises the bulletin the stand-down below cleared rather
+      // than leaving it at `normal` until next week's issue.
+      if (!existing || existing.shortId !== shortId || !isRaised(existing)) {
+        publisher.value(ADVISORY_BASE, current, issued.toISOString())
+        publisher.debug('Sending %s: %s', ID, current.message)
+      }
+    } else if (existing && isRaised(existing)) {
+      // The flag went off while a bulletin was raised. Leaving it standing
+      // would be the same failure in miniature: a notification the operator
+      // has asked not to receive, with nothing left running to retract it.
+      publisher.debug('Standing down %s: sendAdvisoryOutlook is off', ID)
+      publisher.value(
+        ADVISORY_BASE,
+        { ...existing, state: NotificationStates.NORMAL, method: [] },
+        issued.toISOString()
+      )
     }
 
     clearShortIdPaths(publisher, issued)

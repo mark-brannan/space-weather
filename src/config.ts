@@ -44,6 +44,11 @@ export const schema = {
       type: 'boolean',
       title:
         'Send notifications for weekly "Advisory Outlook" (as notification state="alert")',
+      description:
+        'Governs the notification only. The bulletin is fetched either way' +
+        ' \u2014 under a kilobyte a day \u2014 so the webapp can still show it,' +
+        ' and so turning this back on does not start from a bulletin that has' +
+        ' been frozen for as long as it was off.',
       default: true
     },
     // Loudest first, so reading down the form turns the plugin down. Each of

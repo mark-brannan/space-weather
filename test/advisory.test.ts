@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -47,7 +47,11 @@ describe('advisory product', () => {
       rmSync(dir, { recursive: true, force: true })
   })
 
-  function harness(text: string, model: Record<string, unknown> = {}) {
+  function harness(
+    text: string,
+    model: Record<string, unknown> = {},
+    settingsOverrides: Record<string, unknown> = {}
+  ) {
     const published: any[] = []
     const errors: string[] = []
     const dataDir = mkdtempSync(join(tmpdir(), 'advisory-cache-'))
@@ -76,11 +80,68 @@ describe('advisory product', () => {
       ctx: {
         client,
         publisher,
-        settings: settingsFrom({ sendAdvisoryOutlook: true }),
+        settings: settingsFrom({
+          sendAdvisoryOutlook: true,
+          ...settingsOverrides
+        }),
         stopped: () => false
       }
     }
   }
+
+  it('is scheduled whether or not sendAdvisoryOutlook is on', () => {
+    // The setting is titled "Send notifications for..."; it governs the
+    // notification and nothing else. Gating the schedule on it too froze the
+    // published bulletin for as long as the flag stayed off.
+    expect(advisory.enabled).toBeUndefined()
+  })
+
+  it('publishes no notification while sendAdvisoryOutlook is off', async () => {
+    const h = harness(fixture(REAL), {}, { sendAdvisoryOutlook: false })
+    await advisory.refresh(h.ctx as any)
+
+    expect(h.errors).toEqual([])
+    expect(h.published.filter((p) => p.path === ADVISORY_BASE)).toEqual([])
+    // The fetch still happened: the cache is what the webapp reads back.
+    expect(existsSync(join(h.dataDir, 'advisory-outlook.json'))).toBe(true)
+  })
+
+  it('stands a raised bulletin down when sendAdvisoryOutlook goes off', async () => {
+    const h = harness(
+      fixture(REAL),
+      {
+        [`${ADVISORY_BASE}.value`]: {
+          id: 'space_weather_advisory_outlook',
+          shortId: '#26-30',
+          state: NotificationStates.ALERT,
+          method: []
+        }
+      },
+      { sendAdvisoryOutlook: false }
+    )
+    await advisory.refresh(h.ctx as any)
+
+    const [stood] = h.published.filter((p) => p.path === ADVISORY_BASE)
+    expect(stood.value.state).toBe(NotificationStates.NORMAL)
+    expect(stood.value.method).toEqual([])
+  })
+
+  it('re-raises the same bulletin once sendAdvisoryOutlook comes back on', async () => {
+    // Same shortId as the fixture, already stood down -- confirms the dedupe
+    // checks whether the notification is raised and not only its shortId.
+    const h = harness(fixture(REAL), {
+      [`${ADVISORY_BASE}.value`]: {
+        id: 'space_weather_advisory_outlook',
+        shortId: '#26-30',
+        state: NotificationStates.NORMAL,
+        method: []
+      }
+    })
+    await advisory.refresh(h.ctx as any)
+
+    const [raised] = h.published.filter((p) => p.path === ADVISORY_BASE)
+    expect(raised.value.state).toBe(NotificationStates.ALERT)
+  })
 
   it('caches the raw bulletin, issue date, and teaser to disk', async () => {
     const h = harness(fixture(REAL))
@@ -197,10 +258,14 @@ describe('advisory product', () => {
     expect(cleared.value.method).toEqual([])
   })
 
-  it('is on by default', () => {
-    expect(advisory.enabled!(settingsFrom({}))).toBe(true)
-    expect(
-      advisory.enabled!(settingsFrom({ sendAdvisoryOutlook: false }))
-    ).toBe(false)
+  it('raises the notification by default', async () => {
+    // What `advisory.enabled` used to assert. The default is still on, but it
+    // is now a fact about the notification rather than about the schedule --
+    // see the test at the top of this file for why those had to come apart.
+    const h = harness(fixture(REAL), {}, { sendAdvisoryOutlook: undefined })
+    await advisory.refresh(h.ctx as any)
+
+    const [raised] = h.published.filter((p) => p.path === ADVISORY_BASE)
+    expect(raised.value.state).toBe(NotificationStates.ALERT)
   })
 })
