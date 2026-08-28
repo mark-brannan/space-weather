@@ -33,7 +33,7 @@
     "demo:build": "node scripts/build-demo.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs && (husky || true)"
+    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs"
   },
   "repository": {
     "type": "git",
@@ -62,7 +62,6 @@
     "@types/node": "^26.1.2",
     "coast-wright": "^0.0.1-alpha.0",
     "coastlines": "^0.0.1-alpha.0",
-    "husky": "^9.1.7",
     "prettier": "^3.4.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

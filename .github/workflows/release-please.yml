@@ -1,0 +1,74 @@
+name: Release
+
+# The whole release mechanism. A merge to main updates a standing "chore:
+# release" pull request -- version bump, CHANGELOG entry -- and merging THAT
+# pull request is the release. Nothing else decides when to ship, and no
+# feature pull request carries a version.
+#
+# Batching is the default and needs no timer: work piles into the open release
+# pull request until you merge it. Ship now by merging it now; hold by leaving
+# it open. Edit its CHANGELOG diff before merging when a release deserves
+# notes written by a human rather than assembled from commit subjects.
+#
+# SQUASH-MERGE THE RELEASE PULL REQUEST. main requires signed commits and
+# release-please's commits are unsigned; squashing replaces them with one
+# commit signed by GitHub's own key, which the ruleset accepts. A merge commit
+# carries the unsigned originals through and is rejected.
+#
+# Version policy lives in release-please-config.json, not here:
+# bump-patch-for-minor-pre-major and bump-minor-pre-major keep `feat` a patch
+# and a breaking change a minor while this is pre-1.0. See AGENTS.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the tag and the GitHub Release
+  pull-requests: write # open and update the release pull request
+  actions: write # dispatch publish.yml below
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # release-please tags and creates the Release with the default
+      # GITHUB_TOKEN, and GitHub does not fire workflows for refs created that
+      # way -- its own loop prevention. So publish.yml's `push: tags` listener
+      # never sees this tag and has to be dispatched by hand. This is the same
+      # path a human uses (`gh workflow run publish.yml --ref vX.Y.Z`), which
+      # matters: npm's trusted publisher is configured for that file under a
+      # workflow_dispatch trigger, and workflow_call was tried and rejected.
+      - name: Trigger the npm publish, and wait for it to actually succeed
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          BEFORE=$(gh run list --workflow=publish.yml --json databaseId --jq '.[0].databaseId // 0')
+          gh workflow run publish.yml --ref "$TAG"
+
+          RUN_ID=""
+          for i in $(seq 1 20); do
+            sleep 5
+            RUN_ID=$(gh run list --workflow=publish.yml --json databaseId,event,headBranch \
+              --jq "[.[] | select(.event == \"workflow_dispatch\" and .headBranch == \"$TAG\" and .databaseId > $BEFORE)][0].databaseId // empty")
+            if [ -n "$RUN_ID" ]; then break; fi
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "Could not find the triggered publish run for $TAG" >&2
+            exit 1
+          fi
+          echo "Watching publish run $RUN_ID for $TAG"
+          gh run watch "$RUN_ID" --exit-status

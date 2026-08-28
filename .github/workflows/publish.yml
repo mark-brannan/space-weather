@@ -13,19 +13,19 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-  # release.yml triggers this via `gh workflow run publish.yml --ref
-  # <tag>` (workflow_dispatch, not workflow_call) after it tags a merge that
-  # needed publishing. workflow_call was tried first and doesn't work here:
+  # release-please.yml triggers this via `gh workflow run publish.yml --ref
+  # <tag>` (workflow_dispatch, not workflow_call) after release-please tags a
+  # release. workflow_call was tried first and does not work here:
   # npm's OIDC trusted-publisher check rejects the token minted for a
   # reusable-workflow-call job -- confirmed the hard way, npm error E404,
   # "you do not have permission to access it" -- even though the exact same
   # steps succeed under a direct push or workflow_dispatch trigger of this
   # same file. workflow_dispatch matches how the trusted publisher on
   # npmjs.com is actually configured (this file, this repo), so that's the
-  # path both a human and release.yml use to publish out of band.
+  # path both a human and release-please.yml use to publish out of band.
 
 permissions:
-  contents: write # write, not read: this workflow also creates the GitHub Release below
+  contents: read # release-please.yml creates the tag and the GitHub Release
   id-token: write # required: this is what mints the OIDC token
 
 jobs:
@@ -58,24 +58,3 @@ jobs:
 
       # No NODE_AUTH_TOKEN. Authentication is the OIDC identity above.
       - run: npm publish
-
-      # A pushed tag is only a git ref -- it does not create a GitHub
-      # Release on its own, which is why the Releases page sat on v0.2.0 for
-      # eleven versions before this step existed. CHANGELOG.md already has
-      # one section per version, so pull this tag's section out as the
-      # release notes rather than keeping a second copy of them.
-      - name: Create the GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          awk -v h="## [$VERSION]" '
-            index($0, h) == 1 { found=1; next }
-            found && index($0, "## [") == 1 { exit }
-            found { print }
-          ' CHANGELOG.md > /tmp/release-notes.md
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file /tmp/release-notes.md \
-            --latest

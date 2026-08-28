@@ -271,29 +271,30 @@ and add a state there rather than faking one in the console.
 
 ## Releasing
 
-Publishing happens from CI via npm OIDC trusted publishing — tag `vX.Y.Z` and
-push. No npm token should ever live on a developer machine.
+**No pull request carries a version.** `release-please` owns the number, the
+CHANGELOG and the tag, from `.github/workflows/release-please.yml` and
+`release-please-config.json`. Nothing else in the repo knows about releasing.
 
-The number is decided **before** the merge and the release happens **after**
-it. `.husky/pre-commit` writes the patch at commit time (the convenience);
-`.github/workflows/version-gate.yml` blocks a pull request that changed what
-ships without one (the guarantee, and only while the ruleset requires the
-`version` check). `auto-version.yml` catches on `main` what the gate should
-have caught, and fails loudly rather than exiting 0. None of them write to
-`main`, so the ruleset keeps requiring a pull request and a signed commit for
-every change.
+A merge to `main` updates a standing `chore: release` pull request — the bump
+and the changelog entry, assembled from Conventional Commit subjects since the
+last tag. **Merging that pull request is the release.** Work batches into it
+until you do; there is no timer and nothing decides on your behalf. Edit its
+CHANGELOG diff before merging when a release deserves notes written rather than
+assembled.
 
-**A merge does not publish. `release.yml` does, on a debounce** — hourly, and
-it tags `main` only once nothing has merged for `RELEASE_WINDOW_HOURS`; a
-`workflow_dispatch` run skips that wait and flushes whatever is pending, and
-skips nothing else. **So the gate requires a version ahead of the latest tag —
-never merely different from it — and pointedly not past `main`'s own.** A
-stale branch differs from the tag too
-([#123](https://github.com/mark-brannan/signalk-noaa-space-weather/pull/123));
-`main`, between a merge and the window closing, sits at an unshipped version a
-second pull request is meant to *join*. Only a tagged version is spent. Do not
-reintroduce a check that a pull request be ahead of the base. Argument in
-[docs/design-decisions.md](docs/design-decisions.md#a-merge-does-not-publish-releaseyml-does-on-a-debounce).
+**Squash-merge it.** `main` requires signed commits and release-please's are
+unsigned; a squash replaces them with one commit signed by GitHub's key. A
+merge commit carries the unsigned originals through and is rejected.
 
-All of the above read one file, `scripts/publish-impact.sh`, pinned by
-`test/publish-impact.test.ts`.
+The version policy is two config keys, not prose:
+`bump-patch-for-minor-pre-major` keeps `feat` a patch and
+`bump-minor-pre-major` makes a breaking change a minor, for as long as this is
+pre-1.0 — the standing bias against minting minors, enforced instead of asked
+for. See [AGENTS.md](AGENTS.md).
+
+Publishing is still npm OIDC trusted publishing with no token anywhere.
+release-please creates the tag and the GitHub Release, then dispatches
+`publish.yml` explicitly — a tag pushed with the default `GITHUB_TOKEN` does
+not trigger workflows, which is GitHub's own loop prevention and not something
+to work around by making `publish.yml` listen harder. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#release-please-owns-the-version-no-pull-request-does).
