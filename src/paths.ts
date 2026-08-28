@@ -25,6 +25,14 @@ export const NOTIFICATIONS_BASE = 'notifications.noaa.swpc'
  */
 export const ADVISORY_BASE = 'notifications.noaa.swpc.advisory_outlook'
 /**
+ * The same bulletin as plain data: shortId, issue date, and teaser, published
+ * every time a fetch turns up a new one -- regardless of `sendAdvisoryOutlook`.
+ * That setting is titled "Send notifications for..." and only ever governed
+ * the node above; a client that wants the data without opting into the
+ * notification had no path to read before this one existed.
+ */
+export const ADVISORY_VALUE_BASE = 'environment.noaa.swpc.advisory_outlook'
+/**
  * Alerts, watches and warnings, one leaf per NOAA message code (`WARK05`,
  * `ALTEF3`, ...) rather than per serial number; `currentAlertNotifications`
  * explains why, and `clearSerialNumberPaths` cleans up after the old scheme.

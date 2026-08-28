@@ -1,5 +1,5 @@
 // https://services.swpc.noaa.gov/text/advisory-outlook.txt
-import { ADVISORY_BASE } from '../paths.js'
+import { ADVISORY_BASE, ADVISORY_VALUE_BASE } from '../paths.js'
 import {
   NotificationStates,
   isRaised,
@@ -25,9 +25,21 @@ const ID = 'space_weather_advisory_outlook'
 // docs/noaa-products.md for the size, and for why a 304 is not what makes it
 // cheap.
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
 const PRE_WINDOW_MS = 6 * 60 * 60 * 1000
 const TIGHT_POLL_MINUTES = 15
 const MAX_SLEEP_MINUTES = 24 * 60
+// An outlook describes the week it was issued for. If nothing has replaced
+// it by the time that week is fully up -- NOAA changed the payload shape
+// under the parser, or the network's been down -- it has to stop reading as
+// current rather than sit there indefinitely. Not WEEK_MS flat: our own
+// fixtures show consecutive issue dates as much as 7d3h25m apart, so a flat
+// week trips on a perfectly healthy install, stands the notification down,
+// then re-raises it an hour or three later once the tight poll catches the
+// (now late) bulletin -- a spurious weekly flap. Two days of slack covers
+// every gap we've measured; the argument is "NOAA is late", not "the week
+// is up".
+const EXPIRY_MS = WEEK_MS + 2 * DAY_MS
 // Used only before the first successful fetch, or after a network failure --
 // refresh()'s own nextDelayMinutes governs every other tick.
 const FALLBACK_MINUTES = 60
@@ -48,13 +60,11 @@ export function nextAdvisoryDelayMinutes(
 export const advisory: Product = {
   name: 'Advisory Outlook',
   intervalMinutes: () => FALLBACK_MINUTES,
-  // No `enabled`. `sendAdvisoryOutlook` is titled "Send notifications for..."
-  // and that is all it governs; gating the schedule on it too meant turning
-  // the notification off also stopped the fetch, so the bulletin froze at
-  // whatever it last held and nothing ever ran again to notice. Unlike
-  // `aurora` and `drap`, this product has no manual-refresh route to reveal
-  // that, so it went unseen for weeks. Always scheduled, like `alerts`; the
-  // flag is applied below, where the notification is published.
+  // No `enabled`: `sendAdvisoryOutlook` is titled "Send notifications for..."
+  // and that is exactly what it governs. Gating the schedule on it too meant
+  // turning the notification off also stopped fetching -- the data just sat
+  // at whatever it last was, forever, with nothing above ever running again
+  // to notice or fix that. Always scheduled, like `alerts`.
 
   metadata(): Meta[] {
     return [
@@ -68,11 +78,27 @@ export const advisory: Product = {
             ' Outlooks are based on the NOAA Space Weather Scales.',
           timeout: 60 * 60 * 24 * 7
         }
+      },
+      {
+        path: ADVISORY_VALUE_BASE,
+        value: {
+          displayName: 'Advisory Outlook',
+          description:
+            'The current NOAA Space Weather Advisory Outlook bulletin,' +
+            ' fetched and published on the same weekly schedule as the' +
+            ` notification at ${ADVISORY_BASE} -- but always, regardless of` +
+            ' whether that notification is turned on. The full bulletin' +
+            ' text is served over this plugin’s own HTTP route, not in' +
+            ' this value.',
+          timeout: 60 * 60 * 24 * 7
+        }
       }
     ]
   },
 
   async refresh({ client, publisher, settings, stopped }) {
+    const now = new Date()
+
     // Best-effort: a cache read failing here should not block the fetch
     // below, only fall back to treating this as "nothing cached yet".
     let lastIssued: Date | null = null
@@ -83,6 +109,11 @@ export const advisory: Product = {
       publisher.error(`Failed to read the advisory outlook cache: ${err}`)
     }
 
+    // Checked before the fetch below, and unconditionally, so it still runs
+    // on a tick where the fetch throws or the parse fails -- the two cases
+    // `EXPIRY_MS` exists for in the first place.
+    expireIfStale(publisher, settings, now)
+
     const text = await client.text(
       '/text/advisory-outlook.txt',
       'Advisory Outlook'
@@ -92,16 +123,12 @@ export const advisory: Product = {
     const outlook = parseAdvisoryOutlook(text)
     if (!outlook) {
       publisher.error('Failed to parse the advisory outlook text product')
-      return {
-        nextDelayMinutes: nextAdvisoryDelayMinutes(new Date(), lastIssued)
-      }
+      return { nextDelayMinutes: nextAdvisoryDelayMinutes(now, lastIssued) }
     }
 
     const { idLine, shortId, issued, outlookTeaser } = outlook
-    const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
-      { shortId?: string; state?: unknown; method?: unknown } | undefined
 
-    const current = {
+    const summary = {
       id: ID,
       // The week's bulletin number, which used to be the last path segment.
       // It identifies the issue, not the condition, so it belongs in the
@@ -110,37 +137,61 @@ export const advisory: Product = {
       // this field rather than watching a path appear and disappear.
       shortId,
       issued: issued.toISOString(),
-      message: `${idLine} for ${issued.toDateString()}`,
-      description: text,
-      state: NotificationStates.ALERT,
-      // A weekly informational bulletin, so `alert` and therefore silent by
-      // the same policy the scale zones use: visible in the notifications UI,
-      // no popup and no sound. Until 0.12.0 this one sounded an alarm every
-      // Monday on a default install.
-      method: methodForState(NotificationStates.ALERT)
+      teaser: outlookTeaser,
+      message: `${idLine} for ${issued.toDateString()}`
     }
 
-    if (settings.sendAdvisoryOutlook) {
+    // Plain data, kept current regardless of `sendAdvisoryOutlook`. Deduped
+    // against the cache rather than this path's own last value: the value
+    // path is only ever touched here, so on an install that has had the
+    // flag off since it was added, the cache is the one place that reliably
+    // recorded the last bulletin this plugin actually saw. The dedupe is
+    // skipped on an install upgrading straight into this feature -- its
+    // cache already holds today's bulletin from before ADVISORY_VALUE_BASE
+    // existed, so without this check the new path would sit empty until
+    // next Monday.
+    const valueIsNew = !lastIssued || issued.getTime() !== lastIssued.getTime()
+    const valuePathEmpty =
+      publisher.selfPath(`${ADVISORY_VALUE_BASE}.value`) === undefined
+    if (valueIsNew || valuePathEmpty) {
+      publisher.value(ADVISORY_VALUE_BASE, summary, issued.toISOString())
+    }
+
+    // Age-gated independently of `sendAdvisoryOutlook`: a bulletin already
+    // past `EXPIRY_MS` should never be raised as a live alert, however it
+    // got here. Without this, a NOAA fetch that keeps turning up the same
+    // stale bulletin flaps forever -- `expireIfStale` stands the
+    // notification down once it ages out, and the very next tick's
+    // `alreadyCurrent` check would otherwise see `state !== ALERT` and
+    // re-raise the identical stale bulletin right back.
+    const bulletinExpired = now.getTime() - issued.getTime() >= EXPIRY_MS
+    if (settings.sendAdvisoryOutlook && !bulletinExpired) {
+      const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
+        { shortId?: string; state?: unknown } | undefined
       // The tight poll runs every 15 minutes through the pre-issuance window
-      // and re-reads the same bulletin each time; republishing it would put a
-      // delta out to every connected client for a value that has not moved.
-      // `isRaised` is checked too, not just `shortId`, so turning the flag
-      // back on re-raises the bulletin the stand-down below cleared rather
-      // than leaving it at `normal` until next week's issue.
-      if (!existing || existing.shortId !== shortId || !isRaised(existing)) {
+      // and re-reads the same bulletin each time; republishing it would put
+      // a delta out to every connected client for a value that has not
+      // moved. Checking `state` too, not just `shortId`, is what makes
+      // turning the flag back on on the same bulletin `expireIfStale` (or a
+      // prior "flag was off") stood down re-raise it, rather than leaving it
+      // parked at `normal` until next week's issue.
+      const alreadyCurrent =
+        existing?.shortId === shortId &&
+        existing?.state === NotificationStates.ALERT
+      if (!alreadyCurrent) {
+        const current = {
+          ...summary,
+          description: text,
+          state: NotificationStates.ALERT,
+          // A weekly informational bulletin, so `alert` and therefore silent
+          // by the same policy the scale zones use: visible in the
+          // notifications UI, no popup and no sound. Until 0.12.0 this one
+          // sounded an alarm every Monday on a default install.
+          method: methodForState(NotificationStates.ALERT)
+        }
         publisher.value(ADVISORY_BASE, current, issued.toISOString())
         publisher.debug('Sending %s: %s', ID, current.message)
       }
-    } else if (existing && isRaised(existing)) {
-      // The flag went off while a bulletin was raised. Leaving it standing
-      // would be the same failure in miniature: a notification the operator
-      // has asked not to receive, with nothing left running to retract it.
-      publisher.debug('Standing down %s: sendAdvisoryOutlook is off', ID)
-      publisher.value(
-        ADVISORY_BASE,
-        { ...existing, state: NotificationStates.NORMAL, method: [] },
-        issued.toISOString()
-      )
     }
 
     clearShortIdPaths(publisher, issued)
@@ -161,13 +212,58 @@ export const advisory: Product = {
       publisher.error(`Failed to cache the advisory outlook: ${err}`)
     }
 
-    return { nextDelayMinutes: nextAdvisoryDelayMinutes(new Date(), issued) }
+    return { nextDelayMinutes: nextAdvisoryDelayMinutes(now, issued) }
   }
 }
 
 /**
+ * Stand the notification down once it can no longer be trusted to describe
+ * the current week: either the operator does not want it at all right now,
+ * or nothing has refreshed it since the outlook it holds expired. Runs on
+ * every tick, ahead of the fetch, so a broken parse or a dead network cannot
+ * keep it from firing -- both are exactly the case `EXPIRY_MS` is for.
+ */
+function expireIfStale(
+  publisher: Publisher,
+  settings: { sendAdvisoryOutlook: boolean },
+  now: Date
+): void {
+  const existing = publisher.selfPath(`${ADVISORY_BASE}.value`) as
+    { issued?: string; state?: unknown; method?: unknown } | undefined
+  if (!existing || !isRaised(existing)) return
+
+  let reason: string | null = null
+  if (!settings.sendAdvisoryOutlook) {
+    reason = 'sendAdvisoryOutlook is off'
+  } else {
+    const issuedAt = existing.issued ? new Date(existing.issued) : null
+    if (
+      issuedAt &&
+      !isNaN(issuedAt.getTime()) &&
+      now.getTime() - issuedAt.getTime() >= EXPIRY_MS
+    ) {
+      reason = `past its effective week (issued ${existing.issued})`
+    }
+  }
+  if (!reason) return
+
+  publisher.debug('Standing down the advisory outlook notification: %s', reason)
+  publisher.value(
+    ADVISORY_BASE,
+    {
+      ...existing,
+      state: NotificationStates.NORMAL,
+      method: methodForState(NotificationStates.NORMAL)
+    },
+    now.toISOString()
+  )
+}
+
+/**
  * Stand down the per-bulletin notifications this plugin raised before 0.25.0
- * (`notifications.noaa.swpc.advisory_outlook.SWO25-034`).
+ * (`notifications.noaa.swpc.advisory_outlook.#26-30`, one path per week,
+ * keyed on the raw bulletin number straight from NOAA's header -- `#`
+ * included, since nothing sanitized it back then).
  *
  * Every week minted a fresh path, so a client that subscribed to one stopped
  * hearing anything the following Monday (issue #104), and upgrading does not
@@ -197,7 +293,11 @@ function clearShortIdPaths(publisher: Publisher, now: Date) {
     publisher.debug('Clearing the stale per-bulletin path %s', leaf)
     publisher.value(
       `${ADVISORY_BASE}.${leaf}`,
-      { ...value, state: NotificationStates.NORMAL, method: [] },
+      {
+        ...value,
+        state: NotificationStates.NORMAL,
+        method: methodForState(NotificationStates.NORMAL)
+      },
       now.toISOString()
     )
   }
