@@ -110,7 +110,9 @@ const round = (n, places = 2) =>
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`)
-  return i === -1 ? fallback : Number(process.argv[i + 1])
+  if (i === -1) return fallback
+  const value = Number(process.argv[i + 1])
+  return Number.isFinite(value) ? value : fallback
 }
 
 // --- statistics --------------------------------------------------------------
@@ -247,6 +249,8 @@ async function xrayNow() {
     const latest = long[long.length - 1]
     if (!latest) return { status: res.status }
     const flux = Number(latest.flux)
+    // NOAA nulls flux rows during eclipses and detector swaps.
+    if (!Number.isFinite(flux)) return { status: res.status, time: latest.time_tag }
     // NOAA's own letters: each is a decade of W/m^2 from A at 1e-8.
     const letters = ['A', 'B', 'C', 'M', 'X']
     const decade = Math.min(4, Math.max(0, Math.floor(Math.log10(flux) + 8)))
