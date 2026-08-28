@@ -712,7 +712,7 @@ function createPanel(React) {
           'The highest radio frequency D-region absorption is blocking.' +
             ' Frequencies below it are absorbed; those above it should get' +
             ' through, barring other factors. NOAA serves one grid covering' +
-            ' the whole globe, so it costs the same everywhere: about 3.3 KB' +
+            ' the whole globe, so it costs the same everywhere: about 2.1 KB' +
             ' on each fetch of the interval above, hourly by default. With it' +
             ' off the webapp can still fetch the grid once, when you ask it' +
             ' to. ',

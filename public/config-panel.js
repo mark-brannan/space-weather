@@ -47,8 +47,14 @@ export const SCALE_NAMES = Object.freeze([
  * and monthly figures below move with the intervals, which is the whole
  * reason this panel exists. Re-measure with scripts/measure-noaa.mjs.
  */
-export const AURORA_WIRE_KB = 145
-export const OTHER_WIRE_KB = 5
+export const AURORA_WIRE_KB = 144
+/**
+ * Every endpoint that follows `updateInterval`, summed: the two scales
+ * fetches plus the 7-day flare list, Kp, both solar wind summaries, both GOES
+ * flux windows and the alerts archive. The GOES pair is three quarters of it
+ * and has no setting of its own, which is why this row dwarfs the two that do.
+ */
+export const OTHER_WIRE_KB = 42
 /**
  * D-RAP follows its own `drapInterval` rather than `updateInterval`, and is
  * priced separately rather than folded into the row above: at two thirds of
@@ -56,18 +62,15 @@ export const OTHER_WIRE_KB = 5
  * it got a rate of its own, and it is the only part of that interval the user
  * can switch off.
  */
-export const DRAP_WIRE_KB = 3.3
+export const DRAP_WIRE_KB = 2.1
 
 /**
  * The two bulletins that keep their own cadence, which neither interval field
  * moves. Sizes from the same table; cadences from src/products/.
  *
- * Not every fixed-cadence fetch is here: `f107` polls every four hours on its
- * own timer too, but the measurement behind OTHER_WIRE_KB bundles it with the
- * endpoints that do follow `updateInterval` and never priced it alone, so
- * moving it would mean inventing a number. It stays in the row above, which
- * overcounts it below a four-hour interval and undercounts it above one --
- * either way by a fraction of 5 KB.
+ * `f107` is here now rather than bundled into the row above: the payload table
+ * prices every endpoint separately, so its four-hourly fetch no longer has to
+ * ride an interval it does not follow.
  *
  * The 27-day outlook is one 451 B fetch a day, always. The advisory outlook is
  * adaptive: it sleeps up to a day, then polls every 15 minutes through a
@@ -77,8 +80,10 @@ export const DRAP_WIRE_KB = 3.3
  * table. Both were priced on their own rather than folded into the row above,
  * so unlike `f107` there is no number to invent.
  */
-export const OUTLOOK27_WIRE_KB = 0.44
-export const ADVISORY_WIRE_KB = 1.6
+export const OUTLOOK27_WIRE_KB = 0.43
+export const ADVISORY_WIRE_KB = 0.8
+export const F107_WIRE_KB = 1.2
+const F107_FETCHES_PER_DAY = 6
 const ADVISORY_FETCHES_PER_DAY = 30 / 7
 export const A_INDEX_WIRE_KB = 0.3
 const A_INDEX_FETCHES_PER_DAY = 8
@@ -107,6 +112,7 @@ export function minutes(raw, fallback) {
 export function fixedKb(settings) {
   return (
     OUTLOOK27_WIRE_KB +
+    F107_FETCHES_PER_DAY * F107_WIRE_KB +
     A_INDEX_FETCHES_PER_DAY * A_INDEX_WIRE_KB +
     SUNSPOT_FETCHES_PER_DAY * SUNSPOT_WIRE_KB +
     (settings.sendAdvisoryOutlook

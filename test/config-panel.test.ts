@@ -10,6 +10,7 @@ import {
   RATE,
   currentConditions,
   A_INDEX_WIRE_KB,
+  F107_WIRE_KB,
   OUTLOOK27_WIRE_KB,
   SUNSPOT_WIRE_KB,
   dailyKb,
@@ -431,12 +432,15 @@ describe('dailyKb', () => {
     expect(faster.other).toBeCloseTo(base.other * 2)
   })
 
-  it('prices the HF indices, whose cadences no setting reaches', () => {
-    // They are small, but they are two more fetches on the fixed row and the
+  it('prices every fixed-cadence fetch, none of which a setting reaches', () => {
+    // They are small, but they are four more fetches on the fixed row and the
     // panel's claim is that the figure is arithmetic rather than a sentence.
     const off = dailyKb({ ...settings, sendAdvisoryOutlook: false })
     expect(off.fixed).toBeCloseTo(
-      OUTLOOK27_WIRE_KB + 8 * A_INDEX_WIRE_KB + 6 * SUNSPOT_WIRE_KB
+      OUTLOOK27_WIRE_KB +
+        6 * F107_WIRE_KB +
+        8 * A_INDEX_WIRE_KB +
+        6 * SUNSPOT_WIRE_KB
     )
   })
 

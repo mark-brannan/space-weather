@@ -32,9 +32,12 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 | `/products/noaa-planetary-k-index-forecast.json` | `kp` | shape alternates, see below |
 | `/products/summary/solar-wind-speed.json` | `solarWind` | shape changed once, see below |
 | `/products/summary/solar-wind-mag-field.json` | `solarWind` | shape changed once, see below |
+| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | X-ray flux time series, both channels |
+| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | integral proton flux time series |
 | `/products/alerts.json` | `alerts` | rolling 30-day archive, see below |
 | `/json/f107_cm_flux.json` | `f107` | three readings a day; only "Noon" is used |
-| `/json/ovation_aurora_latest.json` | `aurora` | the only large payload |
+| `/json/ovation_aurora_latest.json` | `aurora` | the largest single payload |
+| `/text/drap_global_frequencies.txt` | `drap` | global HF absorption grid, plain text |
 | `/text/advisory-outlook.txt` | `advisory` | weekly bulletin, plain text |
 | `/text/27-day-outlook.txt` | `outlook27` | daily rows for one solar rotation, plain text |
 | `/text/wwv.txt` | `aIndex` | the WWV geophysical alert bulletin, plain text |
@@ -42,44 +45,60 @@ node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
 
 ## Payload size
 
-Measured 2026-08-09. Wire size is with `Accept-Encoding: gzip`, which Node's
-`fetch` sends by default — so it is what the plugin actually costs. The decoded
+Measured 2026-08-28, every endpoint the plugin fetches, in one run of
+`scripts/measure-noaa.mjs`. Wire size is the bytes off the socket with
+`Accept-Encoding: gzip`, which is what the plugin actually costs. The decoded
 size is what a fixture on disk shows, and quoting it overstates the cost by
 roughly ten times.
 
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/products/alerts.json` | ~5 KB | 53 KB |
-| `/json/ovation_aurora_latest.json` | ~145 KB | ~898 KB |
-| `/text/advisory-outlook.txt` | ~1.6 KB | — |
-| `/text/27-day-outlook.txt` | 451 B | 1606 B |
+**Read the wire column off a raw socket, not off `content-length`.** NOAA
+serves the gzipped endpoints chunked, so most of them state no length at all;
+`wireBytes` counts raw chunks through `node:https` for that reason. An earlier
+version asked `fetch` for the header and reported "unknown" for every endpoint
+that mattered, which is part of how the totals below went stale unnoticed.
 
-Everything else is small enough that it has never mattered; the remaining
-observation and forecast endpoints together come to about 5 KB per poll.
+| Endpoint | Product | Interval | Wire | Decoded |
+| --- | --- | --- | --- | --- |
+| `/products/noaa-scales.json` | `scales` | `updateInterval` | 211 B | 1.1 KB |
+| `/json/goes/primary/xray-flares-latest.json` | `scales` | `updateInterval` | 452 B | 452 B |
+| `/json/goes/primary/xray-flares-7-day.json` | `scales` | `updateInterval` | 3.2 KB | 16.9 KB |
+| `/products/noaa-planetary-k-index-forecast.json` | `kp` | `updateInterval` | 496 B | 6.7 KB |
+| `/products/summary/solar-wind-speed.json` | `solarWind` | `updateInterval` | 59 B | 59 B |
+| `/products/summary/solar-wind-mag-field.json` | `solarWind` | `updateInterval` | 60 B | 60 B |
+| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `updateInterval` | 24.4 KB | 159.5 KB |
+| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `updateInterval` | 7.9 KB | 58.5 KB |
+| `/products/alerts.json` | `alerts` | `updateInterval` | 5.3 KB | 50.3 KB |
+| `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 143.7 KB | 898.9 KB |
+| `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 2.1 KB | 41.5 KB |
+| `/json/f107_cm_flux.json` | `f107` | 4 h | 1.2 KB | 22.3 KB |
+| `/text/wwv.txt` | `aIndex` | 3 h | 346 B | 0.5 KB |
+| `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 845 B | 2.9 KB |
+| `/text/advisory-outlook.txt` | `advisory` | adaptive | 768 B | 1.5 KB |
+| `/text/27-day-outlook.txt` | `outlook27` | 24 h | 442 B | 1.6 KB |
 
-`/text/27-day-outlook.txt` was measured 2026-08-12, separately from the run
-above and after it, by the same method. At `outlook27`'s daily interval that is
-451 B a day, about 3 KB a week, which is why it has no setting.
+**One `updateInterval` poll is about 42 KB on the wire** — the nine rows marked
+`updateInterval`, summed. At the hourly default that is roughly 1.0 MB a day.
 
-`/text/wwv.txt` and `/text/daily-solar-indices.txt` were measured 2026-08-20 by
-the same script, in the run that also produced the two rows added to the
-conditional-GET table below.
+**`goesFlux` is three quarters of it.** Its two time-series windows are 32.3 KB
+of the 42, against 9.7 KB for the other seven endpoints put together. It is
+also the only product on that interval with no `enabled` toggle
+([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
 
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/text/wwv.txt` | 0.3 KB | 0.5 KB |
-| `/text/daily-solar-indices.txt` | 0.8 KB | 2.9 KB |
+The rest of the bill, at the defaults: D-RAP 2.1 KB hourly, about 50 KB a day;
+the fixed-cadence bulletins and indices about 18 KB a day between them; aurora,
+if switched on, 143.7 KB every two hours — about 1.7 MB a day.
 
-At their intervals (three-hourly and four-hourly) that is roughly 2.4 KB and
-4.8 KB a day, so neither gets a setting either.
+**Consequence.** None of the fixed-cadence rows gets a setting. `outlook27` is
+442 B a day, `aIndex` 2.7 KB, `sunspot` 5.0 KB, `f107` 7.2 KB and `advisory`
+about 3.4 KB — 18 KB a day between the five, against 1.0 MB for the poll. A
+switch that saves under 2% of the bill is a dial, not a decision.
 
-`/json/goes/primary/xray-flares-7-day.json` was measured 2026-08-26 by a
-single gzipped GET, ahead of the HF tile work (#110/#122) that would fetch it.
-The decoded size varies with how many flares the week held.
-
-| Endpoint | Wire | Decoded |
-| --- | --- | --- |
-| `/json/goes/primary/xray-flares-7-day.json` | 4.9 KB | 27.5 KB |
+Earlier figures this run supersedes: the payload table dated 2026-08-09 and its
+"about 5 KB per poll", D-RAP's 3.3 KB from 2026-08-20, and the 7-day flare
+list's 4.9 KB from 2026-08-26. The flare list is the one that genuinely moves
+with the sky rather than with measurement error — it is one record per flare,
+so its size tracks how busy the week was. The rest of the gap is `goesFlux`
+having been added to the poll without the total being re-taken.
 
 ### The sunspot number is much cheaper from DSD.txt than from its own products
 
@@ -99,15 +118,16 @@ monthly *smoothed* number, which is the truer cycle-context figure, is only in
 the first of these and is not published on its own — so it is not published by
 this plugin either.
 
-**Consequence.** Two products are worth a setting. Aurora (`auroraEnabled`,
-`auroraInterval`) is about 1.7 MB a day at the default two-hour interval,
-against roughly 120 KB a day for everything else combined. D-RAP
-(`drapEnabled`, measured below at 3.3 KB) is nowhere near that, but it follows
-`updateInterval` and is two thirds again on top of the ~5 KB the rest of that
-poll costs — about 79 KB a day at the hourly default, which is most of the way
-to doubling the non-aurora bill. So it gets a switch, on by default: unlike
-aurora it is the same order of size as the poll it rides on, and it shipped
-before the switch existed.
+**Consequence.** Two products have a setting, and the 2026-08-28 re-measure
+moved the ground under both arguments. Aurora (`auroraEnabled`,
+`auroraInterval`) is about 1.7 MB a day at the default two-hour interval; that
+is still the largest single line, but it is now about 1.6× everything else
+combined rather than the thirty times the older figures supported, because the
+non-aurora bill grew to roughly 1.1 MB a day. D-RAP (`drapEnabled`,
+`drapInterval`) measures 2.1 KB, about 50 KB a day at the hourly default —
+5% of the poll it used to ride, not the two thirds recorded here before. Its
+switch is not doing the bandwidth job it was given; it stays because it also
+governs whether the product runs at all, and because it shipped.
 
 ## How often the content changes
 
@@ -165,16 +185,22 @@ same method. Baseline `ETag` and `Last-Modified` echoed back as
 | `/products/summary/solar-wind-mag-field.json` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/json/f107_cm_flux.json` | 200, content identical, new ETag | 200, content identical, new ETag |
 | `/json/goes/primary/xray-flares-latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
+| `/json/goes/primary/xray-flares-7-day.json` | 200, content identical, new ETag | 200, content identical, new ETag |
+| `/json/goes/primary/xrays-6-hour.json` | 200, content changed, new ETag | 200, content changed, new ETag |
+| `/json/goes/primary/integral-protons-6-hour.json` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/json/ovation_aurora_latest.json` | 200, content changed, new ETag | 200, content changed, new ETag |
+| `/text/drap_global_frequencies.txt` | 200, content changed, new ETag | 200, content changed, new ETag |
 | `/text/advisory-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 | `/text/27-day-outlook.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 | `/text/wwv.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 | `/text/daily-solar-indices.txt` | 200, content identical, new ETag | 200, content identical, new ETag |
 
-The last two rows are from a 2026-08-20 re-run of the same script. It found
-zero 304s on every endpoint, exactly as the 2026-08-09 run did; which bodies
-happened to be byte-identical differed between the runs, as the cadence table
-above says it would.
+`/text/wwv.txt` and `/text/daily-solar-indices.txt` are from a 2026-08-20
+re-run of the same script; the four GOES rows and D-RAP are from a 2026-08-28
+run, the first with every endpoint the plugin fetches in `ENDPOINTS`. Every one
+of the three runs found zero 304s on every endpoint; which bodies happened to
+be byte-identical differed between them, as the cadence table above says it
+would.
 
 **Zero 304s, on any endpoint, at either gap** — including four whose bodies were
 byte-identical to the baseline. The ETag is shaped `<size>-<mtime>`:

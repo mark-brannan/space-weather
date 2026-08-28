@@ -160,9 +160,9 @@ Seven settings, all optional, all with working defaults:
 
 In the plugin's own configuration screen these two are lines you drag across the ladder — the band is everything above the line, and pushing one above Extreme empties it, which is "Never". Arrow keys work too. On a server that renders the generated form instead, they are two dropdowns labelled with how often each level happens.
 * `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin, as a single `alert`-state notification with no popup and no sound.
-* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 145 KB per fetch, about thirty times everything else this plugin downloads combined. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
-* `drapEnabled` (default on) — fetches NOAA's D-RAP grid every `updateInterval`, publishing the highest frequency D-region absorption is blocking at your position. One grid covers the whole globe, so it costs the same everywhere: about 3.3 KB per fetch, against 5 KB for everything else in the same poll. Same bargain as `auroraEnabled` — it governs the recurring fetch, and with it off the webapp can still fetch the grid once, when you ask it to.
-* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike.
+* `auroraEnabled` (default off) — fetches the OVATION grid every `auroraInterval`, publishing `aurora.probability` and keeping the chart overlay tiles current. Off by default because the payload is 144 KB per fetch, about three and a half times what one poll of everything else costs — roughly 1.7 MB a day at the default interval, against about 1.1 MB for the whole of the rest of the plugin. It governs the recurring fetch and nothing else: with it off, the webapp can still fetch the grid once, when you ask it to.
+* `drapEnabled` (default on) — fetches NOAA's D-RAP grid every `drapInterval`, publishing the highest frequency D-region absorption is blocking at your position. One grid covers the whole globe, so it costs the same everywhere: about 2.1 KB per fetch, against about 42 KB for a poll of everything else. Same bargain as `auroraEnabled` — it governs the recurring fetch, and with it off the webapp can still fetch the grid once, when you ask it to.
+* `updateInterval` — how often to fetch from NOAA, in minutes, 60 by default. Covers observations, forecasts and alerts alike, about 42 KB per poll; three quarters of that is the pair of GOES flux time series, which no setting governs.
 * `auroraInterval` — separate poll interval for the aurora payload, 120 minutes by default.
 
 On a server new enough to load it, these are edited on the plugin's own configuration screen rather than the form Signal K generates from the JSON schema. Same settings, saving the same values, with a running total underneath the two interval fields of what they cost per day and per month — it moves as you type, so the price of a tighter aurora interval is visible before you commit to it. The generated form is still there and is what an older server, or a failed load, falls back to.
@@ -173,7 +173,7 @@ Five legacy settings are no longer supported. Configs that set the old keys stil
 * `notificationVisual` / `notificationSound` — see [Alarm zones](#alarm-zones).
 * `alertMaxAgeHours` — now a fixed 24 hours.
 * `observationsInterval` / `notificationsInterval` — now one `updateInterval`.
-* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB gzipped per poll, about 120 KB a day at the default interval, because NOAA serves this endpoint gzipped.
+* `sendAlertsWatchesWarnings` — the alerts product is always on. Neither justification for a switch survived being measured: severity is `alarmLevel`'s job, and the bandwidth is ~5 KB gzipped per poll, about 128 KB a day at the default interval, because NOAA serves this endpoint gzipped.
 
 ## References
 

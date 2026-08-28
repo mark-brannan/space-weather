@@ -96,8 +96,8 @@ export const schema = {
       description:
         'Fetches the grid on the interval below, publishing the probability at' +
         ' the vessel position and keeping the chart overlay tiles current.' +
-        ' Off by default on bandwidth: about 145 KB per fetch, roughly thirty' +
-        ' times everything else this plugin downloads put together, so the' +
+        ' Off by default on bandwidth: about 144 KB per fetch, three and a' +
+        ' half times what one poll of everything else costs, so the' +
         ' interval below sets what it costs a day. This only governs the' +
         ' recurring fetch \u2014 with it off, the webapp can still fetch the' +
         ' grid once, when you ask it to.',
@@ -113,9 +113,10 @@ export const schema = {
         'The highest radio frequency D-region absorption is blocking.' +
         ' Frequencies below it are absorbed; those above it should get' +
         ' through, barring other factors. NOAA serves one grid covering the' +
-        ' whole globe, so it costs the same everywhere: about 3.3 KB on each' +
-        ' fetch of the interval below, hourly by default, against 5 KB for' +
-        ' everything else. This only governs the recurring fetch \u2014 with' +
+        ' whole globe, so it costs the same everywhere: about 2.1 KB on each' +
+        ' fetch of the interval below, hourly by default, against about' +
+        ' 42 KB for everything else. This only governs the recurring fetch' +
+        ' \u2014 with' +
         ' it off, the webapp can still fetch the grid once, when you ask it' +
         ' to.',
       default: true
@@ -145,7 +146,8 @@ export const schema = {
       title: 'How often to fetch from NOAA',
       description:
         'in minutes. Covers observations, forecasts and alerts alike,' +
-        ' together about 5 KB per poll.',
+        ' together about 42 KB per poll \u2014 three quarters of that is the' +
+        ' pair of GOES flux time series, which no other setting governs.',
       default: 60
     }
   }

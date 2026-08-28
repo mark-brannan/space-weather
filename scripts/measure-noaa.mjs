@@ -12,6 +12,8 @@
  * paraphrase the numbers into a source comment. See AGENTS.md.
  */
 import { createHash } from 'crypto'
+import { gunzipSync } from 'zlib'
+import { get } from 'https'
 
 const API = 'https://services.swpc.noaa.gov'
 
@@ -19,12 +21,16 @@ const API = 'https://services.swpc.noaa.gov'
 const ENDPOINTS = [
   ['/products/noaa-scales.json', 'scales'],
   ['/json/goes/primary/xray-flares-latest.json', 'scales (flare class)'],
+  ['/json/goes/primary/xray-flares-7-day.json', 'scales (24h flare peak)'],
   ['/products/noaa-planetary-k-index-forecast.json', 'kp'],
   ['/products/summary/solar-wind-speed.json', 'solarWind'],
   ['/products/summary/solar-wind-mag-field.json', 'solarWind'],
+  ['/json/goes/primary/xrays-6-hour.json', 'goesFlux'],
+  ['/json/goes/primary/integral-protons-6-hour.json', 'goesFlux'],
   ['/products/alerts.json', 'alerts'],
   ['/json/f107_cm_flux.json', 'f107'],
   ['/json/ovation_aurora_latest.json', 'aurora'],
+  ['/text/drap_global_frequencies.txt', 'drap'],
   ['/text/advisory-outlook.txt', 'advisory'],
   ['/text/27-day-outlook.txt', 'outlook27'],
   ['/text/wwv.txt', 'aIndex'],
@@ -39,21 +45,41 @@ const CADENCE_INTERVAL_MS = 60_000
 const hash = (text) => createHash('sha1').update(text).digest('hex').slice(0, 10)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** Bytes actually crossing the wire, which is not the decoded size. */
-async function wireBytes(path) {
-  const response = await fetch(API + path, {
-    headers: { 'Accept-Encoding': 'gzip' }
+/**
+ * Bytes actually crossing the wire, which is not the decoded size.
+ *
+ * Counted off the raw socket via `node:https` rather than `fetch`. `fetch`
+ * decompresses transparently, and NOAA serves most of these gzipped and
+ * chunked -- so there is no `content-length` to read the compressed length
+ * off, and asking for one reported "unknown" for every endpoint that
+ * actually mattered.
+ */
+function wireBytes(path) {
+  return new Promise((resolve, reject) => {
+    const request = get(
+      API + path,
+      { headers: { 'Accept-Encoding': 'gzip' } },
+      (response) => {
+        let wire = 0
+        const chunks = []
+        response.on('data', (chunk) => {
+          wire += chunk.length
+          chunks.push(chunk)
+        })
+        response.on('end', () => {
+          const body = Buffer.concat(chunks)
+          const encoding = response.headers['content-encoding']
+          resolve({
+            wire,
+            decoded: encoding === 'gzip' ? gunzipSync(body).length : body.length,
+            encoding: encoding ?? null
+          })
+        })
+        response.on('error', reject)
+      }
+    )
+    request.on('error', reject)
   })
-  const buffer = await response.arrayBuffer()
-  // Node's fetch decompresses transparently, so ask for the compressed length
-  // via the header when the server states it, and fall back to the decoded
-  // size with a marker rather than silently reporting the wrong number.
-  const stated = response.headers.get('content-length')
-  return {
-    wire: stated ? Number(stated) : null,
-    decoded: buffer.byteLength,
-    encoding: response.headers.get('content-encoding')
-  }
 }
 
 async function baseline() {
