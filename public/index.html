@@ -131,13 +131,21 @@
   }
 
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+  /* --tile-pad-x is a token rather than a literal because the Kp chart reads
+     it: the canvas is pulled out into the padding so its plot starts on the
+     tile's content edge, which is where every heading and the Storm Scales
+     grid below it also start (issue #130). Change the padding here and the
+     chart follows. */
   .tile {
+    --tile-pad-x: 18px; --tile-pad-y: 16px;
     border: 1px solid var(--grid); border-radius: 4px; background: var(--panel);
-    box-shadow: var(--shadow); padding: 16px 18px; position: relative; overflow: hidden;
+    box-shadow: var(--shadow); padding: var(--tile-pad-y) var(--tile-pad-x);
+    position: relative; overflow: hidden;
   }
   .tile > .label { margin-bottom: 2px; }
   .tile h2 {
-    font-family: var(--font-display); font-weight: 600; font-size: 1rem;
+    font-family: var(--font-display); font-weight: 600;
+    font-size: clamp(0.82rem, 3.4vw, 1rem);
     letter-spacing: 0.02em; margin: 0 0 12px; color: var(--text);
   }
   .span-12 { grid-column: span 12; }
@@ -157,6 +165,10 @@
     .statusbar { padding: 6px 10px; gap: 4px 14px; margin-bottom: 8px; }
     .statusbar h1 { font-size: 0.82rem; }
     .statusbar .val { font-size: 0.82rem; }
+    /* Issue #129: at phone width the tile's own margin was eating 36px of
+       360 before any content got a say. The floor is set by the Kp chart's
+       axis labels, which live in this gutter. */
+    .tile { --tile-pad-x: 14px; --tile-pad-y: 12px; }
     .tile.hero { padding: 12px 14px; gap: 12px; }
   }
 
@@ -519,6 +531,12 @@
   .kp-bar .lbl { font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
   .kp-threshold { border-top: 1px dashed var(--sev-4); position: relative; margin: 2px 0 10px; opacity: 0.6; }
   .kp-threshold span { position: absolute; right: 0; top: -8px; font-size: 0.6rem; color: var(--sev-4); background: var(--panel); padding-left: 6px; }
+  /* The chart's y-axis labels sit in the tile's own left padding rather than
+     in a gutter of their own, so the plot area starts on the same edge as the
+     headings and the Storm Scales grid below (issue #130). */
+  .timeline-wrap {
+    margin-left: calc(-1 * var(--tile-pad-x)); margin-right: calc(-1 * var(--tile-pad-x));
+  }
   #kpChart { display: block; width: 100%; height: 132px; }
   .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
@@ -833,6 +851,10 @@
 
   <div class="learn-more">
     <span class="label" style="margin-right:2px">Learn more</span>
+    <!-- Ordered for this app's reader, not to match NOAA's own menu: most
+         specific to what is on screen first, general background last. Do not
+         reorder these to agree with spaceweather.gov (#114, and the argument
+         in docs/design-decisions.md). -->
     <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
     <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
     <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
@@ -1367,7 +1389,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const sev3 = styles.getPropertyValue('--sev-3').trim();
     const sev1 = styles.getPropertyValue('--sev-1').trim();
 
-    const padL = 26, padR = 10, padT = 10, padB = 8;
+    // The canvas is pulled out into the tile's horizontal padding, so the
+    // gutter the y-axis labels sit in is that padding and the plot starts and
+    // ends on the tile's content edges -- the same edges the heading above and
+    // the Storm Scales grid below start on (issue #130).
+    const tile = canvas.closest('.tile');
+    const padX = tile ? parseFloat(getComputedStyle(tile).paddingLeft) || 0 : 18;
+    const padL = padX, padR = padX, padT = 10, padB = 8;
     const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
     const maxKp = 9;
     const n = series.length;
@@ -1392,6 +1420,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // after -- drawing them on the integers would have the chart grade a
     // storm a level quieter than the banner above it.
     const gScaleColor = [null, sev1, sev3, sev3, sev4, sev5];
+    // The gutter is as wide as the tile's padding, so the type fits itself to
+    // the gutter rather than the plot being pushed in to make room for it.
+    ctx.font = "10px 'Space Mono', monospace";
+    const axisPx = Math.max(8, Math.min(10, (10 * (padL - 4)) / ctx.measureText('G5').width));
+    const axisFont = `${axisPx}px 'Space Mono', monospace`;
     const rules = [{ v: 0 }, { v: 3 }];
     for (let g = 1; g <= 5; g++) rules.push({ v: kpFloorForG(g), g });
     rules.forEach(({ v, g }) => {
@@ -1407,10 +1440,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
       ctx.fillStyle = color || dimColor;
-      ctx.font = "10px 'Space Mono', monospace";
+      ctx.font = axisFont;
       ctx.textBaseline = 'middle';
-      ctx.fillText(g ? `G${g}` : String(v), 4, y(v));
+      ctx.textAlign = 'right';
+      ctx.fillText(g ? `G${g}` : String(v), padL - 2, y(v));
     });
+    ctx.textAlign = 'left';
 
     if (n === 0) return;
 
