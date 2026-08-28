@@ -75,10 +75,19 @@ jobs:
       # trusted publisher is configured for: workflow_call was tried and
       # rejected (E404, wrong token shape), so workflow_dispatch is what
       # both a human and this job use.
+      # This step's first real run (#243/v0.29.11) failed before it could
+      # dispatch anything: `gh` shells out to `git` to find the repo unless
+      # told otherwise, and this job never checks the repo out, so every
+      # `gh` call died with "not a git repository". GH_REPO is the fix --
+      # the same thing a checkout step would have given it, without paying
+      # for one. Every run before this had release_created == 'false' and
+      # skipped the step entirely, which is why the gap went unnoticed since
+      # the release-please migration.
       - name: Trigger the npm publish, and wait for it to actually succeed
         if: steps.release.outputs.release_created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.release.outputs.tag_name }}
         run: |
           BEFORE=$(gh run list --workflow=publish.yml --json databaseId --jq '.[0].databaseId // 0')
