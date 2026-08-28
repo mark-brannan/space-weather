@@ -315,6 +315,20 @@ const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
 
 const iso = (offsetMin) =>
   new Date(Date.now() + offsetMin * 60000).toISOString()
+// The published F10.7 zone ladder, mirroring `zonesForF107` in src/parse.ts.
+const F107_ZONES = [
+  {
+    lower: 0,
+    upper: 70,
+    state: 'normal',
+    message: 'High bands essentially closed'
+  },
+  { lower: 70, upper: 90, state: 'normal', message: 'Poor HF conditions' },
+  { lower: 90, upper: 120, state: 'normal', message: 'Fair HF conditions' },
+  { lower: 120, upper: 150, state: 'nominal', message: 'Good HF conditions' },
+  { lower: 150, state: 'nominal', message: 'Excellent HF conditions' }
+]
+
 const leaf = (value, offsetMin = -6) => ({
   value,
   timestamp: iso(offsetMin),
@@ -396,7 +410,8 @@ const STATES = {
     observed: { G: 0, S: 0, R: 0 },
     peak24h: { G: 0, S: 0, R: 0 },
     kpObserved: 2.33,
-    series: series({ peakKp: 3.67, peakInMin: 1800 })
+    series: series({ peakKp: 3.67, peakInMin: 1800 }),
+    sfi: 96 // Fair (90-119)
   },
   recent: {
     // Live on 2026-08-25, and the case that showed the banner was wrong: the
@@ -408,14 +423,16 @@ const STATES = {
     observed: { G: 0, S: 0, R: 0 },
     peak24h: { G: 1, S: 0, R: 2 },
     kpObserved: 3.33,
-    series: series({ peakKp: 4.0, peakInMin: 1500 })
+    series: series({ peakKp: 4.0, peakInMin: 1500 }),
+    sfi: 78 // Poor (70-89)
   },
   brewing: {
     label: 'G3 forecast',
     observed: { G: 0, S: 0, R: 1 },
     peak24h: { G: 1, S: 0, R: 1 },
     kpObserved: 3.0,
-    series: series({ peakKp: 7.0, peakInMin: 860 })
+    series: series({ peakKp: 7.0, peakInMin: 860 }),
+    sfi: 118 // Fair, near the Good boundary
   },
   eased: {
     // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
@@ -426,7 +443,8 @@ const STATES = {
     observed: { G: 1, S: 0, R: 0 },
     peak24h: { G: 3, S: 0, R: 0 },
     kpObserved: 4.0,
-    series: series({ peakKp: 5.0, peakInMin: 1200 })
+    series: series({ peakKp: 5.0, peakInMin: 1200 }),
+    sfi: 135 // Good (120-149)
   },
   storm: {
     // Two scales at once, so the hero has to fold an "Also S4:" clause into
@@ -435,7 +453,10 @@ const STATES = {
     observed: { G: 4, S: 4, R: 2 },
     peak24h: { G: 4, S: 4, R: 3 },
     kpObserved: 8.0,
-    series: series({ peakKp: 8.33, peakInMin: 180, base: 5 })
+    series: series({ peakKp: 8.33, peakInMin: 180, base: 5 }),
+    sfi: 187 // Excellent (>=150) -- also the longest quality word, on the state
+    // with the widest MUF/headline text, so the SFI badge's flex-middle
+    // spacing gets checked against the tile's most crowded layout too.
   },
   stale: {
     label: 'Stale data',
@@ -443,7 +464,8 @@ const STATES = {
     peak24h: { G: 1, S: 0, R: 0 },
     kpObserved: 2.0,
     series: series({ peakKp: 3.0, peakInMin: 1200 }),
-    ageMin: -400 // older than the webapp's STALE_MS
+    ageMin: -400, // older than the webapp's STALE_MS
+    sfi: 65 // High bands essentially closed (<70)
   },
   nodata: {
     // Nothing published at all, with the plugin up long enough that silence
@@ -600,11 +622,21 @@ function payload(name, s) {
     case 'f107':
       // Walks the convention's five bands across the states rather than
       // tracking the storm: solar flux is a solar-cycle number, and whether
-      // today has a flare in it says nothing about this month's flux. Keyed on
-      // R only so that one dial per state stays the rule.
+      // today has a flare in it says nothing about this month's flux. Each
+      // state's own `sfi` field carries its band -- keyed by R instead, the
+      // dial only ever reached Fair or Excellent, since `observed.R` never
+      // goes past 2 across these seven states.
+      //
+      // Carries `meta.zones` because the HF tile's solar-flux gauge is drawn
+      // from the published ladder, not a webapp copy of it -- without the
+      // metadata here the mock would only ever exercise the fallback. Mirrors
+      // `zonesForF107` in src/parse.ts.
       return s.observed === null
         ? null
-        : leaf([96, 118, 187, 68, 152, 143][s.observed.R], -300)
+        : {
+            ...leaf(s.sfi, -300),
+            meta: { zones: F107_ZONES }
+          }
     case 'aIndex':
       return s.observed === null ? null : leaf(s.peak24h.G >= 3 ? 48 : 6, -300)
     case 'sunspotNumber':

@@ -3,13 +3,15 @@
 // can ask the same questions the map does without a browser. The drawing that
 // used to live at the bottom of this file is spaceMap.js, which draws every
 // layer through every projection rather than this one product through one.
-import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
+import { HF_SCALE_MAX_MHZ, MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
 import { drapNoaaLegend } from './drap-colors.js'
 
 const FLOOR_MHZ = MARINE_SSB_BAND_EDGES_HZ[0] / 1e6
 
-/** The scale the legend and the map are both drawn against, in MHz. */
-export const LEGEND_MAX_MHZ = 35
+/** The scale the legend and the map are both drawn against, in MHz. One
+ * constant, defined beside the HF tile's gauge, because the tile and the map
+ * legend now draw the same axis and a drift between them would be invisible. */
+export const LEGEND_MAX_MHZ = HF_SCALE_MAX_MHZ
 
 /** NOAA's own label interval on that bar. Not a parameter: there is one
  * legend, and a caller free to pass 0 could only hang the loop. */

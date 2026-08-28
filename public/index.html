@@ -343,62 +343,123 @@
     position: relative; cursor: help; flex: none;
   }
   .info:hover, .info:focus-visible { color: var(--amber); border-color: var(--amber); }
-  /* Opens rightward from the icon rather than centering under it: a short
-     heading (Solar Wind) puts the icon close to the tile's left edge, and
-     centering pushed the bubble left of x:0 -- clipped by the tile's own
-     overflow:hidden. Anchoring to the icon's left edge instead keeps it
-     inside the tile no matter how short the heading before it is. */
+  /* `position: fixed`, not `absolute`: the tile it opens from has
+     `overflow: hidden` (for the gauges and rings that live inside it), and an
+     absolutely-positioned bubble is clipped by that ancestor the moment it's
+     wider than the icon-to-tile-edge gap -- which the HF tile's bubble
+     reliably is. Fixed positioning escapes that clip (no ancestor here sets a
+     transform/filter/perspective, so the viewport stays its containing
+     block) at the cost of doing the placement in JS instead of CSS:
+     `positionInfoBubble` below sets left/top from the icon's own
+     getBoundingClientRect, clamped to the viewport rather than the tile. */
   .info .bubble {
-    position: absolute; left: 0; top: calc(100% + 8px);
-    width: 265px; padding: 9px 11px; border: 1px solid var(--grid); border-radius: 4px;
-    background: var(--panel-2); box-shadow: var(--shadow); color: var(--text);
+    position: fixed; width: 265px; padding: 9px 11px; border: 1px solid var(--grid);
+    border-radius: 4px; background: var(--panel-2); box-shadow: var(--shadow); color: var(--text);
     font: 400 0.7rem/1.45 var(--font-mono); letter-spacing: 0; text-align: left;
-    opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 5;
+    opacity: 0; visibility: hidden; transition: opacity 0.15s; z-index: 50;
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
-  /* HF Radio sits rightmost in the grid -- opening its bubble from the
-     icon's left edge runs the fixed 265px width past the viewport's own
-     right edge, not just the tile's. Anchor from the icon's right edge
-     instead so it opens leftward. */
-  .info.bubble-left .bubble { left: auto; right: 0; }
 
-  /* HF Radio. The cutoff leads because it is the only number here measured
-     at the boat and in the present tense; everything under it is context. */
-  .hf-cutoff { display: flex; align-items: baseline; gap: 7px; margin: 2px 0 4px; }
-  .hf-cutoff .n {
-    font-family: var(--font-num); font-weight: 700; font-size: 2.1rem; line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .hf-cutoff .u { font-size: 0.7rem; color: var(--text-dim); }
-  .hf-cutoff-sub { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 10px; }
+  /* The HF window, on the same 0-35 MHz axis NOAA's D-RAP colorbar and this
+     webapp's map legend are drawn against. It replaced nine equal-width band
+     chips: those were a ladder of names, so the gap from 2 to 4 MHz drew as
+     wide as the gap from 18 to 22, and nothing on them lined up with the map.
 
-  /* One cell per marine SSB band. Filled = absorbed, and that is the only
-     state that asserts anything: an outlined cell means "not blocked from
-     below", never "usable" (issue #82 -- the plugin has no MUF, so the
-     ceiling is unmeasured and a green band would be an unbacked claim).
-     grid rather than flex so nine cells share the width evenly whatever
-     their labels are, and shrink together instead of the two-digit ones
-     winning. */
-  .hf-bands { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin-bottom: 4px; }
-  .hf-band {
-    border: 1px solid var(--grid); border-radius: 2px; padding: 6px 0 4px;
-    text-align: center; font-family: var(--font-num); font-size: 0.66rem;
-    font-variant-numeric: tabular-nums; color: var(--text-dim);
+     Two ends, one of them unmeasured. The floor is D-RAP absorption; the
+     ceiling is the MUF, which no product here publishes (issue #82) -- so the
+     space above the cutoff is hatched "unmeasured", never painted open. A
+     green stretch would be the unbacked ceiling claim the strip was careful
+     not to make. */
+  .hf-gauge { margin: 2px 0 4px; }
+  .hf-gauge-track {
+    position: relative; height: 20px; border: 1px solid var(--grid); border-radius: 3px;
+    background: color-mix(in srgb, var(--grid) 22%, transparent); overflow: hidden;
   }
-  .hf-band.absorbed {
-    background: color-mix(in srgb, var(--sev-4) 55%, transparent);
-    border-color: var(--sev-4); color: var(--text);
+  .hf-gauge-track > i { position: absolute; top: 0; bottom: 0; display: block; }
+  .hf-seg-absorbed { background: color-mix(in srgb, var(--sev-4) 62%, transparent); }
+  .hf-seg-open { background: color-mix(in srgb, var(--sev-1) 34%, transparent); }
+  /* Flat, where "unmeasured" is hatched: above a known MUF is an answer, and
+     it must not read as the same non-answer as a missing ceiling. */
+  .hf-seg-above { background: color-mix(in srgb, var(--text-dim) 28%, transparent); }
+  /* Hatching, not a flat fill: an unmeasured region has to be legible as
+     "no answer here" beside two regions that are answers. */
+  .hf-seg-unknown {
+    background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--text-dim) 22%, transparent) 0 4px,
+      transparent 4px 8px);
   }
-  /* Reference marks at 2/6/12/18 MHz -- common marine SSB calling
-     frequencies. There's no continuous axis here to draw a line across, so
-     the "line" is a left edge on the chip nearest each frequency instead. */
-  .hf-band.ref { border-left: 2px solid var(--amber); }
-  /* Wraps between the two keys but never inside one: at kiosk width the tile
-     is ~245px and "Not blocked from below" broke away from its own swatch. */
-  .hf-bands-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 10px; }
-  .hf-bands-legend span { white-space: nowrap; }
-  .hf-bands-legend i { font-style: normal; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--grid); border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-  .hf-bands-legend i.absorbed { background: color-mix(in srgb, var(--sev-4) 55%, transparent); border-color: var(--sev-4); }
+  /* The marine SSB band edges survive the change to a frequency axis, at
+     their true positions instead of as equal chips: a hairline per edge, and
+     the amber ones are the 2/6/12/18 MHz calling frequencies. The constants
+     are the same list the D-RAP zone ladder is built from. */
+  .hf-gauge-track .edge { width: 1px; background: color-mix(in srgb, var(--text-dim) 55%, transparent); }
+  .hf-gauge-track .edge.ref { background: var(--amber); }
+  /* The two measured ends, drawn as marks over the fills. */
+  .hf-gauge-track .mark { width: 2px; background: var(--text); }
+  .hf-gauge-track .mark.muf { background: var(--aurora-a); }
+  /* The MUF's own number, on the gauge rather than on a row below it. Sits
+     inside the track beside its mark, and flips to the mark's left once the
+     mark is far enough right that it would overrun the end. */
+  .hf-gauge-track .muf-label {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    margin-left: 5px; padding: 0 2px;
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.58rem; line-height: 1; white-space: nowrap;
+    color: var(--text); background: color-mix(in srgb, var(--panel) 72%, transparent);
+    border-radius: 2px;
+  }
+  .hf-gauge-track .muf-label.before { transform: translate(-100%, -50%); margin-left: -5px; }
+  /* The marine band numbers, over the ticks they name. Above the track, not
+     below it: the axis under it carries the scale, and the two rows say
+     different things -- these are a sailor's bands, that is frequency. */
+  .hf-gauge-bands { position: relative; height: 12px; margin-bottom: 1px; }
+  .hf-gauge-bands span {
+    position: absolute; bottom: 0; transform: translateX(-50%);
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.55rem; color: var(--text-dim); white-space: nowrap;
+  }
+  /* Every 5 MHz, NOAA's own interval on the D-RAP colorbar this scale
+     matches -- the full 0/5/10/.../35 ladder along the bottom, not just the
+     top of it. First and last ticks pin to the track's own edges instead of
+     centering on their tick mark, so neither one runs past it. */
+  .hf-gauge-axis { position: relative; height: 13px; margin-top: 2px; }
+  .hf-gauge-axis span {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.6rem; color: var(--text-dim);
+  }
+  .hf-gauge-axis span:first-child { transform: none; left: 0; }
+  .hf-gauge-axis span:last-child { transform: none; left: auto; right: 0; }
+  .hf-gauge-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 10px; }
+  .hf-gauge-legend span { white-space: nowrap; }
+  .hf-gauge-legend i { font-style: normal; display: inline-block; width: 9px; height: 9px; border: 1px solid var(--grid); border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .hf-gauge-legend i.hf-seg-absorbed { border-color: var(--sev-4); }
+  .hf-gauge-legend i.hf-seg-open { border-color: var(--sev-1); }
+  .hf-gauge-legend i.hf-seg-above { border-color: var(--text-dim); }
+
+  /* Solar flux, on the zone ladder the plugin publishes as `meta.zones` on
+     the path itself -- so a threshold moves in src/parse.ts and this follows,
+     rather than the webapp carrying a second copy of the numbers. */
+  .hf-sfi-gauge { margin: 6px 0 2px; }
+  .hf-sfi-track {
+    position: relative; height: 12px; border: 1px solid var(--grid); border-radius: 3px; overflow: hidden;
+  }
+  .hf-sfi-track > i { position: absolute; top: 0; bottom: 0; display: block; opacity: 0.5; }
+  .hf-sfi-track .needle { width: 2px; background: var(--text); opacity: 1; }
+  .hf-sfi-axis { position: relative; height: 13px; margin-top: 2px; }
+  .hf-sfi-axis span {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
+    font-size: 0.6rem; color: var(--text-dim);
+  }
+  .hf-sfi-axis span:first-child { transform: none; left: 0; }
+  /* Zone fills take the same inverted ramp as the word beside them, so the
+     colour never has to carry the meaning on its own. */
+  .hf-zone-closed { background: var(--sev-5); }
+  .hf-zone-poor { background: var(--sev-4); }
+  .hf-zone-fair { background: var(--sev-3); }
+  .hf-zone-good { background: var(--sev-1); }
+  .hf-zone-excellent { background: var(--aurora-a); }
 
   /* The severity ramp read backwards: on solar flux high is good, so the
      worst reading takes the loudest colour. The word is drawn beside the
@@ -411,10 +472,18 @@
   .hf-sfi-good { color: var(--sev-1); }
   .hf-sfi-excellent { color: var(--aurora-a); }
   .readout-row .q { font-size: 0.72rem; margin-left: 6px; }
+  /* The SFI row's quality badge sits between the label and the number rather
+     than after the number: a third flex child, `flex: 1` so it claims
+     whatever the label and the number don't, and centers itself in it. */
+  .readout-row.sfi-row .q { flex: 1; margin: 0; text-align: center; }
+  .readout-row.sfi-row .v { flex: none; }
 
   .readout-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-top: 1px solid var(--grid); }
   .readout-row:first-of-type { border-top: none; }
   .readout-row .n { font-size: 0.78rem; color: var(--text-dim); }
+  /* The row's own info icon, not the tile-head one -- smaller, and nudged
+     down to sit on the text's baseline instead of its own flex-centered one. */
+  .readout-row .n .info { width: 12px; height: 12px; font-size: 8px; vertical-align: -2px; }
   .readout-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.95rem; text-align: right; white-space: nowrap; }
   .readout-row .u { font-size: 0.68rem; color: var(--text-dim); margin-left: 3px; }
 
@@ -708,12 +777,16 @@
       <div class="tile-head">
         <h2>HF Radio</h2>
         <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
-        <a class="info bubble-left" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
+        <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
           target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
-          on the way out, at this position. Filled bands are absorbed; the rest are only
-          &ldquo;not blocked from below&rdquo; &mdash; nothing here measures the F2 layer, so no
-          band above the cutoff is claimed usable. The solar flux wording (Poor / Fair / Good) is
-          operator convention with no published derivation, not a NOAA scale.</span></a>
+          on the way out, at this position, on the same 0&ndash;35&nbsp;MHz scale as the map.
+          The filled stretch from the bottom is absorbed; the open stretch above it, up to the
+          MUF mark, is usable. Nothing here measures the F2 layer directly, so unless NOAA ever
+          publishes a measured MUF, that mark is a model estimate from F10.7, position, time of
+          day and Kp &mdash; not a measurement. Ticks are the marine SSB band edges. The solar
+          flux gauge is drawn from the zone ladder the plugin publishes on the path itself; its
+          wording (Poor / Fair / Good) is operator convention with no published derivation, not a
+          NOAA scale.</span></a>
       </div>
       <div id="hfBody">
         <div class="empty-state">Waiting for data&hellip;</div>
@@ -1073,8 +1146,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   const DASH = '–';
-  const row = (name, value, unit, style) =>
-    `<div class="readout-row"><span class="n">${name}</span><span class="v"${style ? ` style="${style}"` : ''}>${value}${unit ? `<span class="u">${unit}</span>` : ''}</span></div>`;
+  // `note` is an inline info bubble after the row's own name, for the rare
+  // row that needs a sentence of context the label itself can't carry.
+  const row = (name, value, unit, style, note) =>
+    `<div class="readout-row"><span class="n">${name}${note ? ` ${note}` : ''}</span><span class="v"${style ? ` style="${style}"` : ''}>${value}${unit ? `<span class="u">${unit}</span>` : ''}</span></div>`;
+
+  const SUNSPOT_NOTE =
+    '<span class="info" tabindex="0">i<span class="bubble">A visible-disk sunspot count, ' +
+    'published daily by SWPC. It rises and falls with the same 11-year solar cycle that ' +
+    'drives F10.7 flux and the ionosphere&rsquo;s ionization, so it tracks loosely with MUF ' +
+    '&mdash; F10.7, in the HF Radio tile, is the more direct measure of ' +
+    'that.</span></span>';
 
   // Labels are spelled out -- "Solar flux (10.7 cm)", "Planetary A-index",
   // never "SFI / A / K". NOAA's own WWV bulletin spells them out, so the
@@ -1097,52 +1179,134 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // this tile is "what is the Sun doing", that row is "what did today do".
       row('Latest flare', flareClass ?? DASH, '') +
       row('Planetary A-index', aIndex !== null ? aIndex.toFixed(0) : DASH, '') +
-      row('Sunspot number', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '');
+      row('Sunspot number (SSN)', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '', '', SUNSPOT_NOTE);
   }
 
   function renderHf(card) {
     const body = document.getElementById('hfBody');
-    const { cutoffHz, bands, bandsAbsorbed, sfu, f107Band, protonPfu, protonElevated,
-      trendRatio, trendWord } = card;
+    const { cutoffHz, mufHz, mufEstimated, gauge, sfuGauge, sfu, f107Band,
+      protonPfu, protonElevated, trendRatio, trendWord } = card;
     if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
       body.innerHTML = '<div class="empty-state">No HF propagation reading yet.</div>';
       return;
     }
 
-    // A cutoff of 0 is a measurement ("nothing absorbed"), not a missing one,
-    // so it gets its own sentence rather than a 0.0 MHz headline.
-    const lead = cutoffHz === null
-      ? `<div class="hf-cutoff"><span class="n">${DASH}</span></div>
-         <div class="hf-cutoff-sub">No D-RAP reading yet &mdash; it needs a fetched grid and a vessel position.</div>`
-      : cutoffHz === 0
-        // "None" here reads as "no reading", the exact opposite of what a
-        // measured zero means -- so the headline stays a word only DASH
-        // (missing) and this (measured, clear) can't be confused for.
-        ? `<div class="hf-cutoff"><span class="n">Clear</span></div>
-           <div class="hf-cutoff-sub">No D-region absorption predicted here.</div>`
-        : `<div class="hf-cutoff"><span class="n">${(cutoffHz / 1e6).toFixed(1)}</span><span class="u">MHz and below</span></div>
-           <div class="hf-cutoff-sub">Absorbed by 1&nbsp;dB or more &mdash; ${bandsAbsorbed} of ${bands.length} marine SSB bands.</div>`;
-
-    // Marine SSB calling frequencies -- 2, 6, 12, 18 MHz -- get a reference
-    // mark on the band chip they fall in. There's no continuous axis to draw
-    // a line across, so the mark is the chip's own left edge.
+    // The cutoff headline and its sentence are gone: the gauge below carries
+    // both, and at display size the word repeated what the fill already said.
+    // Marine SSB calling frequencies -- 2, 6, 12, 18 MHz. On a frequency axis
+    // these can finally be drawn where they actually are, so the mark is a
+    // line across the gauge rather than a chip's left edge.
     const REF_MHZ = [2, 6, 12, 18];
-    const strip = `<div class="hf-bands">${bands
-      .map(
-        (b) =>
-          `<div class="hf-band${b.absorbed ? ' absorbed' : ''}${REF_MHZ.includes(Number(b.label)) ? ' ref' : ''}" title="${b.label} MHz band">${b.label}</div>`
-      )
-      .join('')}</div>
-      <div class="hf-bands-legend">
-        <span><i class="absorbed"></i>Absorbed</span>
-        <span><i></i>Not blocked from below</span>
+    const pct = (f) => `${(f * 100).toFixed(3)}%`;
+    const seg = (cls, from, to, title) =>
+      to > from
+        ? `<i class="${cls}" style="left:${pct(from)};width:${pct(to - from)}" title="${title}"></i>`
+        : '';
+
+    const segments =
+      seg('hf-seg-absorbed', 0, gauge.absorbedFraction ?? 0,
+        'Absorbed by 1 dB or more (D-RAP)') +
+      (gauge.openFrom !== null
+        ? seg('hf-seg-open', gauge.openFrom, gauge.openTo, 'Open: above the absorption cutoff and below the MUF')
+        : '') +
+      (gauge.aboveTo !== null
+        ? seg('hf-seg-above', gauge.aboveFrom, gauge.aboveTo,
+            'Above the maximum usable frequency — not returned by the ionosphere')
+        : '') +
+      (gauge.unknownFrom !== null
+        ? seg('hf-seg-unknown', gauge.unknownFrom, gauge.unknownTo,
+            gauge.ceilingUnmeasured
+              ? 'Ceiling unmeasured — nothing here measures the F2 layer, so no band above the cutoff is claimed usable'
+              : gauge.floorUnmeasured
+                ? 'Floor unmeasured — D-RAP has not reported a cutoff yet'
+                : 'No reading')
+        : '');
+
+    const edges = gauge.bandEdges
+      .map((edge) => `<i class="edge${REF_MHZ.includes(Math.floor(edge.mhz)) ? ' ref' : ''}" style="left:${pct(edge.fraction)}" title="${edge.mhz} MHz marine SSB band edge"></i>`)
+      .join('');
+    const marks =
+      (gauge.absorbedFraction !== null && cutoffHz > 0
+        ? `<i class="mark" style="left:${pct(gauge.absorbedFraction)}" title="Absorption cutoff (LUF)"></i>`
+        : '') +
+      (gauge.mufFraction !== null
+        ? `<i class="mark muf" style="left:${pct(gauge.mufFraction)}" title="${mufEstimated ? 'Estimated maximum usable frequency' : 'Maximum usable frequency'}"></i>`
+        : '');
+
+    // The MUF reads on the gauge, not as a row of its own: it is one end of
+    // the window the gauge draws, and a number on a separate line made the
+    // reader join them up by hand. Flipped to the inside once the mark is far
+    // enough right that the label would run off the end.
+    const mufLabel = gauge.mufFraction === null
+      ? ''
+      : `<span class="muf-label${gauge.mufFraction > 0.62 ? ' before' : ''}" style="left:${pct(gauge.mufFraction)}">MUF ${(mufHz / 1e6).toFixed(1)}${mufEstimated ? '&nbsp;est' : ''}</span>`;
+
+    // Every 5 MHz, NOAA's own interval on the D-RAP colorbar -- the full
+    // scale along the bottom, same as the band numbers get their own row
+    // above the track. A "(Marine SSB Bands)" caption briefly shared this
+    // row -- dropped, because at tile width it ran into these ticks rather
+    // than clearing them. Unit on the last tick only, same as the map
+    // legend's axis: a bare row of digits reads as unlabelled, and repeating
+    // "MHz" at every tick would crowd the ladder back into the caption's
+    // old problem.
+    const axis = gauge.ticks
+      .map((tick, i) => `<span style="left:${pct(tick.fraction)}">${i === gauge.ticks.length - 1 ? `${tick.mhz}&nbsp;MHz` : tick.mhz}</span>`)
+      .join('');
+
+    // The marine band numbers, over the tick each one belongs to. Truncated,
+    // not rounded: the band at 18.78 MHz is the one everyone calls 18.
+    const bandLabels = gauge.bandEdges
+      .map((edge) => `<span style="left:${pct(edge.fraction)}">${Math.floor(edge.mhz)}</span>`)
+      .join('');
+
+    const strip = `<div class="hf-gauge">
+        <div class="hf-gauge-bands">${bandLabels}</div>
+        <div class="hf-gauge-track">${segments}${edges}${marks}${mufLabel}</div>
+        <div class="hf-gauge-axis">${axis}</div>
+      </div>
+      <div class="hf-gauge-legend">
+        <span><i class="hf-seg-absorbed"></i>Absorbed (LUF)</span>
+        ${gauge.ceilingUnmeasured
+          ? '<span><i class="hf-seg-unknown"></i>Ceiling unmeasured</span>'
+          : gauge.floorUnmeasured
+            ? '<span><i class="hf-seg-unknown"></i>Floor unmeasured</span><span><i class="hf-seg-above"></i>Above the MUF</span>'
+            : gauge.windowClosed
+              ? `<span><i class="hf-seg-above"></i>Above the MUF &mdash; no open window</span>`
+              : `<span><i class="hf-seg-open"></i>Open</span><span><i class="hf-seg-above"></i>Above the MUF</span>`}
       </div>`;
 
-    const sfiRow = row(
-      'Solar flux (10.7&nbsp;cm)',
-      sfu !== null ? `${sfu.toFixed(0)}<span class="q hf-sfi-${f107Band.key}">${f107Band.label}</span>` : DASH,
-      ''
-    );
+    // The zone ladder the plugin publishes on the path itself, drawn as the
+    // gauge: the metadata is the setting, and the webapp's F107_BANDS are only
+    // the fallback for a server that hands over no meta.
+    const sfiZones = sfuGauge.bands
+      .map((band) => `<i class="hf-zone-${band.key}" style="left:${pct(band.fraction)};width:${pct(band.width)}" title="${band.from}&ndash;${band.to} sfu: ${band.label}"></i>`)
+      .join('');
+    const sfiNeedle = sfuGauge.fraction === null
+      ? ''
+      : `<i class="needle" style="left:${pct(sfuGauge.fraction)}" title="${sfu.toFixed(0)} sfu"></i>`;
+    // From the same bands the fills are drawn from, not a second copy of the
+    // thresholds: a boundary moving in src/parse.ts moved the fills and the
+    // axis together, rather than only one of them.
+    const sfiAxis = [...sfuGauge.bands.map((band) => band.from), sfuGauge.maxSfu]
+      .map((v) => `<span style="left:${pct(v / sfuGauge.maxSfu)}">${v}</span>`)
+      .join('');
+    const sfiGauge = `<div class="hf-sfi-gauge">
+        <div class="hf-sfi-track">${sfiZones}${sfiNeedle}</div>
+        <div class="hf-sfi-axis">${sfiAxis}</div>
+      </div>`;
+
+    // Quality reads before the number, not after it: "Fair    96 sfu" rather
+    // than "96 sfu Fair". A dedicated three-part row instead of the generic
+    // `row()` helper's name/value pair, because the quality badge sits in
+    // the gap between them -- roughly centered, via flex:1 on the badge
+    // itself rather than a measured offset -- with the unit left adjacent
+    // to the number it belongs to.
+    const sfiRow = `<div class="readout-row sfi-row">
+        <span class="n">10.7&nbsp;cm Solar Flux Index (SFI)</span>
+        ${sfu !== null ? `<span class="q hf-sfi-${(sfuGauge.band ?? f107Band).key}">${(sfuGauge.band ?? f107Band).label}</span>` : ''}
+        <span class="v">${sfu !== null ? `${sfu.toFixed(0)}<span class="u">sfu</span>` : DASH}</span>
+      </div>` + sfiGauge;
+
     const protonRow = row(
       'Proton flux (&ge;10&nbsp;MeV)',
       protonPfu !== null ? protonPfu.toFixed(protonPfu < 10 ? 1 : 0) : DASH,
@@ -1155,7 +1319,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ''
     );
 
-    body.innerHTML = lead + strip + sfiRow + protonRow + trendRow;
+    // Solar flux first: it is the day's headline number, and it gates
+    // whether the LUF/MUF window below is even worth reading -- low SFI and
+    // the ceiling is down wherever the gauge draws it.
+    body.innerHTML = sfiRow + strip + protonRow + trendRow;
   }
 
   function drawKpTimeline(canvas, series) {
@@ -1447,6 +1614,47 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) closeAdvisoryOverlay();
+  });
+
+  // --- Info bubbles ---------------------------------------------------------
+  //
+  // `.bubble` is `position: fixed` (see the CSS) so it can render past its
+  // tile's own `overflow: hidden`; that means its left/top have to be set
+  // here, from the icon's real position, rather than left to CSS. Clamped to
+  // the viewport, not the tile -- "past the tile but never past the page" is
+  // the point of doing this in JS instead of the anchor tricks it replaced.
+  const BUBBLE_MARGIN = 8;
+  function positionInfoBubble(icon) {
+    const bubble = icon.querySelector(':scope > .bubble');
+    if (!bubble) return;
+    const iconRect = icon.getBoundingClientRect();
+    const bubbleRect = bubble.getBoundingClientRect();
+    const maxLeft = window.innerWidth - bubbleRect.width - BUBBLE_MARGIN;
+    let left = Math.min(iconRect.left, maxLeft);
+    left = Math.max(BUBBLE_MARGIN, left);
+    let top = iconRect.bottom + BUBBLE_MARGIN;
+    if (top + bubbleRect.height > window.innerHeight - BUBBLE_MARGIN) {
+      // Below the icon runs off the bottom of the page -- open upward instead.
+      top = iconRect.top - bubbleRect.height - BUBBLE_MARGIN;
+    }
+    top = Math.max(BUBBLE_MARGIN, top);
+    bubble.style.left = `${left}px`;
+    bubble.style.top = `${top}px`;
+  }
+  // mouseover/focusin bubble, so delegating on document survives every
+  // tile's innerHTML re-render instead of needing listeners re-attached
+  // after each refresh.
+  document.addEventListener('mouseover', (e) => {
+    const icon = e.target.closest('.info');
+    if (icon) positionInfoBubble(icon);
+  });
+  document.addEventListener('focusin', (e) => {
+    const icon = e.target.closest('.info');
+    if (icon) positionInfoBubble(icon);
+  });
+  window.addEventListener('resize', () => {
+    const open = document.querySelector('.info:hover, .info:focus-within');
+    if (open) positionInfoBubble(open);
   });
 
   // --- The map ------------------------------------------------------------

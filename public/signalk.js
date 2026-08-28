@@ -26,6 +26,11 @@ export const ENDPOINTS = {
   aIndex: vessel('environment/noaa/swpc/a_index'),
   sunspotNumber: vessel('environment/noaa/swpc/sunspot_number'),
   position: vessel('navigation/position'),
+  // Nothing publishes this yet -- the MUF is issue #82, and the HF tile draws
+  // its half of the gauge as explicitly unmeasured until something does. The
+  // row is here rather than added later because a 404 reads as null through
+  // `getJson`, and the tile then needs no second change to start drawing it.
+  muf: vessel('environment/noaa/swpc/muf'),
   advisory: plugin('advisory-outlook'),
   status: plugin('status')
 }
@@ -47,5 +52,13 @@ export const leafValue = (node) =>
       ? node.value
       : null
     : (node ?? null)
+
+// `meta` is described once at startup and rides on the same node as the
+// value; the HF tile's solar-flux gauge is drawn from the published zone
+// ladder rather than a second copy of it.
+export const leafMeta = (node) =>
+  node && typeof node === 'object' && node.meta && typeof node.meta === 'object'
+    ? node.meta
+    : null
 
 export const leafTime = (node) => (node && node.timestamp) || null
