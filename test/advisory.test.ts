@@ -362,6 +362,17 @@ describe('advisory product', () => {
     expect(cleared.value.method).toEqual([])
   })
 
+  it('raises the notification by default', async () => {
+    // What `advisory.enabled` used to assert -- now a fact about the
+    // notification rather than the schedule.
+    vi.useFakeTimers({ now: REAL_ISSUED, toFake: ['Date'] })
+    const h = harness(fixture(REAL))
+    await advisory.refresh(h.ctx as any)
+
+    const [raised] = h.published.filter((p) => p.path === ADVISORY_BASE)
+    expect(raised.value.state).toBe(NotificationStates.ALERT)
+  })
+
   it('is always scheduled -- sendAdvisoryOutlook governs the notification, not the fetch', () => {
     expect(advisory.enabled).toBeUndefined()
   })

@@ -60,11 +60,9 @@ export function nextAdvisoryDelayMinutes(
 export const advisory: Product = {
   name: 'Advisory Outlook',
   intervalMinutes: () => FALLBACK_MINUTES,
-  // No `enabled`: `sendAdvisoryOutlook` is titled "Send notifications for..."
-  // and that is exactly what it governs. Gating the schedule on it too meant
-  // turning the notification off also stopped fetching -- the data just sat
-  // at whatever it last was, forever, with nothing above ever running again
-  // to notice or fix that. Always scheduled, like `alerts`.
+  // No `enabled`: `sendAdvisoryOutlook` governs the notification, not the
+  // fetch, and this product has no manual-refresh route to reveal a frozen
+  // bulletin. Argument in docs/design-decisions.md.
 
   metadata(): Meta[] {
     return [
