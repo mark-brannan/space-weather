@@ -49,6 +49,10 @@
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
+    /* Canonical desktop tile padding. .tile normally overrides this itself,
+       so the value here only matters when renderKp's canvas.closest('.tile')
+       finds no tile to read padding from -- see the JS fallback below. */
+    --tile-pad-x: 18px; --tile-pad-y: 16px;
     --font-display: 'Oswald', 'Arial Narrow', sans-serif;
     --font-mono: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
     --font-round: 'Nunito', 'Trebuchet MS', sans-serif;
@@ -1394,7 +1398,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // ends on the tile's content edges -- the same edges the heading above and
     // the Storm Scales grid below start on (issue #130).
     const tile = canvas.closest('.tile');
-    const padX = tile ? parseFloat(getComputedStyle(tile).paddingLeft) || 0 : 18;
+    // No .tile ancestor to read real padding from -- fall back to the
+    // canonical --tile-pad-x on :root rather than a second hand-typed
+    // number that could drift from it.
+    const rootPadX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile-pad-x')) || 18;
+    const padX = tile ? parseFloat(getComputedStyle(tile).paddingLeft) || 0 : rootPadX;
     const padL = padX, padR = padX, padT = 10, padB = 8;
     const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
     const maxKp = 9;
