@@ -318,3 +318,57 @@ describe('drapInterval', () => {
     expect(settingsFrom({ drapInterval: 0 }).drapInterval).toBe(60)
   })
 })
+
+describe('goesFluxEnabled', () => {
+  it('is off unless the config asks for it', () => {
+    // Opt-in, like aurora and unlike D-RAP: 775 KB a day is not something to
+    // charge a boat that has never opened the configuration screen. The cost
+    // is that an install upgrading across this release stops publishing
+    // xray_flux, its trend and proton_flux until the box is ticked.
+    expect(settingsFrom({}).goesFluxEnabled).toBe(false)
+    expect(settingsFrom({ goesFluxEnabled: true }).goesFluxEnabled).toBe(true)
+    expect(settingsFrom({ goesFluxEnabled: false }).goesFluxEnabled).toBe(false)
+  })
+
+  it('treats anything but a real `true` as off', () => {
+    // Same rule as auroraEnabled: the expensive default is never reached by
+    // accident, only by a value that actually says yes.
+    expect(settingsFrom({ goesFluxEnabled: 'yes' }).goesFluxEnabled).toBe(false)
+    expect(settingsFrom({ goesFluxEnabled: 1 }).goesFluxEnabled).toBe(false)
+  })
+})
+
+describe('goesFluxInterval', () => {
+  it('defaults to 60 minutes', () => {
+    // The paths declare a one-hour `timeout`, so anything slower publishes a
+    // reading Signal K itself marks stale.
+    expect(settingsFrom({}).goesFluxInterval).toBe(60)
+  })
+
+  it('uses goesFluxInterval when present', () => {
+    expect(settingsFrom({ goesFluxInterval: 180 }).goesFluxInterval).toBe(180)
+  })
+
+  it('falls back to updateInterval for a config saved before the split', () => {
+    expect(settingsFrom({ updateInterval: 30 }).goesFluxInterval).toBe(30)
+  })
+
+  it('falls back to the resolved legacy observations/notifications cadence', () => {
+    expect(
+      settingsFrom({ observationsInterval: 15, notificationsInterval: 20 })
+        .goesFluxInterval
+    ).toBe(15)
+  })
+
+  it('an explicit invalid goesFluxInterval falls back to 60', () => {
+    expect(
+      settingsFrom({ goesFluxInterval: 'soon', updateInterval: 30 })
+        .goesFluxInterval
+    ).toBe(60)
+  })
+
+  it('rejects junk and falls back to 60', () => {
+    expect(settingsFrom({ goesFluxInterval: 'soon' }).goesFluxInterval).toBe(60)
+    expect(settingsFrom({ goesFluxInterval: 0 }).goesFluxInterval).toBe(60)
+  })
+})

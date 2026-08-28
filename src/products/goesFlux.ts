@@ -13,7 +13,8 @@ import { Product } from './types.js'
 
 export const goesFlux: Product = {
   name: 'GOES X-ray and Proton Flux',
-  intervalMinutes: (settings) => settings.updateInterval,
+  intervalMinutes: (settings) => settings.goesFluxInterval,
+  enabled: (settings) => settings.goesFluxEnabled,
 
   metadata(): Meta[] {
     return [

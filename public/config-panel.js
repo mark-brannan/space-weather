@@ -27,6 +27,8 @@ export const DEFAULTS = Object.freeze({
   auroraInterval: 120,
   drapEnabled: true,
   drapInterval: 60,
+  goesFluxEnabled: false,
+  goesFluxInterval: 60,
   updateInterval: 60
 })
 
@@ -49,18 +51,23 @@ export const SCALE_NAMES = Object.freeze([
  */
 export const AURORA_WIRE_KB = 144
 /**
- * Every endpoint that follows `updateInterval`, summed: the two scales
- * fetches plus the 7-day flare list, Kp, both solar wind summaries, both GOES
- * flux windows and the alerts archive. The GOES pair is three quarters of it
- * and has no setting of its own, which is why this row dwarfs the two that do.
+ * Every endpoint that still follows `updateInterval`, summed: the two scales
+ * fetches plus the 7-day flare list, Kp, both solar wind summaries and the
+ * alerts archive. The alerts archive is over half of it on its own.
  */
-export const OTHER_WIRE_KB = 42
+export const OTHER_WIRE_KB = 9.7
+/**
+ * The two GOES time-series windows, on their own `goesFluxInterval`. Priced
+ * apart from the row above for the reason D-RAP is: it is much the largest
+ * thing on that poll -- more than three times the rest of it put together --
+ * and it is now a rate the user sets rather than one they inherit.
+ */
+export const GOES_FLUX_WIRE_KB = 32.3
 /**
  * D-RAP follows its own `drapInterval` rather than `updateInterval`, and is
- * priced separately rather than folded into the row above: at two thirds of
- * that whole row it was much too big to disappear into a rounding even before
- * it got a rate of its own, and it is the only part of that interval the user
- * can switch off.
+ * priced separately rather than folded into the row above for the same reason
+ * the GOES pair below is: it has a rate the user sets, so a row that moved
+ * with a different one would be wrong.
  */
 export const DRAP_WIRE_KB = 2.1
 
@@ -136,8 +143,20 @@ export function dailyKb(settings) {
         minutes(settings.drapInterval, DEFAULTS.drapInterval)) *
       DRAP_WIRE_KB
     : 0
+  const goesFlux = settings.goesFluxEnabled
+    ? (MINUTES_PER_DAY /
+        minutes(settings.goesFluxInterval, DEFAULTS.goesFluxInterval)) *
+      GOES_FLUX_WIRE_KB
+    : 0
   const fixed = fixedKb(settings)
-  return { aurora, other, drap, fixed, total: aurora + other + drap + fixed }
+  return {
+    aurora,
+    other,
+    drap,
+    goesFlux,
+    fixed,
+    total: aurora + other + drap + goesFlux + fixed
+  }
 }
 
 /**
@@ -438,6 +457,12 @@ export function panelSettings(configuration) {
       c.drapInterval === undefined
         ? updateInterval
         : minutes(c.drapInterval, DEFAULTS.drapInterval),
+    goesFluxEnabled: c.goesFluxEnabled === true,
+    // Same migration as `drapInterval` above, for the same reason.
+    goesFluxInterval:
+      c.goesFluxInterval === undefined
+        ? updateInterval
+        : minutes(c.goesFluxInterval, DEFAULTS.goesFluxInterval),
     updateInterval
   }
 }

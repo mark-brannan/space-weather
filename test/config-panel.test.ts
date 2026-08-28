@@ -11,6 +11,7 @@ import {
   currentConditions,
   A_INDEX_WIRE_KB,
   F107_WIRE_KB,
+  GOES_FLUX_WIRE_KB,
   OUTLOOK27_WIRE_KB,
   SUNSPOT_WIRE_KB,
   dailyKb,
@@ -393,16 +394,26 @@ describe('dailyKb', () => {
   it('counts nothing for aurora while aurora is off', () => {
     expect(dailyKb(settings).aurora).toBe(0)
     expect(dailyKb(settings).total).toBe(
-      dailyKb(settings).other + dailyKb(settings).drap + dailyKb(settings).fixed
+      dailyKb(settings).other +
+        dailyKb(settings).drap +
+        dailyKb(settings).goesFlux +
+        dailyKb(settings).fixed
     )
   })
 
   it('charges one wire payload per interval per day', () => {
-    const day = dailyKb({ ...settings, auroraEnabled: true })
+    const day = dailyKb({
+      ...settings,
+      auroraEnabled: true,
+      goesFluxEnabled: true
+    })
     expect(day.other).toBeCloseTo((1440 / 60) * OTHER_WIRE_KB)
     expect(day.aurora).toBeCloseTo((1440 / 120) * AURORA_WIRE_KB)
     expect(day.drap).toBeCloseTo((1440 / 60) * DRAP_WIRE_KB)
-    expect(day.total).toBeCloseTo(day.aurora + day.other + day.drap + day.fixed)
+    expect(day.goesFlux).toBeCloseTo((1440 / 60) * GOES_FLUX_WIRE_KB)
+    expect(day.total).toBeCloseTo(
+      day.aurora + day.other + day.drap + day.goesFlux + day.fixed
+    )
   })
 
   it('drops D-RAP from the bill when it is switched off', () => {
@@ -413,6 +424,28 @@ describe('dailyKb', () => {
     expect(off.drap).toBe(0)
     expect(on.total - off.total).toBeCloseTo(on.drap)
     expect(off.other).toBe(on.other)
+  })
+
+  it('counts nothing for the GOES flux pair until it is switched on', () => {
+    // The starting state of the panel on a fresh install: the box is unticked,
+    // so the running total must open at the small figure rather than at the
+    // one the plugin used to charge.
+    expect(dailyKb(settings).goesFlux).toBe(0)
+    const on = dailyKb({ ...settings, goesFluxEnabled: true })
+    expect(on.total - dailyKb(settings).total).toBeCloseTo(on.goesFlux)
+    expect(on.other).toBe(dailyKb(settings).other)
+    // Ticking it is much the largest thing a user can add to the poll: more
+    // than three times everything left on `updateInterval`.
+    expect(on.goesFlux).toBeGreaterThan(on.other * 3)
+  })
+
+  it('scales the GOES flux pair with its own interval, not the poll', () => {
+    const on = { ...settings, goesFluxEnabled: true }
+    const base = dailyKb(on)
+    const fasterOther = dailyKb({ ...on, updateInterval: 30 })
+    expect(fasterOther.goesFlux).toBeCloseTo(base.goesFlux)
+    const slower = dailyKb({ ...on, goesFluxInterval: 180 })
+    expect(slower.goesFlux).toBeCloseTo(base.goesFlux / 3)
   })
 
   it('scales D-RAP with its own interval, not the "everything else" one', () => {

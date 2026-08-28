@@ -217,6 +217,31 @@ describe('the HF card against a captured NOAA payload', () => {
     expect(card.trendWord).not.toBeNull()
     expect(['rising', 'steady', 'clearing']).toContain(card.trendWord)
   })
+  // What `goesFluxEnabled: false` leaves behind. The two rows those paths feed
+  // go to a dash, and everything the tile draws from D-RAP and F10.7 -- the
+  // gauge, the band strip, the solar flux row -- is untouched, so the tile
+  // degrades to two dashes rather than to its empty state. Absence reads as
+  // null through `getJson`, so a path that is never published and a path whose
+  // first fetch has not landed are the same case here.
+  it('keeps every other row when the GOES flux paths are not published', () => {
+    const withFlux = hfCard({
+      drap: { highest_affected_frequency: leaf(9.9e6) },
+      f107: leaf(142),
+      protonFlux: leaf(1e5),
+      xrayFlux: { ...leaf(1e-6), trend: leaf(1.4) }
+    })
+    const withoutFlux = hfCard({
+      drap: { highest_affected_frequency: leaf(9.9e6) },
+      f107: leaf(142)
+    })
+    expect(withoutFlux.protonPfu).toBeNull()
+    expect(withoutFlux.trendRatio).toBeNull()
+    expect(withoutFlux.trendWord).toBeNull()
+    expect(withoutFlux.cutoffHz).toBe(withFlux.cutoffHz)
+    expect(withoutFlux.sfu).toBe(withFlux.sfu)
+    expect(withoutFlux.bands).toEqual(withFlux.bands)
+    expect(withoutFlux.gauge).toEqual(withFlux.gauge)
+  })
 })
 
 describe('the Solar Activity card', () => {

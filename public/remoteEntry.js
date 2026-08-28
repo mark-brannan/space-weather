@@ -70,6 +70,9 @@ const AURORA_URL =
 // NOAA's own page for the D-RAP model, for the same reason: the checkbox can
 // show what it is offering rather than only naming a four-letter product.
 const DRAP_URL = 'https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap'
+// NOAA's own page for the GOES X-ray flux, likewise: the checkbox governing
+// the most expensive product on the poll can show what it is buying.
+const GOES_FLUX_URL = 'https://www.swpc.noaa.gov/products/goes-x-ray-flux'
 
 let React = null
 
@@ -499,6 +502,12 @@ function createPanel(React) {
         day.drap
       ),
       row(
+        settings.goesFluxEnabled
+          ? 'GOES X-ray and proton flux'
+          : 'GOES X-ray and proton flux (on demand only)',
+        day.goesFlux
+      ),
+      row(
         settings.auroraEnabled ? 'Aurora grid' : 'Aurora grid (on demand only)',
         day.aurora
       ),
@@ -717,6 +726,35 @@ function createPanel(React) {
             ' off the webapp can still fetch the grid once, when you ask it' +
             ' to. ',
           h(NoaaLink, { href: DRAP_URL, text: "NOAA's D-RAP model" })
+        )
+      }),
+
+      h(Check, {
+        id: 'noaa-goes-flux-enabled',
+        checked: settings.goesFluxEnabled,
+        onChange: (value) => set('goesFluxEnabled', value),
+        label: 'Publish GOES X-ray and proton flux',
+        rate: h(Rate, {
+          id: 'noaa-goes-flux-interval',
+          label: 'GOES flux, every',
+          disabled: !settings.goesFluxEnabled,
+          value: settings.goesFluxInterval,
+          onChange: (value) => set('goesFluxInterval', value)
+        }),
+        help: h(
+          'span',
+          null,
+          'The X-ray and proton measurements the R and S scales are bucketed' +
+            ' from, plus the X-ray trend that says whether a radio blackout' +
+            ' is deepening or clearing. Off by default on bandwidth, like the' +
+            ' aurora grid: it is much the largest thing you can add to the' +
+            ' recurring poll \u2014 two six-hour time series, about 32 KB on' +
+            ' each fetch of the interval above, against about 10 KB for' +
+            ' everything left on the interval below. Ticking it is what' +
+            ' fills the HF tile\u2019s proton and X-ray-trend rows. With it' +
+            ' off the webapp can still fetch the series once, when you ask' +
+            ' it to. ',
+          h(NoaaLink, { href: GOES_FLUX_URL, text: "NOAA's GOES X-ray flux" })
         )
       }),
 
