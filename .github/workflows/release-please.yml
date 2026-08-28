@@ -44,19 +44,37 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # release-please's own commits, PR and tag are all authored through
+      # whatever token we hand it. The default GITHUB_TOKEN doesn't fire
+      # other workflows for anything it creates -- GitHub's own loop
+      # prevention -- so a release PR opened with it never gets its
+      # required CI checks and sits permanently unmergeable (#243). Minting
+      # an installation token for a repo-scoped GitHub App gives it a real
+      # actor identity instead, so the PR's `pull_request` event fires CI
+      # normally. publish.yml's `push: tags` trigger is deliberately gone
+      # (below) rather than relied on for the tag this token now unlocks --
+      # the manual dispatch stays the one path to publish, so an App-token
+      # tag can't race it.
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # release-please tags and creates the Release with the default
-      # GITHUB_TOKEN, and GitHub does not fire workflows for refs created that
-      # way -- its own loop prevention. So publish.yml's `push: tags` listener
-      # never sees this tag and has to be dispatched by hand. This is the same
-      # path a human uses (`gh workflow run publish.yml --ref vX.Y.Z`), which
-      # matters: npm's trusted publisher is configured for that file under a
-      # workflow_dispatch trigger, and workflow_call was tried and rejected.
+      # release-please's tag is now pushed as the App, which DOES fire
+      # workflows -- but publish.yml's `push: tags` trigger has been
+      # removed so that doesn't start a second, racing publish. This
+      # dispatch stays the one path to it. It's also the one npm's OIDC
+      # trusted publisher is configured for: workflow_call was tried and
+      # rejected (E404, wrong token shape), so workflow_dispatch is what
+      # both a human and this job use.
       - name: Trigger the npm publish, and wait for it to actually succeed
         if: steps.release.outputs.release_created == 'true'
         env:

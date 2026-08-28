@@ -10,19 +10,19 @@ name: Publish
 # authentication, which is the correct failure mode.
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
-  # release-please.yml triggers this via `gh workflow run publish.yml --ref
-  # <tag>` (workflow_dispatch, not workflow_call) after release-please tags a
-  # release. workflow_call was tried first and does not work here:
-  # npm's OIDC trusted-publisher check rejects the token minted for a
-  # reusable-workflow-call job -- confirmed the hard way, npm error E404,
-  # "you do not have permission to access it" -- even though the exact same
-  # steps succeed under a direct push or workflow_dispatch trigger of this
-  # same file. workflow_dispatch matches how the trusted publisher on
-  # npmjs.com is actually configured (this file, this repo), so that's the
-  # path both a human and release-please.yml use to publish out of band.
+  # Deliberately no `push: tags` trigger. release-please.yml now tags
+  # through a GitHub App installation token (not the default GITHUB_TOKEN),
+  # so that push DOES fire workflows -- and a `push: tags` listener here
+  # would start a second, racing publish alongside the explicit `gh workflow
+  # run publish.yml --ref <tag>` dispatch release-please.yml already does.
+  # workflow_dispatch is also the only trigger npm's OIDC trusted publisher
+  # is configured for on npmjs.com (this file, this repo): workflow_call was
+  # tried first and rejected -- npm error E404, "you do not have permission
+  # to access it" -- for the token minted inside a reusable-workflow-call
+  # job, even though the exact same steps succeed under workflow_dispatch.
+  # So a tag alone, pushed by hand, does not publish; run
+  # `gh workflow run publish.yml --ref vX.Y.Z` instead.
 
 permissions:
   contents: read # release-please.yml creates the tag and the GitHub Release
