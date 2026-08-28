@@ -1638,7 +1638,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) closeAdvisoryOverlay();
+    if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
+      closeAdvisoryOverlay();
+      return;
+    }
+    handleMapKey(e);
   });
 
   // --- Info bubbles ---------------------------------------------------------
@@ -1681,6 +1685,45 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const open = document.querySelector('.info:hover, .info:focus-within');
     if (open) positionInfoBubble(open);
   });
+
+  // Escape clears a scored path; the arrow keys nudge its destination point.
+  // Both need the canvas itself focused (by a click, or by tab) -- typing in
+  // an input firing either would be a bug, not a feature, and so would an
+  // unrelated Escape or arrow key reaching across the page and moving a path
+  // nobody was looking at.
+  function handleMapKey(e) {
+    const canvas = document.getElementById('spaceMapCanvas');
+    if (!canvas) return;
+    if (!document.getElementById('advisoryOverlay').hidden) return;
+    const activeTag = document.activeElement && document.activeElement.tagName;
+    if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
+    if (e.key === 'Escape') {
+      if (document.activeElement !== canvas) return;
+      if (!drapProbe) return;
+      drapProbe = null;
+      drawMapCanvas();
+      const probe = document.getElementById('mapProbe');
+      if (probe) probe.innerHTML = drapProbeHtml();
+      return;
+    }
+    const nudge = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
+    if (!nudge) return;
+    if (document.activeElement !== canvas) return;
+    if (!drapProbe || !lastPosition || !layerOn('drap') || !mapEntries.drap) return;
+    const view = canvas._view;
+    if (!view) return;
+    const end = drapProbe.points[drapProbe.points.length - 1];
+    const px = view.toPixel(end.longitude, end.latitude);
+    if (!px) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 20 : 4;
+    const nextTarget = positionAt(canvas, px[0] + nudge[0] * step, px[1] + nudge[1] * step);
+    if (!nextTarget) return;
+    drapProbe = pathAbsorption(mapEntries.drap.grid, lastPosition, nextTarget);
+    drawMapCanvas();
+    const probe = document.getElementById('mapProbe');
+    if (probe) probe.innerHTML = drapProbeHtml();
+  }
 
   // --- The map ------------------------------------------------------------
   //
@@ -2151,7 +2194,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // to make "untick everything" read as "the map is gone".
     body.innerHTML = `${toolbarHtml()}
       ${mapHelpHtml()}
-      <canvas id="spaceMapCanvas"></canvas>
+      <canvas id="spaceMapCanvas" tabindex="0"></canvas>
       <div id="mapProbe"></div>
       ${footerHtml()}`
     wireToolbar()
@@ -2169,6 +2212,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       drapProbe = pathAbsorption(mapEntries.drap.grid, lastPosition, target)
       drawMapCanvas()
       document.getElementById('mapProbe').innerHTML = drapProbeHtml()
+      // Arm the arrow keys on the point that was just clicked. Some browsers
+      // (Safari in particular) don't focus a clicked canvas on their own even
+      // with tabindex set.
+      canvas.focus()
     })
 
     for (const id of LAYER_IDS) {
@@ -2207,9 +2254,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         }
         if (box.checked) mapControls.layers.add(id)
         else mapControls.layers.delete(id)
-        // Turning the absorption layer off leaves its path scored against a
-        // picture nobody can see any more.
-        if (id === 'drap' && !box.checked) drapProbe = null
         loadMap()
       })
     }

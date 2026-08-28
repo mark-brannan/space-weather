@@ -435,15 +435,31 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // spelled out because a bare number sitting on a contour line reads as
   // part of the map, not as a label for it.
   const text = `${Math.trunc(level)} MHz`
-  const size = 13
-  ctx.font = `700 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
-  const half = ctx.measureText(text).width / 2 + 3
+  // 2.3x the size this used to draw at (Mark: too small to notice at a
+  // glance against the raster and the coastline sharing its pixels).
+  const size = 30
+  ctx.font = `800 ${size}px ui-monospace, SFMono-Regular, Menlo, monospace`
+  const half = ctx.measureText(text).width / 2 + 4
   const cx = Math.min(view.width - half, Math.max(half, best.x))
+  // Pushed clear of the line it names rather than centred on it -- sitting
+  // directly on the contour, the label used to visually fuse with the line
+  // (and, wherever the ring crossed the coast, with the coastline too). The
+  // leader stroke below ties the offset label back to the point it actually
+  // marks, so moving it doesn't cost the reader the "which line is this"
+  // link that centring used to give for free.
+  const offset = size * 0.95
+  // Above the line when there's room; otherwise below it. best.y near the
+  // top edge (inside margin..minCenterY, e.g. 10-19px) used to clamp ly to
+  // minCenterY regardless -- close enough to best.y that the contour sat
+  // inside the label's own box and the leader never left it either.
+  const minCenterY = size / 2 + 4
+  const above = best.y - offset >= minCenterY
+  const ly = above ? best.y - offset : Math.min(view.height - minCenterY, best.y + offset)
   const box = {
     x0: cx - half,
-    y0: best.y - size / 2 - 2,
+    y0: ly - size / 2 - 2,
     x1: cx + half,
-    y1: best.y + size / 2 + 2
+    y1: ly + size / 2 + 2
   }
   for (const other of placed) {
     const clear =
@@ -454,13 +470,21 @@ function labelContour(ctx, view, segments, level, ink, placed) {
     if (!clear) return
   }
   placed.push(box)
+  ctx.save()
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.moveTo(best.x, best.y)
+  ctx.lineTo(cx, ly + (above ? size / 2 : -size / 2))
+  ctx.stroke()
+  ctx.restore()
   // A halo instead of a solid chip: the box was one more opaque rectangle
-  // competing with the contour it labels, and at 10px in the map's own dim
-  // ink it read as "too small, too subtle, placed where we can't see it"
-  // (Mark's punch-list follow-up). White-on-black-stroke carries over both
-  // the near-black violet at the quiet end of NOAA's ramp and the yellow
-  // peak at the busy end, with no background needed either way.
-  haloText(ctx, cx, best.y, text, { size, color: '#fff7e6' })
+  // competing with the contour it labels. Bright yellow rather than the old
+  // near-white -- it has to read as an alert against a ramp that runs from
+  // near-black violet to yellow itself, and a colour the raster also uses at
+  // its busy end still separates from the raster because the dark stroke and
+  // the offset carry the contrast the fill colour used to have to do alone.
+  haloText(ctx, cx, ly, text, { size, weight: 800, color: '#ffe600' })
 }
 
 /**
