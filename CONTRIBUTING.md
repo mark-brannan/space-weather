@@ -97,11 +97,12 @@ All three must pass. Then:
 - **Title the pull request as if it were the release note**, because it becomes
   one.
 
-Version numbers take care of themselves — a commit hook patch-bumps
-`package.json` and CI tags and publishes whatever lands on `main`. Bump
-explicitly (`npm version minor`) for anything a boat owner can observe: a new
-path, a new product, a change in what gets published or how loudly. Never create
-a tag locally.
+**Never put a version bump in a pull request.** `release-please` owns the
+number, the CHANGELOG and the tag: don't edit `package.json`'s version,
+`.release-please-manifest.json` or `CHANGELOG.md`, and don't create a tag
+locally. Your commit subject is the whole input — `fix` and `feat` earn a
+release, `chore`/`docs`/`test`/`refactor` ride along in the next one, and a
+`!` or a `BREAKING CHANGE:` footer is what escalates it.
 
 ## Code of Conduct
 
