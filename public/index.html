@@ -242,25 +242,47 @@
      laid out as a 5-column grid (name | observed badge | 3 forecast days).
      Every row shares the same column template and a fixed min-height so the
      forecast columns line up across G/S/R even though the R row's content
-     (letter + flare class) is visually taller than G/S's. */
+     (letter + flare class) is visually taller than G/S's.
+
+     The name and badge columns, and everything sized off them, are fluid
+     (clamp of a cqw fraction) rather than fixed px -- #scalesBody is the
+     query container below. Below ~600px in the container the fixed 190px
+     name column was reserving more space than "Solar Radiation Storm" needs,
+     which is wasted at every width; below ~540px that same fixed reservation
+     left the 1fr forecast columns too little room and the third day got
+     clipped by the tile's overflow:hidden. Tying both columns' widths (and
+     the type riding on them) to container width keeps the name legible
+     while giving the gauges -- the important information -- the room they
+     lose it to. Measured across the mock's `storm` state (its longest
+     content: G4/S4/R3, three populated forecast days) in a browser sweep
+     from 1180px down to 380px. */
+  #scalesBody {
+    container-type: inline-size;
+    --scales-col-name: clamp(60px, 28cqw, 175px);
+    --scales-col-badge: clamp(44px, 14cqw, 90px);
+  }
   .scales-head, .scales-row {
-    display: grid; grid-template-columns: 190px 90px 1fr 1fr 1fr; column-gap: 14px;
+    display: grid;
+    grid-template-columns: var(--scales-col-name) var(--scales-col-badge) 1fr 1fr 1fr;
+    column-gap: clamp(6px, 2.5cqw, 14px);
   }
   .scales-head { margin: 4px 0 2px; }
-  .scales-head span { text-align: center; font-family: var(--font-display); font-size: 0.64rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
+  .scales-head span { text-align: center; font-family: var(--font-display); font-size: clamp(0.5rem, 1.8cqw, 0.64rem); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-dim); }
   .scales-head span:first-child { visibility: hidden; }
   .scales-row {
-    align-items: stretch; min-height: 76px; padding: 14px 0; border-top: 1px solid var(--grid);
+    align-items: stretch; min-height: clamp(56px, 20cqw, 76px); padding: clamp(8px, 3cqw, 14px) 0;
+    border-top: 1px solid var(--grid);
   }
   .scales-row:first-of-type { border-top: none; }
   .scales-row > * { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
   .scales-row .scales-meta { align-items: flex-start; text-align: left; }
   .scales-meta .name, .scales-r-namebadge .name {
-    font-family: var(--font-round); font-weight: 700; font-size: 1.02rem; letter-spacing: 0.005em;
+    font-family: var(--font-round); font-weight: 700; font-size: clamp(0.68rem, 3.4cqw, 1.02rem);
+    line-height: 1.15; letter-spacing: 0.005em;
   }
   .scales-badge-col { gap: 2px; }
   .scales-badge, .scales-pred {
-    font-family: var(--font-round); font-weight: 700; font-size: 2.2rem; line-height: 1;
+    font-family: var(--font-round); font-weight: 700; font-size: clamp(1.3rem, 7cqw, 2.2rem); line-height: 1;
     color: var(--letter-color, var(--text-dim));
     text-shadow: 0 0 18px color-mix(in srgb, var(--letter-color, transparent) 45%, transparent);
     transition: color 0.3s, text-shadow 0.3s;
@@ -273,25 +295,28 @@
   .scales-badge .num, .scales-pred .num, .scales-flare-val .num {
     font-family: var(--font-num); font-weight: 700;
   }
-  .scales-word { font-family: var(--font-display); font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase; }
-  .scales-arc-svg { width: 74px; height: 46px; }
+  .scales-word { font-family: var(--font-display); font-size: clamp(0.5rem, 1.9cqw, 0.62rem); letter-spacing: 0.04em; text-transform: uppercase; }
+  .scales-arc-svg { width: clamp(44px, 15cqw, 74px); height: auto; aspect-ratio: 60 / 34; }
 
   /* R row: name+badge share a 2x2 sub-grid so "Solar Flare Class" lines up
      under "Radio Blackout" and its value lines up under R0, then the whole
      block is centered as a unit -- same vertical rhythm as every other cell
-     in the row, just taller. */
+     in the row, just taller. Column widths are the same custom properties
+     the outer grid uses, so the two stay in lockstep as the container resizes. */
   .scales-r-namebadge {
-    grid-column: 1 / 3; display: grid; grid-template-columns: 190px 90px; row-gap: 8px;
+    grid-column: 1 / 3; display: grid;
+    grid-template-columns: var(--scales-col-name) var(--scales-col-badge);
+    row-gap: clamp(4px, 2cqw, 8px);
     justify-items: center; align-content: center; height: 100%;
   }
   .scales-r-namebadge .name { justify-self: start; }
   .scales-flare-lbl {
-    font-family: var(--font-round); font-weight: 600; font-size: 0.88rem; letter-spacing: 0.005em;
-    color: var(--text-dim); justify-self: start;
+    font-family: var(--font-round); font-weight: 600; font-size: clamp(0.62rem, 2.9cqw, 0.88rem);
+    letter-spacing: 0.005em; color: var(--text-dim); justify-self: start;
   }
-  .scales-flare-val { font-family: var(--font-round); font-weight: 700; font-size: 1.55rem; line-height: 1; }
-  .scales-r-day { gap: 8px; }
-  .scales-r-line { font-size: 1.05rem; }
+  .scales-flare-val { font-family: var(--font-round); font-weight: 700; font-size: clamp(1rem, 5.2cqw, 1.55rem); line-height: 1; }
+  .scales-r-day { gap: clamp(4px, 1.6cqw, 8px); }
+  .scales-r-line { font-size: clamp(0.72rem, 3.4cqw, 1.05rem); }
   .scales-r-line b { font-variant-numeric: tabular-nums; }
 
   /* Issue #115: a grid item stretches to fill its whole track by default --
