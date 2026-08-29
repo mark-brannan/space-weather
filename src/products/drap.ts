@@ -24,11 +24,13 @@ import {
 import { Meta, Publisher } from '../publisher.js'
 import { vesselPosition } from './aurora.js'
 import { Product } from './types.js'
+import { DRAP } from '../endpoints.js'
 
 const MHZ_TO_HZ = 1e6
 
 export const drap: Product = {
   name: 'D-RAP',
+  endpoints: [DRAP],
   intervalMinutes: (settings) => settings.drapInterval,
   enabled: (settings) => settings.drapEnabled,
 
@@ -67,7 +69,7 @@ export const drap: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const text = await client.text('/text/drap_global_frequencies.txt', 'D-RAP')
+    const text = await client.text(DRAP, 'D-RAP')
     if (stopped()) return
 
     const grid = parseDrapGrid(text)

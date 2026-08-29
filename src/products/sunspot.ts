@@ -20,6 +20,7 @@ import { SUNSPOT_BASE } from '../paths.js'
 import { parseDailySolarIndices } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { SUNSPOT } from '../endpoints.js'
 
 const INTERVAL_MINUTES = 240
 /** Same reason, and the same number, as the A index product. */
@@ -27,6 +28,7 @@ const DELTA_TIMEOUT_SECONDS = 60 * 60 * 54
 
 export const sunspot: Product = {
   name: 'Sunspot Number',
+  endpoints: [SUNSPOT],
   intervalMinutes: () => INTERVAL_MINUTES,
 
   metadata(): Meta[] {
@@ -48,10 +50,7 @@ export const sunspot: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const text = await client.text(
-      '/text/daily-solar-indices.txt',
-      'Daily Solar Indices'
-    )
+    const text = await client.text(SUNSPOT, 'Daily Solar Indices')
     if (stopped()) return
 
     const latest = parseDailySolarIndices(text)

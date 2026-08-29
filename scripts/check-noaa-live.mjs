@@ -7,7 +7,7 @@
  *
  * Run weekly by .github/workflows/noaa-drift.yml. Never part of `npm test`:
  * the plugin registry scores this package under `firejail --net=none`, and
- * `test/offline.test.ts` pins that property. `test/endpoint-coverage.test.ts`
+ * `test/offline.test.ts` pins that property. `test/endpoints.test.ts`
  * is the offline half of this pair -- it catches an endpoint that was never
  * measured; this catches one whose measured cost has moved.
  *

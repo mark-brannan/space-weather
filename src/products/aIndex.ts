@@ -17,6 +17,7 @@ import { A_INDEX_BASE } from '../paths.js'
 import { parseGeophysicalAlert } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { A_INDEX } from '../endpoints.js'
 
 const INTERVAL_MINUTES = 180
 /**
@@ -32,6 +33,7 @@ const DELTA_TIMEOUT_SECONDS = 60 * 60 * 54
 
 export const aIndex: Product = {
   name: 'Planetary A Index',
+  endpoints: [A_INDEX],
   intervalMinutes: () => INTERVAL_MINUTES,
 
   metadata(): Meta[] {
@@ -55,7 +57,7 @@ export const aIndex: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const text = await client.text('/text/wwv.txt', 'Geophysical Alert')
+    const text = await client.text(A_INDEX, 'Geophysical Alert')
     if (stopped()) return
 
     const alert = parseGeophysicalAlert(text)

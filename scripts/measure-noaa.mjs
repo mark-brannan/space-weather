@@ -21,9 +21,9 @@ export const API = 'https://services.swpc.noaa.gov'
 /**
  * Every endpoint the plugin fetches, and the product that owns it.
  *
- * Exported because two other things read it: `test/endpoint-coverage.test.ts`
- * pins that nothing in `src/` fetches a path missing from here -- the failure
- * that let a 42 KB poll be described as 5 KB for weeks -- and
+ * Exported because two other things read it: `test/endpoints.test.ts` pins
+ * that every endpoint declared in `src/endpoints.ts` -- the failure that let
+ * a 42 KB poll be described as 5 KB for weeks -- is measured here, and
  * `scripts/check-noaa-live.mjs` measures this same list against the live
  * service. A second copy of the list would defeat both.
  */

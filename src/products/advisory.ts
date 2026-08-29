@@ -12,6 +12,7 @@ import {
 } from '../cache/advisoryCache.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
+import { ADVISORY } from '../endpoints.js'
 
 // There is only ever one current advisory, so this identifies the path, not
 // the week. The bulletin number lives in the value's `shortId` instead.
@@ -59,6 +60,7 @@ export function nextAdvisoryDelayMinutes(
 
 export const advisory: Product = {
   name: 'Advisory Outlook',
+  endpoints: [ADVISORY],
   intervalMinutes: () => FALLBACK_MINUTES,
   // No `enabled`: `sendAdvisoryOutlook` governs the notification, not the
   // fetch, and this product has no manual-refresh route to reveal a frozen
@@ -112,10 +114,7 @@ export const advisory: Product = {
     // `EXPIRY_MS` exists for in the first place.
     expireIfStale(publisher, settings, now)
 
-    const text = await client.text(
-      '/text/advisory-outlook.txt',
-      'Advisory Outlook'
-    )
+    const text = await client.text(ADVISORY, 'Advisory Outlook')
     if (stopped()) return
 
     const outlook = parseAdvisoryOutlook(text)

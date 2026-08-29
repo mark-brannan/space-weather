@@ -1,4 +1,13 @@
 /** Plugin settings: the JSON schema, and normalisation of what comes back. */
+import {
+  AURORA,
+  DRAP,
+  GOES_PROTONS_6_HOUR,
+  GOES_XRAYS_6_HOUR,
+  bytesPerPoll,
+  formatBytes,
+  predictedBytesPerDay
+} from './endpoints.js'
 import { ALARM_NEVER, NoaaScaleValues } from './parse.js'
 
 export interface Settings {
@@ -38,6 +47,27 @@ const levelOptions = () => [
   { const: 2, title: 'Moderate (2) and above — a couple of times a month' },
   { const: 1, title: 'Minor (1) and above — most weeks' }
 ]
+
+/**
+ * The three figures the GOES flux description quotes, at the defaults. They
+ * are the predicted bill rather than a sentence about it: `defaultCost` runs
+ * the same arithmetic the panel does, so the form and the panel cannot say
+ * different things about the same box.
+ */
+const GOES_FLUX_BYTES =
+  GOES_XRAYS_6_HOUR.wireBytes + GOES_PROTONS_6_HOUR.wireBytes
+const defaultCost = (goesFluxEnabled: boolean) =>
+  predictedBytesPerDay({
+    auroraEnabled: false,
+    auroraInterval: 120,
+    drapEnabled: true,
+    drapInterval: 60,
+    goesFluxEnabled,
+    goesFluxInterval: 60,
+    updateInterval: 60
+  })
+const GOES_FLUX_DAILY = defaultCost(true).goesFlux
+const REST_DAILY = defaultCost(false).total
 
 export const schema = {
   type: 'object',
@@ -87,17 +117,19 @@ export const schema = {
     auroraEnabled: {
       type: 'boolean',
       title: "Keep NOAA's aurora forecast grid up to date",
-      // A user reading this form is being told what the setting costs, so the
-      // measured numbers live here rather than in a comment. Per *fetch*, and
-      // no daily figure: what a day costs depends on `auroraInterval`, and a
-      // sentence cannot track it. public/config-panel.js computes it instead,
-      // for the servers that render the panel. Re-measure with
-      // scripts/measure-noaa.mjs.
+      // Every figure in these descriptions is interpolated from the declared
+      // wire size in src/endpoints.ts rather than written into the sentence.
+      // A written one goes stale silently: the old total outlived the
+      // endpoints that made it wrong, and #223 had to re-measure to find that
+      // out. Still per *fetch* and no daily figure -- what a day costs depends
+      // on the interval, which public/config-panel.js prices as the user moves
+      // it. Re-measure with scripts/measure-noaa.mjs.
       description:
         'Fetches the grid on the interval below, publishing the probability at' +
         ' the vessel position and keeping the chart overlay tiles current.' +
-        ' Off by default on bandwidth: about 144 KB per fetch, three and a' +
-        ' half times what one poll of everything else costs, so the' +
+        ` Off by default on bandwidth: about ${formatBytes(AURORA.wireBytes)}` +
+        ` per fetch, ${(AURORA.wireBytes / bytesPerPoll()).toFixed(0)} times` +
+        ' what one poll of everything else costs, so the' +
         ' interval below sets what it costs a day. This only governs the' +
         ' recurring fetch \u2014 with it off, the webapp can still fetch the' +
         ' grid once, when you ask it to.',
@@ -106,16 +138,16 @@ export const schema = {
     drapEnabled: {
       type: 'boolean',
       title: 'Publish HF absorption (NOAA D-RAP)',
-      // Same reasoning as auroraEnabled: the user is being told what the
-      // setting costs, so the measured number lives here. Per fetch;
-      // public/config-panel.js does the daily arithmetic.
+      // Same reasoning as auroraEnabled, and the same interpolation.
       description:
         'The highest radio frequency D-region absorption is blocking.' +
         ' Frequencies below it are absorbed; those above it should get' +
         ' through, barring other factors. NOAA serves one grid covering the' +
-        ' whole globe, so it costs the same everywhere: about 2.1 KB on each' +
-        ' fetch of the interval below, hourly by default, against about' +
-        ' 10 KB for the rest of that poll and 32 KB for the GOES flux pair.' +
+        ' whole globe, so it costs the same everywhere: about ' +
+        `${formatBytes(DRAP.wireBytes)} on each fetch of the interval below,` +
+        ' hourly by default, against about ' +
+        `${formatBytes(bytesPerPoll())} for the rest of that poll and ` +
+        `${formatBytes(GOES_FLUX_BYTES)} for the GOES flux pair.` +
         ' This only governs the recurring fetch \u2014 with' +
         ' it off, the webapp can still fetch the grid once, when you ask it' +
         ' to.',
@@ -134,19 +166,20 @@ export const schema = {
     goesFluxEnabled: {
       type: 'boolean',
       title: 'Publish GOES X-ray and proton flux',
-      // Same reasoning as auroraEnabled and drapEnabled: the user is being
-      // told what the setting costs, so the measured number lives here rather
-      // than in a comment. Per fetch; public/config-panel.js does the daily
-      // arithmetic.
+      // Same reasoning as auroraEnabled and drapEnabled, and the same
+      // interpolation -- including the two daily figures, which are the whole
+      // predicted bill at the defaults with this box ticked and unticked.
       description:
         'The X-ray and proton measurements the R and S scales are bucketed' +
         ' from, plus the X-ray trend that says whether a radio blackout is' +
         ' deepening or clearing. Off by default on bandwidth, like the aurora' +
         ' grid: switching it on is much the largest thing you can add to the' +
-        ' recurring poll \u2014 two six-hour time series, about 32 KB on each' +
-        ' fetch of the interval below, against about 10 KB for everything' +
-        ' else on it. Hourly that is roughly 775 KB a day, on top of about' +
-        ' 300 KB for the whole of the rest of the plugin. This only governs' +
+        ` recurring poll \u2014 two six-hour time series, about ` +
+        `${formatBytes(GOES_FLUX_BYTES)} on each fetch of the interval below,` +
+        ` against about ${formatBytes(bytesPerPoll())} for everything else on` +
+        ` it. Hourly that is roughly ${formatBytes(GOES_FLUX_DAILY)} a day, on` +
+        ` top of about ${formatBytes(REST_DAILY)} for the whole of the rest of` +
+        ' the plugin. This only governs' +
         ' the recurring fetch \u2014 with it off, the webapp can still fetch' +
         ' the series once, when you ask it to.',
       default: false
@@ -179,7 +212,8 @@ export const schema = {
       title: 'How often to fetch from NOAA',
       description:
         'in minutes. Covers observations, forecasts and alerts alike,' +
-        ' together about 10 KB per poll. The two expensive parts of what used' +
+        ` together about ${formatBytes(bytesPerPoll())} per poll. The two` +
+        ' expensive parts of what used' +
         ' to ride this interval \u2014 the GOES flux pair and D-RAP \u2014 have' +
         ' their own rates above.',
       default: 60

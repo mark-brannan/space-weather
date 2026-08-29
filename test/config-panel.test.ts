@@ -1,21 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   ALARM_NEVER,
-  AURORA_WIRE_KB,
   LEVEL_OPTIONS,
   levelOptionLabel,
   DAYS_PER_MONTH,
   DEFAULTS,
-  OTHER_WIRE_KB,
   RATE,
   currentConditions,
-  A_INDEX_WIRE_KB,
-  F107_WIRE_KB,
-  GOES_FLUX_WIRE_KB,
-  OUTLOOK27_WIRE_KB,
-  SUNSPOT_WIRE_KB,
   dailyKb,
-  DRAP_WIRE_KB,
   formatKb,
   gScaleForKp,
   ladderFor,
@@ -30,6 +22,18 @@ import {
   withLevel
 } from '../public/config-panel.js'
 import { schema, settingsFrom } from '../src/config'
+import {
+  ADVISORY,
+  AURORA,
+  A_INDEX,
+  DRAP,
+  F107,
+  GOES_PROTONS_6_HOUR,
+  GOES_XRAYS_6_HOUR,
+  OUTLOOK_27_DAY,
+  SUNSPOT,
+  bytesPerPoll
+} from '../src/endpoints'
 import {
   NotificationStates,
   gScaleForKp as pluginGScaleForKp,
@@ -407,10 +411,13 @@ describe('dailyKb', () => {
       auroraEnabled: true,
       goesFluxEnabled: true
     })
-    expect(day.other).toBeCloseTo((1440 / 60) * OTHER_WIRE_KB)
-    expect(day.aurora).toBeCloseTo((1440 / 120) * AURORA_WIRE_KB)
-    expect(day.drap).toBeCloseTo((1440 / 60) * DRAP_WIRE_KB)
-    expect(day.goesFlux).toBeCloseTo((1440 / 60) * GOES_FLUX_WIRE_KB)
+    expect(day.other).toBeCloseTo((1440 / 60) * (bytesPerPoll() / 1024))
+    expect(day.aurora).toBeCloseTo((1440 / 120) * (AURORA.wireBytes / 1024))
+    expect(day.drap).toBeCloseTo((1440 / 60) * (DRAP.wireBytes / 1024))
+    expect(day.goesFlux).toBeCloseTo(
+      (1440 / 60) *
+        ((GOES_XRAYS_6_HOUR.wireBytes + GOES_PROTONS_6_HOUR.wireBytes) / 1024)
+    )
     expect(day.total).toBeCloseTo(
       day.aurora + day.other + day.drap + day.goesFlux + day.fixed
     )
@@ -466,22 +473,27 @@ describe('dailyKb', () => {
   })
 
   it('prices every fixed-cadence fetch, none of which a setting reaches', () => {
-    // They are small, but they are four more fetches on the fixed row and the
+    // They are small, but they are five more fetches on the fixed row and the
     // panel's claim is that the figure is arithmetic rather than a sentence.
     const off = dailyKb({ ...settings, sendAdvisoryOutlook: false })
     expect(off.fixed).toBeCloseTo(
-      OUTLOOK27_WIRE_KB +
-        6 * F107_WIRE_KB +
-        8 * A_INDEX_WIRE_KB +
-        6 * SUNSPOT_WIRE_KB
+      (OUTLOOK_27_DAY.wireBytes +
+        8 * A_INDEX.wireBytes +
+        6 * SUNSPOT.wireBytes +
+        6 * F107.wireBytes +
+        (30 / 7) * ADVISORY.wireBytes) /
+        1024
     )
   })
 
-  it('drops the weekly bulletin when the advisory outlook is off', () => {
+  it('charges the weekly bulletin whatever the notification setting says', () => {
+    // `sendAdvisoryOutlook` governs the notification, not the fetch:
+    // src/products/advisory.ts has no `enabled` and is always scheduled
+    // (#231). The panel zeroed this row when the toggle was off, which
+    // understated the bill by a fetch the plugin still makes.
     const on = dailyKb({ ...settings, sendAdvisoryOutlook: true })
     const off = dailyKb({ ...settings, sendAdvisoryOutlook: false })
-    expect(off.fixed).toBeLessThan(on.fixed)
-    // The daily 27-day outlook is not a setting, so it never reaches zero.
+    expect(off.fixed).toBe(on.fixed)
     expect(off.fixed).toBeGreaterThan(0)
   })
 

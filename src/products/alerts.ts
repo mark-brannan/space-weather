@@ -10,11 +10,13 @@ import {
 } from '../parse.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
+import { ALERTS } from '../endpoints.js'
 
 const ID_PREFIX = 'noaa_swpc_alert_'
 
 export const alerts: Product = {
   name: 'Alerts, Watches, and Warnings',
+  endpoints: [ALERTS],
   intervalMinutes: (settings) => settings.updateInterval,
   // No `enabled`: there is nothing left for a switch to decide. Loudness is
   // `alarmLevel`'s job, and this payload is small on the wire despite the size
@@ -40,10 +42,7 @@ export const alerts: Product = {
   },
 
   async refresh({ client, publisher, settings, stopped }) {
-    const json = await client.json(
-      '/products/alerts.json',
-      'Alerts, Watches, and Warnings'
-    )
+    const json = await client.json(ALERTS, 'Alerts, Watches, and Warnings')
     if (stopped()) return
 
     if (!Array.isArray(json)) {

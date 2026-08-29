@@ -1,4 +1,5 @@
 import { Settings } from '../config.js'
+import { Endpoint } from '../endpoints.js'
 import { Client } from '../noaa/client.js'
 import { Meta, Publisher } from '../publisher.js'
 
@@ -16,6 +17,13 @@ export interface ProductContext {
  */
 export interface Product {
   name: string
+  /**
+   * Every endpoint this product fetches, from the table in src/endpoints.ts.
+   * Declaring them is what makes the cost of a setting arithmetic rather than
+   * a sentence: the config form prices the user's settings out of these, and a
+   * fetch of anything not declared here is refused by the client.
+   */
+  endpoints: Endpoint[]
   /**
    * How often to poll, in minutes. A function of settings rather than a fixed
    * enum of schedules, because a product with an unusual payload can justify

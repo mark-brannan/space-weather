@@ -19,11 +19,13 @@ import { F107_BASE } from '../paths.js'
 import { parseF107, zoneMethods, zonesForF107 } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { F107 } from '../endpoints.js'
 
 const INTERVAL_MINUTES = 240 // four times a day
 
 export const f107: Product = {
   name: 'F10.7 Solar Flux',
+  endpoints: [F107],
   intervalMinutes: () => INTERVAL_MINUTES,
 
   metadata(): Meta[] {
@@ -55,10 +57,7 @@ export const f107: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const json = await client.json(
-      '/json/f107_cm_flux.json',
-      'F10.7 Solar Flux'
-    )
+    const json = await client.json(F107, 'F10.7 Solar Flux')
     if (stopped()) return
 
     const latest = parseF107(json)

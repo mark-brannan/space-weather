@@ -6,9 +6,11 @@ import { SOLAR_WIND_BASE } from '../paths.js'
 import { ValueUpdate, parseSolarWind } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { SOLAR_WIND_SPEED, SOLAR_WIND_MAG_FIELD } from '../endpoints.js'
 
 export const solarWind: Product = {
   name: 'Solar Wind Summary',
+  endpoints: [SOLAR_WIND_SPEED, SOLAR_WIND_MAG_FIELD],
   intervalMinutes: (settings) => settings.updateInterval,
 
   metadata(): Meta[] {
@@ -52,14 +54,8 @@ export const solarWind: Product = {
 
   async refresh({ client, publisher, stopped }) {
     const [speedJson, magJson] = await Promise.all([
-      client.json(
-        '/products/summary/solar-wind-speed.json',
-        'Solar Wind Speed'
-      ),
-      client.json(
-        '/products/summary/solar-wind-mag-field.json',
-        'Solar Wind Magnetic Field'
-      )
+      client.json(SOLAR_WIND_SPEED, 'Solar Wind Speed'),
+      client.json(SOLAR_WIND_MAG_FIELD, 'Solar Wind Magnetic Field')
     ])
     if (stopped()) return
 

@@ -18,11 +18,13 @@ import {
 } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { SCALES, XRAY_FLARE_LATEST, XRAY_FLARES_7_DAY } from '../endpoints.js'
 
 const PROBABILITY_META = { units: 'ratio', timeout: 60 * 60 * 4 }
 
 export const scales: Product = {
   name: 'Scales',
+  endpoints: [SCALES, XRAY_FLARE_LATEST, XRAY_FLARES_7_DAY],
   intervalMinutes: (settings) => settings.updateInterval,
 
   metadata(settings: Settings): Meta[] {
@@ -114,7 +116,7 @@ export const scales: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const json = await client.json('/products/noaa-scales.json', 'Scales')
+    const json = await client.json(SCALES, 'Scales')
     if (stopped()) return
 
     // Best-effort: a failure here must never block the primary scales
@@ -128,7 +130,7 @@ export const scales: Product = {
     // the poll, so a surface reading one of them gets that flare's clock.
     try {
       const flareJson = await client.json(
-        '/json/goes/primary/xray-flares-latest.json',
+        XRAY_FLARE_LATEST,
         'X-ray flare class'
       )
       const flare = parseXrayFlare(flareJson)
@@ -145,7 +147,7 @@ export const scales: Product = {
 
     try {
       const weekJson = await client.json(
-        '/json/goes/primary/xray-flares-7-day.json',
+        XRAY_FLARES_7_DAY,
         'X-ray flare 24-hour peak'
       )
       const peak = parseXrayFlarePeak(weekJson, new Date())

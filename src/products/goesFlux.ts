@@ -10,9 +10,11 @@ import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from '../paths.js'
 import { ValueUpdate, parseGoesFlux, xrayFluxTrend } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { GOES_PROTONS_6_HOUR, GOES_XRAYS_6_HOUR } from '../endpoints.js'
 
 export const goesFlux: Product = {
   name: 'GOES X-ray and Proton Flux',
+  endpoints: [GOES_XRAYS_6_HOUR, GOES_PROTONS_6_HOUR],
   intervalMinutes: (settings) => settings.goesFluxInterval,
   enabled: (settings) => settings.goesFluxEnabled,
 
@@ -88,11 +90,8 @@ export const goesFlux: Product = {
 
   async refresh({ client, publisher, stopped }) {
     const [xrayJson, protonJson] = await Promise.all([
-      client.json('/json/goes/primary/xrays-6-hour.json', 'GOES X-ray Flux'),
-      client.json(
-        '/json/goes/primary/integral-protons-6-hour.json',
-        'GOES Proton Flux'
-      )
+      client.json(GOES_XRAYS_6_HOUR, 'GOES X-ray Flux'),
+      client.json(GOES_PROTONS_6_HOUR, 'GOES Proton Flux')
     ])
     if (stopped()) return
 

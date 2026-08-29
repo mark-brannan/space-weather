@@ -1,4 +1,5 @@
 /** The only outbound I/O in the plugin. */
+import { Endpoint, ENDPOINTS } from '../endpoints.js'
 import { firstJsonValue } from '../parse.js'
 import { Publisher } from '../publisher.js'
 
@@ -7,8 +8,8 @@ const USER_AGENT = 'signalk-noaa-space-weather'
 const TIMEOUT_MS = 30000
 
 export interface Client {
-  json(subPath: string, productName: string): Promise<any>
-  text(subPath: string, productName: string): Promise<string>
+  json(endpoint: Endpoint, productName: string): Promise<any>
+  text(endpoint: Endpoint, productName: string): Promise<string>
 }
 
 interface CacheEntry {
@@ -26,10 +27,21 @@ export function createClient(publisher: Publisher): Client {
   const cache = new Map<string, CacheEntry>()
 
   async function get(
-    subPath: string,
+    endpoint: Endpoint,
     productName: string,
     read: (response: Response) => Promise<any>
   ): Promise<any> {
+    // The declaration is what the config form prices, so a fetch it has never
+    // heard of would be traffic nobody was told about. Undeclared is a
+    // programming error, refused here rather than counted as a NOAA failure --
+    // test/endpoints.test.ts is what makes it a build failure instead.
+    if (!ENDPOINTS.includes(endpoint)) {
+      throw new Error(
+        `NOAA Space Weather '${productName}' fetched an undeclared endpoint ` +
+          `${endpoint?.subPath}; add it to ENDPOINTS in src/endpoints.ts`
+      )
+    }
+    const { subPath } = endpoint
     const url = API + subPath
     const cached = cache.get(subPath)
     const headers: Record<string, string> = { 'User-Agent': USER_AGENT }
@@ -105,8 +117,8 @@ export function createClient(publisher: Publisher): Client {
   }
 
   return {
-    json: (subPath, productName) =>
-      get(subPath, productName, (r) => readJson(r, productName)),
-    text: (subPath, productName) => get(subPath, productName, (r) => r.text())
+    json: (endpoint, productName) =>
+      get(endpoint, productName, (r) => readJson(r, productName)),
+    text: (endpoint, productName) => get(endpoint, productName, (r) => r.text())
   }
 }

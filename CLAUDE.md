@@ -36,6 +36,17 @@ public/
 add it to `PRODUCTS` in `index.ts`.** Nothing else. That is the whole reason
 for this shape.
 
+**Every endpoint a product fetches is declared in `src/endpoints.ts`, with its
+measured wire size**, and the client refuses to fetch anything else. That table
+is what `config.ts`'s form descriptions and `public/config-panel.js`'s daily
+bill are computed from, so a new endpoint is priced by adding it and nothing
+else — and an undeclared one is a test failure rather than traffic nobody was
+told about. `test/endpoints.test.ts` holds the declarations against
+`docs/noaa-products.md` byte for byte, so re-measuring means updating both.
+This exists because "together about 5 KB per poll" outlived a product growing
+from one endpoint to three, and #223 had to go and re-measure to find it. The
+correction was one release; the declarations are what stop the next one.
+
 A `Product` declares `schedule` (`observations` or `notifications`), optional
 `enabled(settings)` if the user can switch it off, optional `metadata(settings)`
 published once per start, and `refresh(ctx)`. Keep parsing in `parse.ts` and

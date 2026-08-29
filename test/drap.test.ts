@@ -6,6 +6,7 @@ import { settingsFrom } from '../src/config'
 import { readDrapCache } from '../src/cache/drapCache'
 import { drap } from '../src/products/drap'
 import { fixture } from './fixtures'
+import { Endpoint } from '../src/endpoints'
 
 const REAL = 'drap-global-frequencies.2026_08_20.txt'
 
@@ -43,7 +44,7 @@ function harness(position: any, response?: string) {
     json: async () => {
       throw new Error('unstubbed json call')
     },
-    text: async (subPath: string) => {
+    text: async ({ subPath }: Endpoint) => {
       fetched.push(subPath)
       return response ?? ''
     }

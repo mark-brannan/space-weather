@@ -512,9 +512,10 @@ function createPanel(React) {
         day.aurora
       ),
       row(
-        settings.sendAdvisoryOutlook
-          ? 'Weekly and daily bulletins'
-          : 'Daily bulletin',
+        // Both, whatever the notification setting says: it governs the
+        // notification and not the fetch, so the weekly bulletin is on the
+        // bill either way.
+        'Weekly and daily bulletins',
         day.fixed
       ),
       row('Per day', day.total, true),

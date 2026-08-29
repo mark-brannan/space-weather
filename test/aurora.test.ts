@@ -11,6 +11,7 @@ import {
 import { readAuroraCache } from '../src/cache/auroraCache'
 import { aurora } from '../src/products/aurora'
 import { fixtureJson, matchZone } from './fixtures'
+import { Endpoint } from '../src/endpoints'
 
 const REAL = 'ovation-aurora.2026_08_01.json'
 
@@ -183,7 +184,7 @@ describe('aurora product', () => {
       dataDirPath: () => dataDir
     }
     const client = {
-      json: async (subPath: string) => {
+      json: async ({ subPath }: Endpoint) => {
         fetched.push(subPath)
         return response
       },

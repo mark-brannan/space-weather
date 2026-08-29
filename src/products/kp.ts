@@ -15,9 +15,11 @@ import {
 } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { KP_FORECAST } from '../endpoints.js'
 
 export const kp: Product = {
   name: 'Planetary K-index Forecast',
+  endpoints: [KP_FORECAST],
   intervalMinutes: (settings) => settings.updateInterval,
 
   metadata(settings: Settings): Meta[] {
@@ -113,10 +115,7 @@ export const kp: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const json = await client.json(
-      '/products/noaa-planetary-k-index-forecast.json',
-      'Planetary K-index Forecast'
-    )
+    const json = await client.json(KP_FORECAST, 'Planetary K-index Forecast')
     if (stopped()) return
 
     const summary = parseKpForecast(json)

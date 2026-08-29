@@ -26,6 +26,7 @@ import { OUTLOOK27_BASE } from '../paths.js'
 import { NoaaScaleValues, parse27DayOutlook } from '../parse.js'
 import { Meta } from '../publisher.js'
 import { Product } from './types.js'
+import { OUTLOOK_27_DAY } from '../endpoints.js'
 
 /**
  * Once a day against a weekly issue, which is deliberately unsynchronised
@@ -49,6 +50,7 @@ const TIMEOUT_SECONDS = 60 * 60 * 36
 
 export const outlook27: Product = {
   name: '27-day Outlook',
+  endpoints: [OUTLOOK_27_DAY],
   intervalMinutes: () => INTERVAL_MINUTES,
 
   metadata(): Meta[] {
@@ -135,7 +137,7 @@ export const outlook27: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const text = await client.text('/text/27-day-outlook.txt', '27-day Outlook')
+    const text = await client.text(OUTLOOK_27_DAY, '27-day Outlook')
     if (stopped()) return
 
     const outlook = parse27DayOutlook(text)

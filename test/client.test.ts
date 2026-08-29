@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createClient } from '../src/noaa/client'
+import { ALERTS, SCALES, XRAY_FLARE_LATEST } from '../src/endpoints'
 
 /**
  * A minimal Publisher recording what the client told it, and a controllable
@@ -42,7 +43,7 @@ describe('createClient conditional GET', () => {
     const { publisher } = harness()
     const client = createClient(publisher as any)
 
-    await client.json('/products/noaa-scales.json', 'Scales')
+    await client.json(SCALES, 'Scales')
 
     expect(seenHeaders?.has('if-none-match')).toBe(false)
     expect(seenHeaders?.has('if-modified-since')).toBe(false)
@@ -60,8 +61,8 @@ describe('createClient conditional GET', () => {
     const { publisher } = harness()
     const client = createClient(publisher as any)
 
-    await client.json('/products/noaa-scales.json', 'Scales')
-    await client.json('/products/noaa-scales.json', 'Scales')
+    await client.json(SCALES, 'Scales')
+    await client.json(SCALES, 'Scales')
 
     expect(secondRequestHeaders?.get('if-none-match')).toBe('"abc"')
   })
@@ -77,8 +78,8 @@ describe('createClient conditional GET', () => {
     const { publisher, statusLines } = harness()
     const client = createClient(publisher as any)
 
-    const first = await client.json('/products/noaa-scales.json', 'Scales')
-    const second = await client.json('/products/noaa-scales.json', 'Scales')
+    const first = await client.json(SCALES, 'Scales')
+    const second = await client.json(SCALES, 'Scales')
 
     expect(first).toEqual({ scales: 'unchanged' })
     expect(second).toEqual({ scales: 'unchanged' })
@@ -94,8 +95,8 @@ describe('createClient conditional GET', () => {
     const { publisher } = harness()
     const client = createClient(publisher as any)
 
-    const first = await client.json('/products/noaa-scales.json', 'Scales')
-    const second = await client.json('/products/noaa-scales.json', 'Scales')
+    const first = await client.json(SCALES, 'Scales')
+    const second = await client.json(SCALES, 'Scales')
 
     expect(first).toEqual({ n: 1 })
     expect(second).toEqual({ n: 2 })
@@ -110,10 +111,10 @@ describe('createClient conditional GET', () => {
     const { publisher } = harness()
     const client = createClient(publisher as any)
 
-    await client.json('/products/noaa-scales.json', 'Scales')
-    await client.json('/products/alerts.json', 'Alerts')
+    await client.json(SCALES, 'Scales')
+    await client.json(ALERTS, 'Alerts')
     // Second call to the *first* path should now carry its own ETag.
-    await client.json('/products/noaa-scales.json', 'Scales')
+    await client.json(SCALES, 'Scales')
 
     const scalesUrl = Object.keys(headersSeen).find((u) =>
       u.includes('noaa-scales')
@@ -127,8 +128,8 @@ describe('createClient conditional GET', () => {
     const client = createClient(publisher as any)
 
     // Must not throw on the second call despite there being nothing cached.
-    await client.json('/products/noaa-scales.json', 'Scales')
-    const second = await client.json('/products/noaa-scales.json', 'Scales')
+    await client.json(SCALES, 'Scales')
+    const second = await client.json(SCALES, 'Scales')
     expect(second).toEqual({ ok: true })
   })
 
@@ -137,9 +138,7 @@ describe('createClient conditional GET', () => {
     const { publisher } = harness()
     const client = createClient(publisher as any)
 
-    await expect(
-      client.json('/products/noaa-scales.json', 'Scales')
-    ).rejects.toThrow()
+    await expect(client.json(SCALES, 'Scales')).rejects.toThrow()
   })
 })
 
@@ -157,7 +156,7 @@ describe('createClient with a torn payload', () => {
     const { publisher, errorLines } = harness()
 
     const data = await createClient(publisher as any).json(
-      '/json/goes/primary/xray-flares-latest.json',
+      XRAY_FLARE_LATEST,
       'X-ray flare class'
     )
 
@@ -174,7 +173,7 @@ describe('createClient with a torn payload', () => {
     const { publisher } = harness()
 
     await expect(
-      createClient(publisher as any).json('/json/x.json', 'X')
+      createClient(publisher as any).json(XRAY_FLARE_LATEST, 'X')
     ).rejects.toThrow()
   })
 
@@ -182,7 +181,7 @@ describe('createClient with a torn payload', () => {
     vi.stubGlobal('fetch', async () => torn(JSON.stringify({ a: 1 })))
     const { publisher, errorLines } = harness()
 
-    expect(await createClient(publisher as any).json('/x', 'X')).toEqual({
+    expect(await createClient(publisher as any).json(SCALES, 'X')).toEqual({
       a: 1
     })
     expect(errorLines).toEqual([])

@@ -23,6 +23,7 @@ import {
 import { readAuroraCache, writeAuroraCache } from '../cache/auroraCache.js'
 import { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
+import { AURORA } from '../endpoints.js'
 
 interface Position {
   latitude: number
@@ -57,6 +58,7 @@ export function vesselPosition(publisher: Publisher): Position | null {
 
 export const aurora: Product = {
   name: 'Aurora (OVATION)',
+  endpoints: [AURORA],
   intervalMinutes: (settings) => settings.auroraInterval,
   enabled: (settings) => settings.auroraEnabled,
 
@@ -107,7 +109,7 @@ export const aurora: Product = {
   },
 
   async refresh({ client, publisher, stopped }) {
-    const json = await client.json('/json/ovation_aurora_latest.json', 'Aurora')
+    const json = await client.json(AURORA, 'Aurora')
     if (stopped()) return
 
     const forecast = parseAuroraPayload(json)

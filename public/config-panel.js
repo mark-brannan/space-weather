@@ -43,59 +43,108 @@ export const SCALE_NAMES = Object.freeze([
 ])
 
 /**
- * Wire sizes per fetch, from the payload-size table in docs/noaa-products.md.
- * They are the only measured numbers the panel holds, and it holds them so
- * that what it shows a user is arithmetic rather than a sentence: the daily
- * and monthly figures below move with the intervals, which is the whole
- * reason this panel exists. Re-measure with scripts/measure-noaa.mjs.
- */
-export const AURORA_WIRE_KB = 144
-/**
- * Every endpoint that still follows `updateInterval`, summed: the two scales
- * fetches plus the 7-day flare list, Kp, both solar wind summaries and the
- * alerts archive. The alerts archive is over half of it on its own.
- */
-export const OTHER_WIRE_KB = 9.7
-/**
- * The two GOES time-series windows, on their own `goesFluxInterval`. Priced
- * apart from the row above for the reason D-RAP is: it is much the largest
- * thing on that poll -- more than three times the rest of it put together --
- * and it is now a rate the user sets rather than one they inherit.
- */
-export const GOES_FLUX_WIRE_KB = 32.3
-/**
- * D-RAP follows its own `drapInterval` rather than `updateInterval`, and is
- * priced separately rather than folded into the row above for the same reason
- * the GOES pair below is: it has a rate the user sets, so a row that moved
- * with a different one would be wrong.
- */
-export const DRAP_WIRE_KB = 2.1
-
-/**
- * The two bulletins that keep their own cadence, which neither interval field
- * moves. Sizes from the same table; cadences from src/products/.
+ * Every NOAA endpoint the plugin fetches, its measured wire size, and how often
+ * a scheduled run asks for it. A copy of `ENDPOINTS` in src/endpoints.ts, which
+ * is the source of truth; test/endpoints.test.ts pins the two together field
+ * for field, so a re-measurement that lands in only one of them fails the
+ * build. The panel is served as plain JavaScript out of public/ and cannot
+ * import from dist/ -- the same trade as DEFAULTS above.
  *
- * `f107` is here now rather than bundled into the row above: the payload table
- * prices every endpoint separately, so its four-hourly fetch no longer has to
- * ride an interval it does not follow.
- *
- * The 27-day outlook is one 451 B fetch a day, always. The advisory outlook is
- * adaptive: it sleeps up to a day, then polls every 15 minutes through a
- * six-hour window before the weekly issuance is due, so a week costs roughly
- * six idle fetches plus a couple of dozen in the window. The two HF indices
- * are flat: eight fetches a day for the WWV bulletin, six for the daily solar
- * table. Both were priced on their own rather than folded into the row above,
- * so unlike `f107` there is no number to invent.
+ * The panel holds these rather than a handful of per-product totals because a
+ * total is what went stale last time: the old figure outlived the product
+ * that grew from one endpoint to three, and finding that out took a
+ * re-measurement. Sizes are docs/noaa-products.md's payload table at the
+ * precision it records. Re-measure with scripts/measure-noaa.mjs.
  */
-export const OUTLOOK27_WIRE_KB = 0.43
-export const ADVISORY_WIRE_KB = 0.8
-export const F107_WIRE_KB = 1.2
-const F107_FETCHES_PER_DAY = 6
-const ADVISORY_FETCHES_PER_DAY = 30 / 7
-export const A_INDEX_WIRE_KB = 0.3
-const A_INDEX_FETCHES_PER_DAY = 8
-export const SUNSPOT_WIRE_KB = 0.8
-const SUNSPOT_FETCHES_PER_DAY = 6
+export const ENDPOINTS = Object.freeze([
+  {
+    subPath: '/products/noaa-scales.json',
+    wireBytes: 211,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/json/goes/primary/xray-flares-latest.json',
+    wireBytes: 452,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/json/goes/primary/xray-flares-7-day.json',
+    wireBytes: 3277,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/products/noaa-planetary-k-index-forecast.json',
+    wireBytes: 496,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/text/27-day-outlook.txt',
+    wireBytes: 442,
+    cadence: { fetchesPerDay: 1 }
+  },
+  {
+    subPath: '/products/summary/solar-wind-speed.json',
+    wireBytes: 59,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/products/summary/solar-wind-mag-field.json',
+    wireBytes: 60,
+    cadence: { follows: 'updateInterval' }
+  },
+  {
+    subPath: '/json/f107_cm_flux.json',
+    wireBytes: 1229,
+    cadence: { fetchesPerDay: 6 }
+  },
+  {
+    subPath: '/json/goes/primary/xrays-6-hour.json',
+    wireBytes: 24986,
+    cadence: { follows: 'goesFluxInterval' },
+    requires: 'goesFluxEnabled'
+  },
+  {
+    subPath: '/json/goes/primary/integral-protons-6-hour.json',
+    wireBytes: 8090,
+    cadence: { follows: 'goesFluxInterval' },
+    requires: 'goesFluxEnabled'
+  },
+  {
+    subPath: '/text/wwv.txt',
+    wireBytes: 346,
+    cadence: { fetchesPerDay: 8 }
+  },
+  {
+    subPath: '/text/daily-solar-indices.txt',
+    wireBytes: 845,
+    cadence: { fetchesPerDay: 6 }
+  },
+  {
+    subPath: '/json/ovation_aurora_latest.json',
+    wireBytes: 147149,
+    cadence: { follows: 'auroraInterval' },
+    requires: 'auroraEnabled'
+  },
+  {
+    subPath: '/text/drap_global_frequencies.txt',
+    wireBytes: 2150,
+    cadence: { follows: 'drapInterval' },
+    requires: 'drapEnabled'
+  },
+  {
+    subPath: '/text/advisory-outlook.txt',
+    wireBytes: 768,
+    // No `requires`: sendAdvisoryOutlook governs the notification, not
+    // the fetch -- src/products/advisory.ts has no `enabled`, so the
+    // bulletin is always part of the bill.
+    cadence: { fetchesPerDay: 30 / 7 }
+  },
+  {
+    subPath: '/products/alerts.json',
+    wireBytes: 5427,
+    cadence: { follows: 'updateInterval' }
+  }
+])
 
 const MINUTES_PER_DAY = 24 * 60
 /** Long enough to be worth quoting, short enough that every month has one. */
@@ -111,52 +160,50 @@ export function minutes(raw, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-/**
- * Kilobytes a day the intervals cannot change. Small, and worth a line of its
- * own precisely because it is small: it is the part of the bill that does not
- * fall however far the two intervals are opened up.
- */
-export function fixedKb(settings) {
-  return (
-    OUTLOOK27_WIRE_KB +
-    F107_FETCHES_PER_DAY * F107_WIRE_KB +
-    A_INDEX_FETCHES_PER_DAY * A_INDEX_WIRE_KB +
-    SUNSPOT_FETCHES_PER_DAY * SUNSPOT_WIRE_KB +
-    (settings.sendAdvisoryOutlook
-      ? ADVISORY_FETCHES_PER_DAY * ADVISORY_WIRE_KB
-      : 0)
-  )
+/** Scheduled fetches of one endpoint in a day; mirrors `fetchesPerDay` in src/endpoints.ts. */
+function endpointFetchesPerDay(endpoint, settings) {
+  if (endpoint.requires && !settings[endpoint.requires]) return 0
+  if (endpoint.cadence.fetchesPerDay !== undefined) {
+    return endpoint.cadence.fetchesPerDay
+  }
+  const interval = endpoint.cadence.follows
+  return MINUTES_PER_DAY / minutes(settings[interval], DEFAULTS[interval])
 }
 
-/** Kilobytes a day, split the way the two intervals split the cost. */
+/**
+ * Kilobytes a day, split the way the form's rows split it: what still follows
+ * `updateInterval`, the three things with a rate of their own, and everything
+ * on a fixed cadence. Every term is a declared endpoint times its own cadence,
+ * so adding an endpoint prices it here with nothing else to remember -- which
+ * is the difference between this and the per-product constants it replaced.
+ */
 export function dailyKb(settings) {
-  const aurora = settings.auroraEnabled
-    ? (MINUTES_PER_DAY /
-        minutes(settings.auroraInterval, DEFAULTS.auroraInterval)) *
-      AURORA_WIRE_KB
-    : 0
-  const polls =
-    MINUTES_PER_DAY / minutes(settings.updateInterval, DEFAULTS.updateInterval)
-  const other = polls * OTHER_WIRE_KB
-  const drap = settings.drapEnabled
-    ? (MINUTES_PER_DAY /
-        minutes(settings.drapInterval, DEFAULTS.drapInterval)) *
-      DRAP_WIRE_KB
-    : 0
-  const goesFlux = settings.goesFluxEnabled
-    ? (MINUTES_PER_DAY /
-        minutes(settings.goesFluxInterval, DEFAULTS.goesFluxInterval)) *
-      GOES_FLUX_WIRE_KB
-    : 0
-  const fixed = fixedKb(settings)
-  return {
-    aurora,
-    other,
-    drap,
-    goesFlux,
-    fixed,
-    total: aurora + other + drap + goesFlux + fixed
+  const split = {
+    aurora: 0,
+    drap: 0,
+    goesFlux: 0,
+    other: 0,
+    fixed: 0,
+    total: 0
   }
+  for (const endpoint of ENDPOINTS) {
+    const kb =
+      (endpointFetchesPerDay(endpoint, settings) * endpoint.wireBytes) / 1024
+    const follows = endpoint.cadence.follows
+    const key =
+      follows === 'auroraInterval'
+        ? 'aurora'
+        : follows === 'drapInterval'
+          ? 'drap'
+          : follows === 'goesFluxInterval'
+            ? 'goesFlux'
+            : follows
+              ? 'other'
+              : 'fixed'
+    split[key] += kb
+    split.total += kb
+  }
+  return split
 }
 
 /**
@@ -234,9 +281,7 @@ export const ALARM_NEVER = 6
 export const LEVEL_OPTIONS = Object.freeze([
   // ALARM_NEVER carries no rate: it does not happen at a frequency.
   { value: ALARM_NEVER },
-  ...[5, 4, 3, 2, 1].map((value) =>
-    Object.freeze({ value, rate: RATE[value] })
-  )
+  ...[5, 4, 3, 2, 1].map((value) => Object.freeze({ value, rate: RATE[value] }))
 ])
 
 /** What a state does to a notification client, in the words a user would use. */
@@ -433,7 +478,8 @@ export function panelSettings(configuration) {
   // Resolved once so the field shown for it and the drapInterval fallback
   // below agree with each other and with the plugin.
   const updateInterval = minutes(
-    c.updateInterval ?? smaller(c.observationsInterval, c.notificationsInterval),
+    c.updateInterval ??
+      smaller(c.observationsInterval, c.notificationsInterval),
     DEFAULTS.updateInterval
   )
   return {
