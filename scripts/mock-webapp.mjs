@@ -88,13 +88,15 @@ async function loadRealProducts() {
     { drap },
     { readAuroraCache, writeAuroraCache },
     { readDrapCache },
-    { createClient }
+    { createClient },
+    { createFileStore }
   ] = await Promise.all([
     import(path.join(REPO_ROOT, 'dist', 'products', 'aurora.js')),
     import(path.join(REPO_ROOT, 'dist', 'products', 'drap.js')),
     import(path.join(REPO_ROOT, 'dist', 'cache', 'auroraCache.js')),
     import(path.join(REPO_ROOT, 'dist', 'cache', 'drapCache.js')),
-    import(path.join(REPO_ROOT, 'dist', 'noaa', 'client.js'))
+    import(path.join(REPO_ROOT, 'dist', 'noaa', 'client.js')),
+    import(path.join(REPO_ROOT, 'dist', 'publisher.js'))
   ])
 
   // A scratch data dir standing in for the real plugin's
@@ -134,7 +136,10 @@ async function loadRealProducts() {
       console.error(`[aurora/drap] ${message}`, ...args)
     },
     debug() {},
-    dataDirPath: () => dataDirPath
+    // A Publisher is also the CacheStore its products persist through, so the
+    // grid caches land in the scratch directory above exactly as they do on a
+    // server -- same write-then-rename, same files.
+    ...createFileStore(() => dataDirPath)
   }
   const client = createClient(publisher)
   const settings = {
@@ -155,7 +160,7 @@ async function loadRealProducts() {
     writeAuroraCache,
     readDrapCache,
     ctx,
-    dataDirPath
+    publisher
   }
   return realProducts
 }
@@ -194,7 +199,7 @@ async function handleRefresh(name, res) {
     return
   }
   const readCache = real[READ_CACHE[name]]
-  const before = readCache(real.dataDirPath)
+  const before = readCache(real.publisher)
   try {
     await real[name].refresh(real.ctx)
   } catch (err) {
@@ -207,7 +212,7 @@ async function handleRefresh(name, res) {
     )
     return
   }
-  const cached = readCache(real.dataDirPath)
+  const cached = readCache(real.publisher)
   if (!cached || cached.fetchedAt === before?.fetchedAt) {
     res.writeHead(502, { 'Content-Type': 'application/json' })
     res.end(
@@ -243,7 +248,7 @@ async function handleGrid(name, res) {
     )
     return
   }
-  const cached = real[READ_CACHE[name]](real.dataDirPath)
+  const cached = real[READ_CACHE[name]](real.publisher)
   if (!cached) {
     // no-store: a browser caching "nothing yet" would keep saying so after
     // the next refresh actually lands one.

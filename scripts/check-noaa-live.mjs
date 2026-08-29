@@ -85,7 +85,11 @@ function quietPublisher(log) {
     fail: (message) => log.push(message),
     error: (message) => log.push(message),
     debug: () => {},
-    dataDirPath: () => '.'
+    // The CacheStore half of a Publisher. Nothing here caches anything -- this
+    // script only measures endpoints -- but the interface is one object, and a
+    // stub missing half of it fails only when something reaches for it.
+    readCache: () => null,
+    writeCache: () => {}
   }
 }
 

@@ -1,14 +1,47 @@
 /** The only outbound I/O in the plugin. */
 import { Endpoint, ENDPOINTS } from '../endpoints.js'
 import { firstJsonValue } from '../parse.js'
-import { Publisher } from '../publisher.js'
+// Type-only on purpose: publisher.ts owns the filesystem, and the browser
+// demo loads this module. `import type` is erased, so the emitted ES module
+// has no edge to it at all -- test/browser-closure.test.ts walks for exactly
+// that.
+import type { Publisher } from '../publisher.js'
 import { createMeter, Meter, Outcome, recordFetch, Trigger } from '../meter.js'
 
 export type { Trigger } from '../meter.js'
 
 export const API = 'https://services.swpc.noaa.gov'
 const USER_AGENT = 'signalk-noaa-space-weather'
-const TIMEOUT_MS = 30000
+/**
+ * How long one request may hang before it is given up on. Exported because the
+ * browser demo bounds its first paint by it: waiting for the first pass over
+ * every product is worth it when NOAA answers in milliseconds, and must not
+ * become an unbounded blank page when it does not answer at all.
+ */
+export const TIMEOUT_MS = 30000
+
+/**
+ * What differs between the two hosts this client runs on. The defaults are the
+ * server's; the browser demo (#239) turns both off, and for one measured
+ * reason each rather than out of caution:
+ *
+ * `User-Agent` is a forbidden header name in a browser -- `fetch` drops it --
+ * so the server's identification is server-only by construction.
+ *
+ * Conditional GET is worse than useless there. NOAA answers every endpoint
+ * with a fixed `Access-Control-Allow-Headers: origin, x-requested-with,
+ * content-type`, and neither `If-None-Match` nor `If-Modified-Since` is on the
+ * CORS safelist, so a browser preflights them and the preflight refuses: the
+ * request is then never sent at all. It costs nothing to drop them -- not one
+ * endpoint has ever answered 304 at a realistic poll interval. Both measured
+ * in docs/noaa-products.md.
+ */
+export interface ClientOptions {
+  /** Send the conditional-GET headers, and keep payloads to answer a 304 from. */
+  conditionalGet?: boolean
+  /** Identify this client, or null to send no `User-Agent` at all. */
+  userAgent?: string | null
+}
 
 export interface Client {
   json(endpoint: Endpoint, productName: string): Promise<any>
@@ -52,7 +85,11 @@ interface FetchLogState {
   nextLogAt: number
 }
 
-export function createClient(publisher: Publisher): Client {
+export function createClient(
+  publisher: Publisher,
+  options: ClientOptions = {}
+): Client {
+  const { conditionalGet = true, userAgent = USER_AGENT } = options
   // Keyed by subPath, not the full URL: every product hits a fixed, distinct
   // path, so this is small and never needs eviction. Lives in this closure
   // rather than module scope so it doesn't leak across plugin instances in a
@@ -164,8 +201,9 @@ export function createClient(publisher: Publisher): Client {
       }
       const { subPath } = endpoint
       const url = API + subPath
-      const cached = cache.get(subPath)
-      const headers: Record<string, string> = { 'User-Agent': USER_AGENT }
+      const cached = conditionalGet ? cache.get(subPath) : undefined
+      const headers: Record<string, string> = {}
+      if (userAgent) headers['User-Agent'] = userAgent
       // Sending both conditional headers costs nothing, and is kept even though
       // no endpoint has ever been observed returning a 304 at a realistic poll
       // interval -- NOAA's ETag carries the file mtime and the files are
@@ -281,12 +319,17 @@ export function createClient(publisher: Publisher): Client {
       )
       logRecovery(subPath, productName)
 
-      const etag = response.headers.get('etag')
-      const lastModified = response.headers.get('last-modified')
-      if (etag || lastModified) {
-        cache.set(subPath, { etag, lastModified, value: result.value })
-      } else {
-        cache.delete(subPath)
+      // Only worth keeping if a later request can ask about it. Without
+      // conditional GET this map would hold every payload -- a 900 KB aurora
+      // grid among them -- against a 304 that can never arrive.
+      if (conditionalGet) {
+        const etag = response.headers.get('etag')
+        const lastModified = response.headers.get('last-modified')
+        if (etag || lastModified) {
+          cache.set(subPath, { etag, lastModified, value: result.value })
+        } else {
+          cache.delete(subPath)
+        }
       }
       setStatus(`NOAA Space Weather ${productName} retrieved`)
       return result.value

@@ -204,7 +204,18 @@ strokes the azimuthal one against the antipode instead. Argument in
 `scripts/build-demo.mjs` copies `public/index.html` itself and substitutes
 `demo/signalk.js` for `signalk.js` — that one seam is why the demo runs the
 real page unchanged, and `test/webapp-seam.test.ts` fails if the page regrows
-a `fetch`, a `WebSocket` or a server URL of its own. **Don't fork
+a `fetch`, a `WebSocket` or a server URL of its own. **Three things sit behind
+that seam, not two**: a Signal K server, the saved capture, and — on `?live` —
+the plugin's own compiled product modules fetching NOAA from the visitor's tab
+(`src/browser/`, copied into the site under `plugin/` from `dist/`). Live is
+opt-in and the snapshot stays the default, because a public page must not spend
+a fresh 927 KB aurora grid per visit; the import is dynamic so a snapshot
+visitor downloads none of it. The browser drives `PRODUCTS` out of
+`src/products/registry.ts` rather than `index.ts`, which owns the filesystem
+through the routes and the tile renderer — `test/browser-closure.test.ts` walks
+`src/browser/` and fails if that edge comes back. The browser client is
+`createClient` with `conditionalGet` and `userAgent` off, never a second
+implementation. **Don't fork
 `index.html`, and don't hand-list the copied files** — the demo's framing is
 *appended* as one script tag (`demo/chrome.js`, which may say what the page is
 and may not change what it draws), and the file set is the page's transitive

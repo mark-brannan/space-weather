@@ -2,7 +2,7 @@
 
 [![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
 
-**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** — the plugin's map on a saved NOAA snapshot. No boat, no server, nothing to install.
+**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** — the plugin's map on a saved NOAA snapshot. No boat, no server, nothing to install. Or **[run it on live NOAA data](https://mark-brannan.github.io/signalk-noaa-space-weather/?live)**, where the same page is the plugin itself, fetching the space weather happening right now.
 
 ## Why should I care about space weather?
 

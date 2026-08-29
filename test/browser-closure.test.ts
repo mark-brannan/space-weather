@@ -1,5 +1,6 @@
 /**
- * The product modules must stay loadable in a browser.
+ * The product modules, and the layer that drives them, must stay loadable in a
+ * browser.
  *
  * The demo page (#239 leg 2) runs these same modules against NOAA directly,
  * with no server and no bundler: `tsc` already emits ES modules whose every
@@ -26,6 +27,7 @@ const SRC = resolve(__dirname, '../src')
  *  `relative` hands back backslashes on Windows and the CI runner is real. */
 const rel = (file: string) => relative(SRC, file).split(sep).join('/')
 const PRODUCTS = join(SRC, 'products')
+const BROWSER = join(SRC, 'browser')
 
 /** `import`/`export ... from '<specifier>'`, minus the type-only ones. */
 const FROM =
@@ -61,12 +63,34 @@ function closure(entries: string[]): {
 }
 
 describe('the product closure loads in a browser', () => {
-  const entries = readdirSync(PRODUCTS)
-    .filter((f) => f.endsWith('.ts'))
-    .map((f) => join(PRODUCTS, f))
+  // Every product, plus src/browser/ -- the demo's live data layer, whose
+  // whole job is to run those products with no server under it. Walking it
+  // from here is what keeps the layer honest: it imports the registry rather
+  // than index.ts precisely because index.ts owns the filesystem, and nothing
+  // but this test would notice that edge being added back.
+  const entries = [
+    ...readdirSync(PRODUCTS)
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => join(PRODUCTS, f)),
+    ...readdirSync(BROWSER)
+      .filter((f) => f.endsWith('.ts'))
+      .map((f) => join(BROWSER, f))
+  ]
 
   it('has every product to walk from', () => {
     expect(entries.length).toBeGreaterThan(10)
+  })
+
+  it('walks the live data layer too', () => {
+    const { modules } = closure(entries)
+    const names = [...modules].map(rel)
+    expect(names).toContain('browser/live.ts')
+    expect(names).toContain('browser/publisher.ts')
+    // The registry is the seam that keeps index.ts -- the plugin lifecycle,
+    // the HTTP routes, the tile renderer -- out of the browser's closure.
+    expect(names).toContain('products/registry.ts')
+    expect(names).not.toContain('index.ts')
+    expect(names).not.toContain('tiles.ts')
   })
 
   it('imports nothing a browser cannot resolve', () => {
