@@ -7,6 +7,7 @@ import {
   maybeFlushTotals,
   Meter,
   meterSnapshot,
+  meterTotals,
   recordFetch
 } from '../src/meter'
 import { CacheStore } from '../src/cache/entryCache'
@@ -115,6 +116,119 @@ describe('recordFetch: tier 2, the rolling 24 hours', () => {
     )
 
     expect(meter.hourly.size).toBe(2)
+  })
+
+  it('calls onRollover when a fetch opens a new bucket, and not when it folds into the current one', () => {
+    let rollovers = 0
+    const meter = createMeter(() => rollovers++)
+
+    recordFetch(meter, entry({ startedAt: 0 })) // opens the first bucket
+    recordFetch(meter, entry({ startedAt: 1000 })) // same hour -- no rollover
+    recordFetch(meter, entry({ startedAt: HOUR_MS })) // next hour -- rolls over
+
+    expect(rollovers).toBe(2)
+  })
+
+  it('calls onRollover once per endpoint, not once per fetch that opens a bucket for any endpoint', () => {
+    let rollovers = 0
+    const meter = createMeter(() => rollovers++)
+
+    recordFetch(meter, entry({ subPath: '/a' }))
+    recordFetch(meter, entry({ subPath: '/b' }))
+    recordFetch(meter, entry({ subPath: '/a' }))
+
+    expect(rollovers).toBe(2)
+  })
+
+  it('has already folded the triggering fetch in by the time onRollover fires', () => {
+    // onRollover fires because *this* fetch opened a new bucket -- a
+    // listener reading meterTotals() from inside the callback must see
+    // that fetch counted, not just the buckets that existed before it.
+    let totalsAtRollover: ReturnType<typeof meterTotals> | undefined
+    const meter = createMeter(() => {
+      totalsAtRollover = meterTotals(meter, HOUR_MS)
+    })
+
+    recordFetch(meter, entry({ startedAt: 0, wireBytes: 100 })) // opens bucket 0, no rollover
+    recordFetch(
+      meter,
+      entry({ startedAt: HOUR_MS, wireBytes: 50 }) // opens bucket 1 -- rolls over
+    )
+
+    expect(totalsAtRollover).toEqual({
+      bytesPerDay: 150,
+      fetchesPerDay: 2,
+      errorsPerDay: 0
+    })
+  })
+})
+
+describe('meterTotals', () => {
+  it('sums fetches, wireBytes and errors across every endpoint within the last 24h of `now`', () => {
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/a', startedAt: 0, wireBytes: 100, outcome: 'ok' })
+    )
+    recordFetch(
+      meter,
+      entry({
+        subPath: '/b',
+        startedAt: HOUR_MS,
+        wireBytes: 50,
+        outcome: 'httpError'
+      })
+    )
+
+    const totals = meterTotals(meter, 2 * HOUR_MS)
+    expect(totals).toEqual({
+      bytesPerDay: 150,
+      fetchesPerDay: 2,
+      errorsPerDay: 1
+    })
+  })
+
+  it('excludes a bucket older than 24h of `now`, even though recordFetch has not pruned it yet', () => {
+    // An endpoint fetched once and never again keeps its one bucket forever
+    // in `meter.hourly` -- recordFetch only prunes on that endpoint's own
+    // next fetch. meterTotals has to apply the window itself.
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/stale', startedAt: 0, wireBytes: 999 })
+    )
+    recordFetch(
+      meter,
+      entry({ subPath: '/fresh', startedAt: 30 * HOUR_MS, wireBytes: 1 })
+    )
+
+    const totals = meterTotals(meter, 30 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(1)
+    expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket whose hour overlaps the 24h window even though it started more than 23h ago', () => {
+    // now = 30.5h: a fetch in the bucket starting at 6h landed at 6.75h,
+    // which is 23.75h old and belongs in the last 24 hours -- a cutoff of
+    // "23 hours before now, floored" excludes the whole bucket that fetch
+    // is in.
+    const meter = createMeter()
+    recordFetch(
+      meter,
+      entry({ subPath: '/a', startedAt: 6.75 * HOUR_MS, wireBytes: 7 })
+    )
+
+    const totals = meterTotals(meter, 30.5 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(7)
+    expect(totals.fetchesPerDay).toBe(1)
+  })
+
+  it('includes a bucket exactly on the 24h boundary', () => {
+    const meter = createMeter()
+    recordFetch(meter, entry({ subPath: '/a', startedAt: 0, wireBytes: 3 }))
+
+    const totals = meterTotals(meter, 24 * HOUR_MS)
+    expect(totals.bytesPerDay).toBe(3)
   })
 })
 

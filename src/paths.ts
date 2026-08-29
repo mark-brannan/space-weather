@@ -93,6 +93,15 @@ export const PROTON_FLUX_BASE = 'environment.noaa.swpc.proton_flux'
  * itself is not useful on a boat.
  */
 export const DRAP_BASE = 'environment.noaa.swpc.drap'
+/**
+ * The plugin's own fetch instrumentation, not a NOAA product: what it has
+ * actually cost the last 24 hours, and what src/endpoints.ts predicted it
+ * would, next to the fetch and error counts behind those bytes. See
+ * docs/instrumentation-design.md's "Four surfaces, one source" -- this is
+ * surface 2. Deliberately few paths, and none of them carry `zones`: this is
+ * housekeeping for a time-series database, not a condition to alarm on.
+ */
+export const TELEMETRY_BASE = 'environment.noaa.swpc.telemetry'
 
 export const SCALE_LETTERS = ['G', 'S', 'R'] as const
 export type ScaleLetter = (typeof SCALE_LETTERS)[number]
