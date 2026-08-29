@@ -740,6 +740,27 @@ describe('parseKpForecast', () => {
       (point) => point.time === '2026-08-29T00:00:00.000Z'
     )
     expect(current?.forecast).toBe(true)
+    // The bin in progress is the onset, and it is still running at 01:51.
+    expect(summary.nextStormTime).toBe('2026-08-29T00:00:00.000Z')
+  })
+
+  it('drops an estimated bin that has already run, rather than calling it ahead', () => {
+    // NOAA's `observed` column lags, and can stall: at 21:00Z most of the
+    // day's rows are still marked `estimated` while being hours in the past.
+    // Read as forecast, the 00:00 G2 would be published as the *next* storm
+    // onset -- 21 hours behind the boat.
+    const summary = parseKpForecast(
+      fixtureJson('noaa-planetary-k-index-forecast.2026_08_29.json'),
+      new Date('2026-08-29T21:30:00Z')
+    )
+    expect(summary.nextStormTime).toBeNull()
+    expect(summary.max24h).toBeCloseTo(3.67, 5)
+    // The elapsed bins are still drawn -- only the forward-looking numbers
+    // refuse them.
+    expect(
+      summary.series.find((p) => p.time === '2026-08-29T00:00:00.000Z')
+        ?.forecast
+    ).toBe(true)
   })
 
   it('returns an empty series rather than throwing on malformed input', () => {

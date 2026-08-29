@@ -1082,32 +1082,37 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
   if (rows.length === 0) return empty
 
   const nowMs = now.getTime()
-  // NOAA marks the whole current UTC day `estimated`, so a row can be in the
-  // past and still be a forecast. Splitting on the mark rather than on time is
-  // what keeps a predicted storm out of the observed path -- it published a
-  // G2 while NOAA's own site showed the measured Kp at G0.
+  // NOAA's `observed` column lags real time: a bin is `estimated` until the
+  // measurement lands, which our own fixtures show taking one to two bins.
+  // So a row can be in the past and still be a forecast. Splitting on the
+  // mark rather than on time is what keeps a predicted storm out of the
+  // observed path -- it published a G2 while NOAA's own site showed the
+  // measured Kp at G0.
   const observed = rows.filter(
     (row) => row.observed && row.at.getTime() <= nowMs
   )
-  // Everything not yet measured: the rows still ahead, plus the in-progress
-  // 3-hour bin, whose forecast is timestamped in the past.
-  const forecast = rows.filter(
-    (row) => row.at.getTime() > nowMs || !row.observed
-  )
-
   const latest = observed.length > 0 ? observed[observed.length - 1] : null
+
+  // What is still to come: the rows ahead, plus the bin now in progress. An
+  // estimated bin that has already run its three hours is neither measured
+  // nor forthcoming, and must not be offered as either -- when NOAA's
+  // observed column stalls, that is most of a day's rows, and taking them as
+  // forecast would date `nextStormTime` hours into the past.
+  const ahead = rows.filter(
+    (row) =>
+      row.at.getTime() > nowMs ||
+      (!row.observed && row.at.getTime() + KP_BIN_MS > nowMs)
+  )
   const within = (hours: number) =>
-    forecast.filter((row) => row.at.getTime() <= nowMs + hours * 3600 * 1000)
+    ahead.filter((row) => row.at.getTime() <= nowMs + hours * 3600 * 1000)
 
   const maxKp = (subset: typeof rows) =>
     subset.length > 0 ? Math.max(...subset.map((row) => row.kp)) : null
 
   const max24h = maxKp(within(24))
   const max72h = maxKp(within(72))
-  // The in-progress 3-hour bin counts: a storm already underway is still the
-  // onset the user needs to see, and it is at most three hours old.
   const nextStorm =
-    forecast.find((row) => row.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
+    ahead.find((row) => row.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
 
   const seriesStart = nowMs - 24 * 3600 * 1000
   const seriesEnd = nowMs + 72 * 3600 * 1000
@@ -1133,14 +1138,16 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
   }
 }
 
+/** Kp is defined on 3-hour bins, and `time_tag` is the start of one. */
+const KP_BIN_MS = 3 * 60 * 60 * 1000
+
 interface KpRow {
   at: Date
   kp: number
   /**
-   * False for NOAA's `estimated` and `predicted` rows. The feed carries
-   * forecast rows for the whole current UTC day, so several of them are
-   * already in the past at any given moment -- time alone does not say
-   * whether a row was measured.
+   * False for NOAA's `estimated` and `predicted` rows. The column lags: a bin
+   * stays `estimated` for a while after it has been and gone, so time alone
+   * does not say whether a row was measured.
    */
   observed: boolean
 }
