@@ -12,6 +12,10 @@ function harness() {
   const debugLines: string[] = []
   const statusLines: string[] = []
   const errorLines: string[] = []
+  // A real, if trivial, CacheStore: the client now flushes tier 3 (see
+  // src/meter.ts) through the publisher it's handed, on a tier-2 rollover,
+  // so this needs to work rather than throw the way an unstubbed store would.
+  const cacheFiles = new Map<string, string>()
   const publisher = {
     meta: () => {},
     values: () => {},
@@ -20,9 +24,13 @@ function harness() {
     status: (m: string) => statusLines.push(m),
     fail: () => {},
     error: (m: string) => errorLines.push(m),
-    debug: (m: string) => debugLines.push(m)
+    debug: (m: string) => debugLines.push(m),
+    readCache: (filename: string) => cacheFiles.get(filename) ?? null,
+    writeCache: (filename: string, text: string) => {
+      cacheFiles.set(filename, text)
+    }
   }
-  return { publisher, debugLines, statusLines, errorLines }
+  return { publisher, debugLines, statusLines, errorLines, cacheFiles }
 }
 
 function jsonResponse(body: any, headers: Record<string, string> = {}) {

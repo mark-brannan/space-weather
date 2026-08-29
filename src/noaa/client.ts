@@ -6,7 +6,14 @@ import { firstJsonValue } from '../parse.js'
 // has no edge to it at all -- test/browser-closure.test.ts walks for exactly
 // that.
 import type { Publisher } from '../publisher.js'
-import { createMeter, Meter, Outcome, recordFetch, Trigger } from '../meter.js'
+import {
+  createMeter,
+  maybeFlushTotals,
+  Meter,
+  Outcome,
+  recordFetch,
+  Trigger
+} from '../meter.js'
 
 export type { Trigger } from '../meter.js'
 
@@ -223,7 +230,7 @@ export function createClient(
         wireBytesEstimated: boolean
       ) => {
         const durationMs = Date.now() - startedAt
-        recordFetch(meter, {
+        const rolledOver = recordFetch(meter, {
           subPath,
           productName,
           trigger,
@@ -235,6 +242,9 @@ export function createClient(
           decodedBytes,
           outcome
         })
+        // Tier 3's flash-wear budget: consider a flush only on a tier-2
+        // bucket rollover, never on every fetch. See docs/instrumentation-design.md.
+        if (rolledOver) maybeFlushTotals(meter, publisher, Date.now())
         publisher.debug(
           `noaa.fetch product=${productName} path=${subPath} trigger=${trigger} ` +
             `status=${status ?? 'none'} wire=${wireBytes ?? 'unknown'} ms=${durationMs} outcome=${outcome}`
