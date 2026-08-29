@@ -952,8 +952,8 @@ import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
-import { AuthRequiredError, distanceUnitPreference, fetchGridCache, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
-import { auroraCardState, refreshFailure } from './aurora.js';
+import { leafTime, leafValue, readAll } from './signalk.js';
+import { auroraCardState, refreshFailure, retryAfterSeconds } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
@@ -978,6 +978,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     chipEl.textContent = label;
   }
 
+  // Thrown by getJson on 401/403 so refresh() can tell "you're not logged
+  // in" apart from "nothing published yet" (both used to render as the same
+  // blank/zero UI, which is indistinguishable from a broken plugin).
+  class AuthRequiredError extends Error {}
+
+  async function getJson(path) {
+    let res;
+    try {
+      res = await fetch(path, { cache: 'no-store' });
+    } catch {
+      return null; // offline / DNS / etc. -- not an auth problem
+    }
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(path);
+    if (!res.ok) return null;
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
   function fmtTime(iso) {
     if (!iso) return '–';
     const d = new Date(iso);
@@ -1937,6 +1957,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // answer from the plugin's own cache), so loading it on page open costs
   // nothing extra and the toggle was only ever hiding the map for its own
   // sake.
+  // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
+  // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
+  // by the product tiles' own buttons and the map's, since a fresh fetch
+  // updates the same underlying data both read. Declared here because the
+  // layer table below reaches them as it is built.
+  const AURORA_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-refresh'
+  const DRAP_REFRESH_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-refresh'
+
+  const AURORA_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/aurora-grid'
+  const DRAP_GRID_URL = '/signalk/v1/api/signalk-noaa-space-weather/drap-grid'
 
   // What the reader has set. Both layers on by default: seeing them together
   // is the point of there being one map, and neither costs a NOAA fetch.
@@ -1960,11 +1990,42 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const mapEntries = { aurora: null, drap: null }
   const mapErrors = { aurora: null, drap: null }
 
-  // Read once from the server, so drawProbe never needs to know where the
-  // preference came from. Nothing to fall back to but the nmi
-  // formatDistanceNm already gave every reader, which is what no usable
-  // preference leaves in place.
+  // The reader's own distance unit, read once from the server's Unit
+  // Preferences API (https://github.com/SignalK/signalk-server) rather than
+  // hardcoded nmi (Mark's round-3 review) -- a plain function of km so
+  // drawProbe never needs to know where the preference came from. Servers
+  // without that API (older ones, or none set) 404 and this stays the nmi
+  // formatDistanceNm already gave every reader, so there is nothing to fall
+  // back to but the existing behaviour.
   let distanceFormat = formatDistanceNm
+  async function loadDistanceUnitPref() {
+    try {
+      const res = await fetch('/signalk/v1/unitpreferences/active', { headers: { Accept: 'application/json' } })
+      if (!res.ok) return
+      const prefs = await res.json()
+      const distance = prefs?.categories?.distance
+      // Never eval a formula that isn't plain arithmetic on `value` -- the
+      // server is a trusted origin for the numbers it publishes, but not
+      // trusted enough to hand it script execution over a preferences file a
+      // reader could edit or a proxy could tamper with. Strip every literal
+      // "value" token out first and check what's left is only digits,
+      // whitespace and arithmetic -- no other identifier can survive that.
+      const formula = distance?.formula
+      if (!formula || !/^[\d\s.+\-*/()]*$/.test(formula.split('value').join(''))) return
+      const convert = new Function('value', `"use strict"; return (${formula})`)
+      const digits = Math.min(6, (distance.displayFormat?.split('.')[1] || '').length)
+      const unit = distance.symbol || distance.targetUnit
+      // Surviving the character allowlist above doesn't make a formula
+      // callable arithmetic (`value(value)` passes it and throws), and a
+      // unit-less reading is meaningless. Prove both once here, synchronously,
+      // rather than throwing out of drawMapCanvas on every redraw.
+      if (!unit || !Number.isFinite(convert(1000))) return
+      distanceFormat = (km) => `${convert(km * 1000).toFixed(digits)} ${unit}`
+    } catch {
+      // Network hiccup or a malformed response -- nmi is still a correct
+      // answer, just not necessarily the reader's preferred one.
+    }
+  }
 
   let lastPosition = null
   let mapState = 'idle' // idle | loading | ready | error
@@ -1984,6 +2045,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const LAYER_META = {
     aurora: {
       label: 'Aurora',
+      gridUrl: AURORA_GRID_URL,
+      refreshUrl: AURORA_REFRESH_URL,
       relabel: labelAuroraButton,
       stamp: (entry) => `observed ${fmtTime(entry.grid['Observation Time'])}`,
       empty: 'No aurora grid cached yet.',
@@ -1992,6 +2055,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     },
     drap: {
       label: 'HF absorption',
+      gridUrl: DRAP_GRID_URL,
+      refreshUrl: DRAP_REFRESH_URL,
       relabel: labelDrapButton,
       stamp: (entry) => `valid ${fmtTime(entry.grid.validTime)}`,
       empty: 'No D-RAP grid cached yet.',
@@ -2001,6 +2066,19 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   const layerOn = (id) => mapControls.layers.has(id)
+
+  async function fetchGridCache(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
+    const body = await res.json().catch(() => null)
+    if (res.status === 404) {
+      const err = new Error((body && body.error) || 'Nothing cached yet.')
+      err.notCached = true
+      throw err
+    }
+    if (!res.ok) throw new Error(`Server responded ${res.status}`)
+    return body // { fetchedAt, grid }
+  }
 
   // --- the D-RAP absorption probe -----------------------------------------
   //
@@ -2365,7 +2443,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         meta.relabel(button)
       }
       button.addEventListener('click', () =>
-        handleRefreshClick(button, id, async () => {
+        handleRefreshClick(button, meta.refreshUrl, async () => {
           await refresh()
           await refetchLayer(id)
         }, meta.relabel))
@@ -2430,7 +2508,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // exactly the one layer a fetch just refreshed, switched on or not).
   async function loadLayer(id, loadId) {
     try {
-      const entry = await fetchGridCache(id)
+      const entry = await fetchGridCache(LAYER_META[id].gridUrl)
       if (loadId !== mapLoadId) return
       mapEntries[id] = entry
       mapErrors[id] = null
@@ -2508,6 +2586,29 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     renderMap()
   }
 
+  // Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
+  // cooldown-limited server-side (see aurora-refresh in src/index.ts). Shared
+  // by both the ring tile's own button and the map's, since a fresh fetch
+  // updates the same underlying data both read.
+  //
+  // Works with automatic updates switched off, which is the case it mostly
+  // exists for: that setting is about what the plugin spends on its own, and
+  // a press is not the plugin's own initiative. Nothing on this page reaches
+  // NOAA without one -- the poll below only reads the server, and the map is
+  // drawn from whatever the plugin last cached.
+  async function forceRefresh(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } })
+    if (res.status === 401 || res.status === 403) throw new AuthRequiredError(url)
+    const body = await res.json().catch(() => null)
+    if (!res.ok) {
+      const err = new Error((body && body.error) || `Server responded ${res.status}`)
+      err.status = res.status
+      err.retryAfterSeconds = retryAfterSeconds(res.headers.get('Retry-After'))
+      throw err
+    }
+    return body
+  }
+
   // One short label per refusal, because they ask for different things: one is
   // a wait, one is a login, one is a server that isn't running and one is NOAA
   // being unreachable. The full sentence goes on the button's title so
@@ -2565,20 +2666,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   // One handler for both products' buttons: the request, the refusals and the
   // way a refusal is held on the button are the same for either, and only the
-  // product, the label and what has to be redrawn afterwards differ. The ring
-  // tile's button and the map's are the same act for the same reason -- one
-  // fetch updates the underlying data both of them read.
-  //
-  // Nothing on this page reaches NOAA without one of these presses -- the
-  // poll below only reads the server, and the map is drawn from whatever the
-  // plugin last cached.
-  async function handleRefreshClick(button, which, after, relabel) {
+  // URL, the label and what has to be redrawn afterwards differ.
+  async function handleRefreshClick(button, url, after, relabel) {
     const original = button.textContent
     const originalTitle = button.title
     button.disabled = true
     button.textContent = 'Fetching…'
     try {
-      await forceRefresh(which)
+      await forceRefresh(url)
       await after()
     } catch (err) {
       const failure = refreshFailure(err instanceof AuthRequiredError ? { auth: true } : err)
@@ -2601,7 +2696,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function handleAuroraRefreshClick(button) {
-    return handleRefreshClick(button, 'aurora', async () => {
+    return handleRefreshClick(button, AURORA_REFRESH_URL, async () => {
       await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
       await refetchLayer('aurora')
     }, labelAuroraButton)
@@ -2615,7 +2710,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const button = document.getElementById('hfRefresh')
     // Same as the aurora tile's button: a fresh grid reaches an open map
     // rather than waiting to be asked for a second time (#185).
-    handleRefreshClick(button, 'drap', async () => {
+    handleRefreshClick(button, DRAP_REFRESH_URL, async () => {
       await refresh()
       await refetchLayer('drap')
     }, labelDrapButton)
@@ -2718,9 +2813,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // Fire-and-forget: the map already drew with nmi by the time this
   // resolves, so redraw once it lands rather than block the first paint on
   // a request most servers will 404 anyway.
-  distanceUnitPreference().then((format) => {
-    if (format) distanceFormat = format;
-    if (mapState === 'ready') drawMapCanvas();
-  });
+  loadDistanceUnitPref().then(() => { if (mapState === 'ready') drawMapCanvas() });
 })();
 </script>

@@ -4,9 +4,9 @@ import {
   auroraCardState,
   auroraCellColor,
   auroraRampColor,
-  refreshFailure
+  refreshFailure,
+  retryAfterSeconds
 } from '../public/aurora.js'
-import { retryAfterSeconds } from '../public/signalk.js'
 import { NOAA_RAMP } from '../src/tiles'
 
 describe('auroraCardState', () => {
