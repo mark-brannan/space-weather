@@ -362,10 +362,21 @@ const fmtIssued = (offsetMin) => {
  * timer reads this and nothing else, so `peakInMin` is what actually decides
  * whether the hero says "until G3 window", "until easing", or "no storm
  * inbound" -- not the observed levels.
+ *
+ * `historyMin` extends it backwards, and `observedUntilMin` says how far
+ * NOAA's `observed` column has caught up -- the two things the real feed has
+ * that a forecast-only series cannot show. Left off, every point is a
+ * forecast starting at now, which is what the states above this line expect.
  */
-function series({ peakKp, peakInMin, base = 2 }) {
+function series({
+  peakKp,
+  peakInMin,
+  base = 2,
+  historyMin = 0,
+  observedUntilMin = null
+}) {
   const out = []
-  for (let m = 0; m <= 72 * 60; m += 180) {
+  for (let m = -historyMin; m <= 72 * 60; m += 180) {
     let kp = base + Math.sin(m / 900) * 0.6
     if (peakKp != null) {
       const d = Math.abs(m - peakInMin) / 600
@@ -374,7 +385,7 @@ function series({ peakKp, peakInMin, base = 2 }) {
     out.push({
       time: iso(m),
       kp: Math.round(Math.max(0.33, Math.min(9, kp)) * 3) / 3,
-      forecast: true
+      forecast: observedUntilMin === null ? true : m > observedUntilMin
     })
   }
   return out
@@ -580,6 +591,26 @@ const STATES = {
     // with the widest MUF/headline text, so the SFI badge's flex-middle
     // spacing gets checked against the tile's most crowded layout too.
   },
+  stalled: {
+    // NOAA's `observed` column has stalled: the last measured bin is 21 hours
+    // back, so most of the day sits in the past still marked `estimated`.
+    // Live on 2026-08-29, and the case that showed the Kp chart was drawing
+    // NOW at the observed/forecast split -- which pinned it to the far left
+    // with a single point of history behind it, on a chart covering four
+    // days. NOW is the clock; the colour split is the column. Impractical to
+    // wait for on a real server, and invisible to a forecast-only series.
+    label: 'Observed column stalled',
+    observed: { G: 1, S: 0, R: 0 },
+    peak24h: { G: 1, S: 0, R: 0 },
+    kpObserved: 4.33,
+    series: series({
+      peakKp: 5.67,
+      peakInMin: -1080,
+      historyMin: 24 * 60,
+      observedUntilMin: -21 * 60
+    }),
+    sfi: 128 // Good (120-149)
+  },
   stale: {
     label: 'Stale data',
     observed: { G: 1, S: 0, R: 0 },
@@ -639,10 +670,18 @@ function payload(name, s) {
     }
     case 'kp':
       if (s.kpObserved === null) return null
+      // The next 24h is the eight bins from the one containing now. Half a
+      // bin of back-tolerance so a series that starts at now still counts its
+      // own first point, which drifts into the past between module load and
+      // the request.
+      const from = Math.max(
+        0,
+        s.series.findIndex((p) => Date.parse(p.time) >= Date.now() - 90 * 60000)
+      )
       return {
         observed: leaf(s.kpObserved, s.ageMin ?? -6),
         forecast: {
-          max24h: leaf(Math.max(...s.series.slice(0, 8).map((p) => p.kp))),
+          max24h: leaf(Math.max(...s.series.slice(from, from + 8).map((p) => p.kp))),
           max72h: leaf(Math.max(...s.series.map((p) => p.kp))),
           maxNoaaScale: leaf(s.observed?.G ?? 0),
           series: leaf(s.series)

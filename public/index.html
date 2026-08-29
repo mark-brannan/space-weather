@@ -1490,8 +1490,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const n = series.length;
     const x = (i) => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
     const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
-    const nowIndex = Math.max(0, series.findIndex((p) => p.forecast) - 1);
-    const nowI = nowIndex < 0 ? n - 1 : nowIndex;
+    // Where measurement stops. NOAA's `observed` column lags the clock by one
+    // to two 3-hour bins, so this is not "now" -- the points between it and
+    // now are estimates, and colouring them as history would be the same lie
+    // `kp.observed` used to tell (see design-decisions.md).
+    const splitIndex = series.findIndex((p) => p.forecast);
+    const splitI = splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1);
     // The x scale is by index, not by time, so a date boundary has to be
     // placed between two points rather than at one.
     const times = series.map((p) => Date.parse(p.time));
@@ -1501,6 +1505,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       const prev = next - 1;
       const span = times[next] - times[prev] || 1;
       return x(prev + (ms - times[prev]) / span);
+    }
+    // NOW has to land somewhere even when the clock is outside the series --
+    // a stalled feed leaves the last point hours behind, and returning null
+    // would drop the line entirely just when it is most worth seeing.
+    function xAtTimeClamped(ms) {
+      if (!(ms > times[0])) return x(0);
+      if (!(ms < times[n - 1])) return x(n - 1);
+      return xAtTime(ms);
     }
 
     // Each G level gets its own dotted, severity-colored line so the chart
@@ -1571,13 +1583,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ctx.textBaseline = 'middle';
     }
 
-    if (nowI < n - 1) {
+    if (splitI < n - 1) {
       const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
       grad.addColorStop(0, amber + '55');
       grad.addColorStop(1, amber + '00');
       ctx.beginPath();
-      ctx.moveTo(x(nowI), y(0));
-      for (let i = nowI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
+      ctx.moveTo(x(splitI), y(0));
+      for (let i = splitI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
       ctx.lineTo(x(n - 1), y(0));
       ctx.closePath();
       ctx.fillStyle = grad;
@@ -1585,7 +1597,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
 
     ctx.beginPath();
-    for (let i = 0; i <= nowI; i++) {
+    for (let i = 0; i <= splitI; i++) {
       const px = x(i), py = y(series[i].kp);
       i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     }
@@ -1593,23 +1605,29 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     ctx.lineWidth = 1.75;
     ctx.stroke();
 
-    if (nowI < n - 1) {
+    if (splitI < n - 1) {
       ctx.beginPath();
-      for (let i = nowI; i < n; i++) {
+      for (let i = splitI; i < n; i++) {
         const px = x(i), py = y(series[i].kp);
-        i === nowI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        i === splitI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
       ctx.strokeStyle = amber;
       ctx.lineWidth = 2.25;
       ctx.stroke();
     }
 
-    // Where measurement stops and prediction starts. Dotted, and dashed the
-    // same way as the G-threshold lines, so it reads as an annotation rather
-    // than as another data series -- solid, it looked like part of the plot.
+    // NOW is the clock, not the colour split. They are different instants:
+    // NOAA's `observed` column lags by one to two bins, so at 21:30Z the
+    // split sits back in the morning while the boat is at the right-hand
+    // end. Drawing the split as NOW pinned the label to the far left and
+    // showed a day with no history in it.
+    // Dotted, and dashed the same way as the G-threshold lines, so it reads
+    // as an annotation rather than as another data series -- solid, it
+    // looked like part of the plot.
+    const nowX = xAtTimeClamped(Date.now());
     ctx.beginPath();
-    ctx.moveTo(x(nowI), padT);
-    ctx.lineTo(x(nowI), padT + plotH);
+    ctx.moveTo(nowX, padT);
+    ctx.lineTo(nowX, padT + plotH);
     ctx.strokeStyle = dimColor;
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
@@ -1619,13 +1637,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     ctx.font = "9px 'Space Mono', monospace";
     ctx.fillStyle = dimColor;
     ctx.textBaseline = 'top';
-    // Flip the label to the left of the line once the split sits near the
-    // right edge, so it never runs off the canvas.
+    // Flip the label to the left of the line once it sits near the right
+    // edge, so it never runs off the canvas.
     const labelW = ctx.measureText('NOW').width;
-    const labelRight = x(nowI) + 4 + labelW > cssW - padR;
-    const labelX = x(nowI) + (labelRight ? -4 - labelW : 4);
+    const labelRight = nowX + 4 + labelW > cssW - padR;
+    const labelX = nowX + (labelRight ? -4 - labelW : 4);
     // The G-threshold lines run behind this; knock them out so the label
-    // stays legible wherever the split happens to fall.
+    // stays legible wherever NOW happens to fall.
     ctx.fillStyle = styles.getPropertyValue('--panel').trim();
     ctx.fillRect(labelX - 2, padT, labelW + 4, 10);
     ctx.fillStyle = dimColor;
