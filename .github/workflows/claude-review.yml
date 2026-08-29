@@ -48,6 +48,10 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
+          # release-please opens its "chore: release" PR as this repo's own
+          # GitHub App, not a human -- claude-code-action refuses non-human
+          # actors by default (https://github.com/mark-brannan/signalk-noaa-space-weather/actions/runs/33234479071).
+          allowed_bots: signalk-noaa-space-weather-release
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
