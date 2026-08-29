@@ -1776,28 +1776,42 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (!document.getElementById('messagesOverlay').hidden) drawMessages();
   }
 
+  // Which bodies the reader has unfolded, by message code. The list is
+  // redrawn on the 60-second poll, so without this a message being read would
+  // fold itself back up under the reader once a minute.
+  const expandedMessages = new Set();
+
   function drawMessages() {
     const list = document.getElementById('messagesList');
     document.getElementById('messagesOverlayTitle').textContent = messagesTitle(messageRows);
-    if (messageRows.length === 0) {
-      list.innerHTML = '<div class="empty-state">No NOAA messages in force.</div>';
-      return;
-    }
-    list.innerHTML = messageRows.map(messageMarkup).join('');
+    const markup = messageRows.length === 0
+      ? '<div class="empty-state">No NOAA messages in force.</div>'
+      : messageRows.map(messageMarkup).join('');
+    // Rewriting identical markup would still reset the scroll position inside
+    // a long message body, which is the other half of reading one.
+    if (list.innerHTML === markup) return;
+    list.innerHTML = markup;
     // The body text is long and there are usually several messages, so each
     // starts folded -- the head row is what makes the list scannable.
     for (const toggle of list.querySelectorAll('.msg-toggle')) {
       toggle.addEventListener('click', () => {
         const body = document.getElementById(toggle.dataset.body);
         body.hidden = !body.hidden;
+        toggle.setAttribute('aria-expanded', String(!body.hidden));
         toggle.textContent = body.hidden ? 'Show NOAA’s message' : 'Hide NOAA’s message';
+        if (body.hidden) expandedMessages.delete(toggle.dataset.code);
+        else expandedMessages.add(toggle.dataset.code);
       });
     }
   }
 
-  function messageMarkup(row) {
+  function messageMarkup(row, index) {
     const sev = sevClass(row.level) || 'sev-0';
-    const bodyId = `msgBody_${row.code || Math.random().toString(36).slice(2)}`;
+    // Keyed by code so the unfolded state survives a redraw; a leaf with no
+    // readable code has no identity to track and falls back to its position.
+    const key = row.code || `#${index}`;
+    const bodyId = `msgBody_${index}`;
+    const open = expandedMessages.has(key);
     // Everything below originates at NOAA, so all of it goes through
     // escapeHtml --
     // this is the one place in the page that renders a payload body.
@@ -1815,8 +1829,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <div class="msg-headline">${escapeHtml(row.headline)}</div>
         ${row.inForce ? '' : '<div class="msg-stood-down">No longer in force</div>'}
         ${days ? `<div class="msg-days">${days}</div>` : ''}
-        <button type="button" class="msg-toggle" data-body="${bodyId}">Show NOAA’s message</button>
-        <pre class="msg-body" id="${bodyId}" hidden>${escapeHtml(row.text)}</pre>
+        <button type="button" class="msg-toggle" data-body="${bodyId}" data-code="${escapeHtml(key)}"
+          aria-controls="${bodyId}" aria-expanded="${open}">${open ? 'Hide' : 'Show'} NOAA’s message</button>
+        <pre class="msg-body" id="${bodyId}"${open ? '' : ' hidden'}>${escapeHtml(row.text)}</pre>
       </div>`;
   }
 

@@ -72,6 +72,16 @@ describe('messagesInForce', () => {
     expect(messagesInForce({ WARK07: old }, NOW)[0]?.code).toBe('WARK07')
   })
 
+  it('drops a stood-down message it cannot date', () => {
+    // Otherwise there is no age to compare, and the row sits on the list for
+    // as long as the plugin runs.
+    const undated = leaf('WATA30', { state: 'normal', issued: 'not a date' })
+    expect(messagesInForce({ WATA30: undated }, NOW)).toEqual([])
+    // In force, the window never applies -- an unreadable date changes nothing.
+    const live = leaf('WARK07', { issued: 'not a date' })
+    expect(messagesInForce({ WARK07: live }, NOW)[0]?.issued).toBeNull()
+  })
+
   it('puts what is true now first, then NOAA’s strongest verb', () => {
     const rows = messagesInForce(
       {

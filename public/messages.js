@@ -53,14 +53,17 @@ export function messagesInForce(alerts, nowMs) {
 
     const issuedAt = Date.parse(value.issued)
     const inForce = !STOOD_DOWN.has(value.state)
-    if (!inForce && Number.isFinite(issuedAt) && nowMs - issuedAt > RECENT_MS) {
+    // A stood-down message earns its place by being recent, so one that
+    // cannot be dated has not earned it -- keeping it would mean a leaf with
+    // an unreadable `issued` sat on the list for as long as the plugin ran.
+    if (!inForce && !(Number.isFinite(issuedAt) && nowMs - issuedAt <= RECENT_MS)) {
       continue
     }
 
     rows.push({
       code: codeOf(value),
       verb: value.alertLevel || '',
-      scale: value.scaleText || value.scale || '',
+      scale: value.scale || '',
       level: levelOf(value),
       headline: value.message || '',
       text: value.description || value.message || '',
@@ -76,9 +79,10 @@ export function messagesInForce(alerts, nowMs) {
     })
   }
 
-  // In force first, then newest. A stood-down message that was issued after
-  // one still running is still the older news -- what happened last is not
-  // the same question as what is true now, and the list answers the second.
+  // In force first, then NOAA's verb, then newest. A stood-down message
+  // issued after one still running is still the older news -- what happened
+  // last is not the same question as what is true now, and the list answers
+  // the second.
   rows.sort(
     (a, b) =>
       Number(b.inForce) - Number(a.inForce) ||
@@ -121,7 +125,7 @@ function codeOf(value) {
  * thresholds make it audible, and the list is describing NOAA's claim.
  */
 function levelOf(value) {
-  const digits = String(value.scaleText ?? value.scale ?? '').match(/[GSR]([0-5])/)
+  const digits = String(value.scale ?? '').match(/[GSR]([0-5])/)
   if (digits) return parseInt(digits[1], 10)
   // A watch with no scale line still names its worst day.
   if (Array.isArray(value.predictedByDay)) {
