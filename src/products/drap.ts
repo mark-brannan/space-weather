@@ -21,7 +21,7 @@ import {
   zoneMethods,
   zonesForDrap
 } from '../parse.js'
-import { Meta, Publisher } from '../publisher.js'
+import type { Meta, Publisher } from '../publisher.js'
 import { vesselPosition } from './aurora.js'
 import { Product } from './types.js'
 import { DRAP } from '../endpoints.js'
@@ -81,7 +81,7 @@ export const drap: Product = {
     // Best effort, same as aurora's: a disk write failing here should not stop
     // the value below from publishing.
     try {
-      writeDrapCache(publisher.dataDirPath(), grid)
+      writeDrapCache(publisher, grid)
     } catch (err) {
       publisher.error(`Failed to cache the D-RAP grid: ${err}`)
     }
@@ -90,7 +90,7 @@ export const drap: Product = {
   },
 
   publishFromCache({ publisher }) {
-    const cached = readDrapCache(publisher.dataDirPath())
+    const cached = readDrapCache(publisher)
     if (!cached) return true
     return publishFrequency(publisher, cached.grid)
   }

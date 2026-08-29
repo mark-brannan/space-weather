@@ -4,7 +4,7 @@
  * This feed is 3-hourly out to three days, versus one G value per forecast day
  * in noaa-scales.json — so it is the one that says *when*.
  */
-import { Settings } from '../config.js'
+import type { Settings } from '../config.js'
 import { KP_BASE } from '../paths.js'
 import {
   NoaaScaleValues,
@@ -13,7 +13,7 @@ import {
   zonesForKp,
   zonesForScale
 } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { KP_FORECAST } from '../endpoints.js'
 

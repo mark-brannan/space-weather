@@ -261,6 +261,40 @@ nothing and NOAA could start honouring them. Do not claim a 304 offsets a poll.
 Also recorded in the 0.6.0 changelog when conditional GET was added, then
 contradicted on 2026-08-09 by an argument from plausibility. Hence this file.
 
+## Every endpoint is CORS-open, but only to a request with no extra headers
+
+Measured 2026-08-29, all sixteen endpoints, with `Origin:
+https://mark-brannan.github.io` — the demo page's own origin.
+
+Every one answers `200` with `Access-Control-Allow-Origin: *`, plus a fixed
+pair on every response:
+
+```
+access-control-allow-headers: origin, x-requested-with, content-type
+access-control-allow-methods: PUT, GET, POST, DELETE, OPTIONS
+```
+
+`*` is sent unconditionally rather than reflected, so it does not vary by
+origin; `Vary` never names `Origin`.
+
+**The allow-headers list is the constraint, and it excludes conditional GET.**
+`If-None-Match` and `If-Modified-Since` are not on the CORS safelist, so a
+browser preflights them, and the preflight answers with the same fixed list
+that does not contain either. The request is then never sent. Confirmed in
+Chromium against the live service, from the demo's own origin: all sixteen
+plain GETs returned data; the same GET with either conditional header failed
+at the preflight.
+
+This costs nothing. "Conditional GET never saves anything" above is why: not
+one endpoint has ever answered 304 at a realistic poll interval, so the
+browser data layer omits headers the server would have ignored.
+
+A browser also cannot set `User-Agent` — it is a forbidden header name — so
+the `USER_AGENT` that `src/noaa/client.ts` sends is server-only by
+construction, not by choice.
+
+Re-measure with `node scripts/measure-noaa.mjs --cors`.
+
 ## Files are rewritten in place, and a read can land mid-write
 
 Observed 2026-08-09 on `/json/goes/primary/xray-flares-latest.json`:

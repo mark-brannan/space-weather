@@ -1,5 +1,5 @@
 // https://services.swpc.noaa.gov/products/noaa-scales.json
-import { Settings } from '../config.js'
+import type { Settings } from '../config.js'
 import {
   NOAA_SCALE_RANGES,
   SCALES_BASE,
@@ -16,7 +16,7 @@ import {
   zoneMethods,
   zonesForScale
 } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { SCALES, XRAY_FLARE_LATEST, XRAY_FLARES_7_DAY } from '../endpoints.js'
 

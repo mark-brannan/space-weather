@@ -21,7 +21,7 @@ import {
   zonesForAurora
 } from '../parse.js'
 import { readAuroraCache, writeAuroraCache } from '../cache/auroraCache.js'
-import { Meta, Publisher } from '../publisher.js'
+import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { AURORA } from '../endpoints.js'
 
@@ -123,7 +123,7 @@ export const aurora: Product = {
     // the probability below can be republished without re-buying it. Best
     // effort: a disk write failing here should not stop the value publishing.
     try {
-      writeAuroraCache(publisher.dataDirPath(), json)
+      writeAuroraCache(publisher, json)
     } catch (err) {
       publisher.error(`Failed to cache the aurora grid: ${err}`)
     }
@@ -134,7 +134,7 @@ export const aurora: Product = {
   },
 
   publishFromCache({ publisher }) {
-    const cached = readAuroraCache(publisher.dataDirPath())
+    const cached = readAuroraCache(publisher)
     if (!cached) return true
     const forecast = parseAuroraPayload(cached.grid)
     if (!forecast) return true

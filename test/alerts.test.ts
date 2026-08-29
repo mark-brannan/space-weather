@@ -9,6 +9,7 @@ import {
 import { alerts } from '../src/products/alerts'
 import { ALERT_FIXTURES, fixtureJson } from './fixtures'
 import { parseAlert, parseWatchDays } from '../src/parse'
+import { createFileStore } from '../src/publisher.js'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -86,7 +87,7 @@ function harness(payload: any, existing: Record<string, any> = {}) {
     fail: () => {},
     error: () => {},
     debug: () => {},
-    dataDirPath: () => '/nonexistent'
+    ...createFileStore(() => '/nonexistent')
   }
 
   const ctx = {

@@ -18,7 +18,7 @@
  */
 import { SUNSPOT_BASE } from '../paths.js'
 import { parseDailySolarIndices } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { SUNSPOT } from '../endpoints.js'
 

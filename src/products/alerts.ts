@@ -8,7 +8,7 @@ import {
   currentAlertNotifications,
   isRaised
 } from '../parse.js'
-import { Meta, Publisher } from '../publisher.js'
+import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { ALERTS } from '../endpoints.js'
 

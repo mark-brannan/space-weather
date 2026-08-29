@@ -24,7 +24,7 @@
  */
 import { OUTLOOK27_BASE } from '../paths.js'
 import { NoaaScaleValues, parse27DayOutlook } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { OUTLOOK_27_DAY } from '../endpoints.js'
 

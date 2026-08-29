@@ -12,6 +12,8 @@ import { readAuroraCache } from '../src/cache/auroraCache'
 import { aurora } from '../src/products/aurora'
 import { fixtureJson, matchZone } from './fixtures'
 import { Endpoint } from '../src/endpoints'
+import { createFileStore } from '../src/publisher.js'
+import { fileStore } from './harness.js'
 
 const REAL = 'ovation-aurora.2026_08_01.json'
 
@@ -165,8 +167,8 @@ describe('aurora product', () => {
     const published: any[] = []
     const errors: string[] = []
     const fetched: string[] = []
-    // A real temp directory rather than a stub: this exercises the actual
-    // write-then-rename cache path, not just that dataDirPath() gets called.
+    // A real temp directory and the real store rather than a stub: this
+    // exercises the actual write-then-rename cache path.
     const dataDir = mkdtempSync(join(tmpdir(), 'aurora-cache-'))
     dataDirs.push(dataDir)
     const publisher = {
@@ -181,7 +183,7 @@ describe('aurora product', () => {
       fail: () => {},
       error: (m: string) => errors.push(m),
       debug: () => {},
-      dataDirPath: () => dataDir
+      ...createFileStore(() => dataDir)
     }
     const client = {
       json: async ({ subPath }: Endpoint) => {
@@ -235,7 +237,7 @@ describe('aurora product', () => {
     // 'awaiting-position' rather than a silent skip: a GPS fix can take
     // minutes after boot, and the caller retries out of the cache.
     expect(result).toBe('awaiting-position')
-    expect(readAuroraCache(h.dataDir)).not.toBeNull()
+    expect(readAuroraCache(fileStore(h.dataDir))).not.toBeNull()
   })
 
   it('publishes from the cache once a position turns up, with no second fetch', async () => {
@@ -301,9 +303,9 @@ describe('aurora product', () => {
   })
 
   it('does not fail the refresh if the cache write fails', async () => {
-    // A read-only-directory-style failure: dataDirPath() throws.
+    // A read-only-directory-style failure: the store's write throws.
     const h = harness({ latitude: 70, longitude: 20 }, fixtureJson(REAL))
-    ;(h.ctx.publisher as any).dataDirPath = () => {
+    ;(h.ctx.publisher as any).writeCache = () => {
       throw new Error('disk full')
     }
     await aurora.refresh(h.ctx as any)

@@ -17,7 +17,7 @@
  */
 import { F107_BASE } from '../paths.js'
 import { parseF107, zoneMethods, zonesForF107 } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { F107 } from '../endpoints.js'
 

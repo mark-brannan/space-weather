@@ -7,6 +7,8 @@ import { readDrapCache } from '../src/cache/drapCache'
 import { drap } from '../src/products/drap'
 import { fixture } from './fixtures'
 import { Endpoint } from '../src/endpoints'
+import { createFileStore } from '../src/publisher.js'
+import { fileStore } from './harness.js'
 
 const REAL = 'drap-global-frequencies.2026_08_20.txt'
 
@@ -35,10 +37,10 @@ function harness(position: any, response?: string) {
     fail: () => {},
     error: (m: string) => errors.push(m),
     debug: () => {},
-    // A real directory, not a stub: the grid cache is what the point value
-    // is published from now, so a test that faked it would be testing the
-    // fake rather than the write-then-rename round trip.
-    dataDirPath: () => dataDir
+    // A real directory and the real store, not a stub: the grid cache is
+    // what the point value is published from now, so a test that faked it
+    // would be testing the fake rather than the write-then-rename round trip.
+    ...createFileStore(() => dataDir)
   }
   const client = {
     json: async () => {
@@ -92,7 +94,7 @@ describe('D-RAP product', () => {
     expect(h.published).toEqual([])
     expect(h.errors).toEqual([])
     expect(result).toBe('awaiting-position')
-    expect(readDrapCache(h.dataDir)?.grid.validTime).toBe(
+    expect(readDrapCache(fileStore(h.dataDir))?.grid.validTime).toBe(
       '2026-08-20T04:42:00.000Z'
     )
   })
@@ -150,7 +152,7 @@ describe('D-RAP product', () => {
       )
 
     write({ frequenciesMHz: [[1, 2]] })
-    expect(readDrapCache(dataDir)).toBeNull()
+    expect(readDrapCache(fileStore(dataDir))).toBeNull()
 
     write({
       latitudes: [1],
@@ -160,17 +162,17 @@ describe('D-RAP product', () => {
         [3, 4]
       ]
     })
-    expect(readDrapCache(dataDir)).toBeNull()
+    expect(readDrapCache(fileStore(dataDir))).toBeNull()
 
     write({
       latitudes: [1, 2],
       longitudes: [1, 2],
       frequenciesMHz: [[1, 2], [3]]
     })
-    expect(readDrapCache(dataDir)).toBeNull()
+    expect(readDrapCache(fileStore(dataDir))).toBeNull()
 
     write({ latitudes: [1], longitudes: [1, 2], frequenciesMHz: [[1, 2]] })
-    expect(readDrapCache(dataDir)).not.toBeNull()
+    expect(readDrapCache(fileStore(dataDir))).not.toBeNull()
   })
 
   it('reports a malformed payload without publishing', async () => {

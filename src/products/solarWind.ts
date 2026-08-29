@@ -4,7 +4,7 @@
  */
 import { SOLAR_WIND_BASE } from '../paths.js'
 import { ValueUpdate, parseSolarWind } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { SOLAR_WIND_SPEED, SOLAR_WIND_MAG_FIELD } from '../endpoints.js'
 

@@ -4,6 +4,7 @@
  *
  *   node scripts/measure-noaa.mjs            # sizes + conditional GET (~6 min)
  *   node scripts/measure-noaa.mjs --cadence  # adds a 15-minute content watch
+ *   node scripts/measure-noaa.mjs --cors     # what a browser may ask for (fast)
  *
  * Deliberately outside the test suite: it needs the live service, and the
  * plugin registry scores this package with `npm test` under --net=none.
@@ -174,7 +175,49 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   await main()
 }
 
+/**
+ * What a browser is allowed to ask for, which is the whole basis of the demo
+ * page fetching NOAA itself (#239 leg 2).
+ *
+ * Two things per endpoint, because they answer different questions: the GET's
+ * `Access-Control-Allow-Origin` says whether a plain fetch is readable at all,
+ * and the preflight's `Access-Control-Allow-Headers` says which extra headers
+ * survive -- the list is fixed and does not contain the conditional-GET pair,
+ * so asking for `If-None-Match` from a browser fails before the request goes
+ * out. Measured rather than argued: this is the gate the whole leg rests on.
+ */
+async function cors() {
+  const origin = 'https://mark-brannan.github.io'
+  console.log(`\n### CORS, from \`${origin}\`\n`)
+  console.log('| Endpoint | GET | Allow-Origin | Preflight Allow-Headers |')
+  console.log('| --- | --- | --- | --- |')
+  for (const [path] of ENDPOINTS) {
+    const got = await fetch(API + path, { headers: { Origin: origin } })
+    const pre = await fetch(API + path, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'if-none-match'
+      }
+    })
+    console.log(
+      `| \`${path}\` | ${got.status} | \`${
+        got.headers.get('access-control-allow-origin') ?? 'none'
+      }\` | \`${pre.headers.get('access-control-allow-headers') ?? 'none'}\` |`
+    )
+  }
+  console.log(
+    '\nA browser preflights `If-None-Match` and `If-Modified-Since` because ' +
+      'neither is CORS-safelisted. Any Allow-Headers cell above that omits ' +
+      'them means a conditional GET from a browser never leaves the tab.'
+  )
+}
+
 async function main() {
+  // Standalone: the CORS answer does not need the six-minute size run.
+  if (process.argv.includes('--cors')) return cors()
+
   const rows = await baseline()
   console.log(`## Measured ${new Date().toISOString().slice(0, 10)}\n`)
   console.log('| Endpoint | Product | Wire | Decoded | Encoding | ETag shape |')

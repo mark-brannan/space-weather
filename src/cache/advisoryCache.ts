@@ -1,5 +1,6 @@
 /** Persists the raw Advisory Outlook bulletin so the webapp can read it back without depending on a notification path. */
-import { CacheEntry, readCacheEntry, writeCacheEntry } from './entryCache.js'
+import type { CacheEntry, CacheStore } from './entryCache.js'
+import { readCacheEntry, writeCacheEntry } from './entryCache.js'
 
 const CACHE_FILENAME = 'advisory-outlook.json'
 
@@ -11,17 +12,17 @@ export interface AdvisoryCacheEntry extends CacheEntry {
 }
 
 export function writeAdvisoryCache(
-  dataDirPath: string,
+  store: CacheStore,
   entry: Omit<AdvisoryCacheEntry, 'fetchedAt'>
 ): void {
-  writeCacheEntry<AdvisoryCacheEntry>(dataDirPath, CACHE_FILENAME, entry)
+  writeCacheEntry<AdvisoryCacheEntry>(store, CACHE_FILENAME, entry)
 }
 
 export function readAdvisoryCache(
-  dataDirPath: string
+  store: CacheStore
 ): AdvisoryCacheEntry | null {
   return readCacheEntry<AdvisoryCacheEntry>(
-    dataDirPath,
+    store,
     CACHE_FILENAME,
     (parsed) =>
       typeof parsed.issued === 'string' && typeof parsed.text === 'string'

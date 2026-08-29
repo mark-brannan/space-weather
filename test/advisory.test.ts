@@ -8,6 +8,8 @@ import { ADVISORY_BASE, ADVISORY_VALUE_BASE } from '../src/paths'
 import { writeAdvisoryCache } from '../src/cache/advisoryCache'
 import { NotificationStates } from '../src/parse'
 import { fixture } from './fixtures'
+import { createFileStore } from '../src/publisher.js'
+import { fileStore } from './harness.js'
 
 const REAL = 'advisory-outlook.2026_08_03.txt'
 // The real fixture's own issue date -- fetches "at" this moment (or shortly
@@ -74,7 +76,7 @@ describe('advisory product', () => {
       fail: () => {},
       error: (m: string) => errors.push(m),
       debug: () => {},
-      dataDirPath: () => dataDir
+      ...createFileStore(() => dataDir)
     }
     const client = {
       json: async () => ({}),
@@ -120,7 +122,7 @@ describe('advisory product', () => {
   it('does not fail the refresh if the cache write fails', async () => {
     vi.useFakeTimers({ now: REAL_ISSUED, toFake: ['Date'] })
     const h = harness(fixture(REAL))
-    ;(h.ctx.publisher as any).dataDirPath = () => {
+    ;(h.ctx.publisher as any).writeCache = () => {
       throw new Error('disk full')
     }
     const result = await advisory.refresh(h.ctx as any)
@@ -181,7 +183,7 @@ describe('advisory product', () => {
     })
     // The value path's own dedupe reads the cache, not this path -- seed it
     // the way a real prior run would have left it.
-    writeAdvisoryCache(again.dataDir, {
+    writeAdvisoryCache(fileStore(again.dataDir), {
       issued: published.value.issued,
       idLine: published.value.message,
       teaser: null,
@@ -197,7 +199,7 @@ describe('advisory product', () => {
     // before this path did) -- the plain cache dedupe alone would leave
     // this path empty until the next Monday.
     const h = harness(fixture(REAL))
-    writeAdvisoryCache(h.dataDir, {
+    writeAdvisoryCache(fileStore(h.dataDir), {
       issued: '2026-08-03T04:25:00.000Z',
       idLine: 'irrelevant',
       teaser: null,

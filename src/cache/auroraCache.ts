@@ -16,7 +16,8 @@
  * out of it yet, and the point value is published from here when a fix turns
  * up. See src/products/aurora.ts.
  */
-import { CacheEntry, readCacheEntry, writeCacheEntry } from './entryCache.js'
+import type { CacheEntry, CacheStore } from './entryCache.js'
+import { readCacheEntry, writeCacheEntry } from './entryCache.js'
 
 const CACHE_FILENAME = 'aurora-grid.json'
 
@@ -24,13 +25,13 @@ export interface AuroraCacheEntry extends CacheEntry {
   grid: any
 }
 
-export function writeAuroraCache(dataDirPath: string, grid: any): void {
-  writeCacheEntry<AuroraCacheEntry>(dataDirPath, CACHE_FILENAME, { grid })
+export function writeAuroraCache(store: CacheStore, grid: any): void {
+  writeCacheEntry<AuroraCacheEntry>(store, CACHE_FILENAME, { grid })
 }
 
-export function readAuroraCache(dataDirPath: string): AuroraCacheEntry | null {
+export function readAuroraCache(store: CacheStore): AuroraCacheEntry | null {
   return readCacheEntry<AuroraCacheEntry>(
-    dataDirPath,
+    store,
     CACHE_FILENAME,
     (parsed) => !!parsed.grid
   )

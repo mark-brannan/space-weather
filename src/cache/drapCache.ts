@@ -9,7 +9,8 @@
  * render or per HTTP request would be work with no reader for the text.
  */
 import { DrapGrid } from '../parse.js'
-import { CacheEntry, readCacheEntry, writeCacheEntry } from './entryCache.js'
+import type { CacheEntry, CacheStore } from './entryCache.js'
+import { readCacheEntry, writeCacheEntry } from './entryCache.js'
 
 const CACHE_FILENAME = 'drap-grid.json'
 
@@ -17,26 +18,22 @@ export interface DrapCacheEntry extends CacheEntry {
   grid: DrapGrid
 }
 
-export function writeDrapCache(dataDirPath: string, grid: DrapGrid): void {
-  writeCacheEntry<DrapCacheEntry>(dataDirPath, CACHE_FILENAME, { grid })
+export function writeDrapCache(store: CacheStore, grid: DrapGrid): void {
+  writeCacheEntry<DrapCacheEntry>(store, CACHE_FILENAME, { grid })
 }
 
-export function readDrapCache(dataDirPath: string): DrapCacheEntry | null {
-  return readCacheEntry<DrapCacheEntry>(
-    dataDirPath,
-    CACHE_FILENAME,
-    (parsed) => {
-      const grid = parsed.grid as DrapGrid | undefined
-      return (
-        !!grid &&
-        Array.isArray(grid.latitudes) &&
-        Array.isArray(grid.longitudes) &&
-        Array.isArray(grid.frequenciesMHz) &&
-        grid.frequenciesMHz.length === grid.latitudes.length &&
-        grid.frequenciesMHz.every(
-          (row) => Array.isArray(row) && row.length === grid.longitudes.length
-        )
+export function readDrapCache(store: CacheStore): DrapCacheEntry | null {
+  return readCacheEntry<DrapCacheEntry>(store, CACHE_FILENAME, (parsed) => {
+    const grid = parsed.grid as DrapGrid | undefined
+    return (
+      !!grid &&
+      Array.isArray(grid.latitudes) &&
+      Array.isArray(grid.longitudes) &&
+      Array.isArray(grid.frequenciesMHz) &&
+      grid.frequenciesMHz.length === grid.latitudes.length &&
+      grid.frequenciesMHz.every(
+        (row) => Array.isArray(row) && row.length === grid.longitudes.length
       )
-    }
-  )
+    )
+  })
 }

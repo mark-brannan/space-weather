@@ -1,7 +1,7 @@
-import { Settings } from '../config.js'
+import type { Settings } from '../config.js'
 import { Endpoint } from '../endpoints.js'
-import { Client } from '../noaa/client.js'
-import { Meta, Publisher } from '../publisher.js'
+import type { Client } from '../noaa/client.js'
+import type { Meta, Publisher } from '../publisher.js'
 
 export interface ProductContext {
   client: Client

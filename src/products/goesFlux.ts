@@ -8,7 +8,7 @@
  */
 import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from '../paths.js'
 import { ValueUpdate, parseGoesFlux, xrayFluxTrend } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { GOES_PROTONS_6_HOUR, GOES_XRAYS_6_HOUR } from '../endpoints.js'
 

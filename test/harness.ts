@@ -4,6 +4,10 @@ import { createMeter } from '../src/meter'
 import { ValueUpdate } from '../src/parse'
 import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
+import { createFileStore } from '../src/publisher.js'
+
+/** The real file-backed store over a directory the test owns. */
+export const fileStore = (dir: string) => createFileStore(() => dir)
 
 /**
  * A product's real refresh path over a captured payload, with no server, no
@@ -43,10 +47,13 @@ export function harness(responses: Record<string, unknown>) {
     fail: () => {},
     error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
     debug: () => {},
-    // No product exercised here persists a file; a real directory would let
+    // No product exercised here persists anything; a working store would let
     // one start doing so unnoticed.
-    dataDirPath: () => {
-      throw new Error('dataDirPath is not stubbed')
+    readCache: () => {
+      throw new Error('readCache is not stubbed')
+    },
+    writeCache: () => {
+      throw new Error('writeCache is not stubbed')
     }
   }
 

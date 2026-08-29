@@ -15,7 +15,7 @@
  */
 import { A_INDEX_BASE } from '../paths.js'
 import { parseGeophysicalAlert } from '../parse.js'
-import { Meta } from '../publisher.js'
+import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { A_INDEX } from '../endpoints.js'
 

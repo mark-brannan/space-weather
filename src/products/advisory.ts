@@ -10,7 +10,7 @@ import {
   readAdvisoryCache,
   writeAdvisoryCache
 } from '../cache/advisoryCache.js'
-import { Meta, Publisher } from '../publisher.js'
+import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { ADVISORY } from '../endpoints.js'
 
@@ -103,7 +103,7 @@ export const advisory: Product = {
     // below, only fall back to treating this as "nothing cached yet".
     let lastIssued: Date | null = null
     try {
-      const cached = readAdvisoryCache(publisher.dataDirPath())
+      const cached = readAdvisoryCache(publisher)
       lastIssued = cached ? new Date(cached.issued) : null
     } catch (err) {
       publisher.error(`Failed to read the advisory outlook cache: ${err}`)
@@ -199,7 +199,7 @@ export const advisory: Product = {
     // failing here should not stop the notification above from having gone
     // out.
     try {
-      writeAdvisoryCache(publisher.dataDirPath(), {
+      writeAdvisoryCache(publisher, {
         issued: issued.toISOString(),
         idLine,
         teaser: outlookTeaser,
