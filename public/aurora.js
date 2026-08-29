@@ -56,17 +56,6 @@ export function refreshFailure(err) {
 }
 
 /**
- * Seconds off a `Retry-After` header, or null if it does not carry one this
- * side can count down. The route always sends integer seconds; a proxy in
- * front of it may not send the header at all, and HTTP also allows a date
- * form, which is not worth parsing for a countdown that has a fallback.
- */
-export function retryAfterSeconds(header) {
-  const seconds = Number(header)
-  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
-}
-
-/**
  * NOAA's own OVATION scale, sampled from the legend on their published
  * forecast image at 5% intervals, so this map, the chart-plotter overlay
  * (`NOAA_RAMP` in src/tiles.ts, the same table) and the aurora forecast

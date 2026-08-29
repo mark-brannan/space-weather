@@ -66,3 +66,150 @@ export const leafMeta = (node) =>
     : null
 
 export const leafTime = (node) => (node && node.timestamp) || null
+
+// --- the plugin's own routes, and the server's preferences ----------------
+//
+// Here for the same reason the vessel paths above are: one module owns every
+// call the webapp's own page makes, so the GitHub Pages demo (#199, #239)
+// substitutes this file and the shipping page runs over a snapshot
+// unchanged. `remoteEntry.js`/`config-panel.js` are the admin UI's config
+// screen, not the page, and still read the server themselves.
+
+// The plugin's cached grids, read back from the fetch it already made
+// server-side for the value at the vessel. Reading one never reaches NOAA.
+const GRID_ROUTE = {
+  aurora: plugin('aurora-grid'),
+  drap: plugin('drap-grid')
+}
+
+// Manual "fetch now": forces the plugin to fetch NOAA off its schedule,
+// cooldown-limited server-side (see aurora-refresh in src/index.ts). Works
+// with automatic updates switched off, which is the case it mostly exists
+// for: that setting is about what the plugin spends on its own initiative,
+// and a press is not that.
+const REFRESH_ROUTE = {
+  aurora: plugin('aurora-refresh'),
+  drap: plugin('drap-refresh')
+}
+
+// The server's own API, not a Signal K path, so it hangs off neither helper.
+const UNIT_PREFERENCES = '/signalk/v1/unitpreferences/active'
+
+// Thrown by getJson on 401/403 so refresh() can tell "you're not logged in"
+// apart from "nothing published yet" (both used to render as the same
+// blank/zero UI, which is indistinguishable from a broken plugin).
+export class AuthRequiredError extends Error {}
+
+export async function getJson(path) {
+  let res
+  try {
+    res = await fetch(path, { cache: 'no-store' })
+  } catch {
+    return null // offline / DNS / etc. -- not an auth problem
+  }
+  if (res.status === 401 || res.status === 403) {
+    throw new AuthRequiredError(path)
+  }
+  if (!res.ok) return null
+  try {
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function fetchGridCache(which) {
+  const url = GRID_ROUTE[which]
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (res.status === 401 || res.status === 403) {
+    throw new AuthRequiredError(url)
+  }
+  const body = await res.json().catch(() => null)
+  if (res.status === 404) {
+    const err = new Error((body && body.error) || 'Nothing cached yet.')
+    err.notCached = true
+    throw err
+  }
+  if (!res.ok) throw new Error(`Server responded ${res.status}`)
+  return body // { fetchedAt, grid }
+}
+
+// Seconds a refusal asks the reader to wait, off the header the refresh
+// route sends. Here rather than in aurora.js because `remoteEntry.js` is
+// fetched and evaluated on every admin page load and imports this module:
+// an edge from here to a presentation module would pull the aurora colour
+// ramp onto that hot path for every user, opened plugin or not.
+/**
+ * Seconds off a `Retry-After` header, or null if it does not carry one this
+ * side can count down. The route always sends integer seconds; a proxy in
+ * front of it may not send the header at all, and HTTP also allows a date
+ * form, which is not worth parsing for a countdown that has a fallback.
+ */
+export function retryAfterSeconds(header) {
+  const seconds = Number(header)
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : null
+}
+
+export async function forceRefresh(which) {
+  const url = REFRESH_ROUTE[which]
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (res.status === 401 || res.status === 403) {
+    throw new AuthRequiredError(url)
+  }
+  const body = await res.json().catch(() => null)
+  if (!res.ok) {
+    const err = new Error(
+      (body && body.error) || `Server responded ${res.status}`
+    )
+    err.status = res.status
+    err.retryAfterSeconds = retryAfterSeconds(res.headers.get('Retry-After'))
+    throw err
+  }
+  return body
+}
+
+// The reader's own distance unit, read from the server's Unit Preferences API
+// (https://github.com/SignalK/signalk-server) rather than hardcoded nmi
+// (Mark's round-3 review) -- a plain function of km, so a caller never needs
+// to know where the preference came from. Null when there is no usable one:
+// servers without that API (older ones, or none set) 404, and the nmi the
+// caller already had is the only thing there is to fall back to.
+export async function distanceUnitPreference() {
+  try {
+    const res = await fetch(UNIT_PREFERENCES, {
+      headers: { Accept: 'application/json' }
+    })
+    if (!res.ok) return null
+    const prefs = await res.json()
+    const distance = prefs?.categories?.distance
+    // Never eval a formula that isn't plain arithmetic on `value` -- the
+    // server is a trusted origin for the numbers it publishes, but not
+    // trusted enough to hand it script execution over a preferences file a
+    // reader could edit or a proxy could tamper with. Strip every literal
+    // "value" token out first and check what's left is only digits,
+    // whitespace and arithmetic -- no other identifier can survive that.
+    const formula = distance?.formula
+    if (
+      !formula ||
+      !/^[\d\s.+\-*/()]*$/.test(formula.split('value').join(''))
+    ) {
+      return null
+    }
+    const convert = new Function('value', `"use strict"; return (${formula})`)
+    const digits = Math.min(
+      6,
+      (distance.displayFormat?.split('.')[1] || '').length
+    )
+    const unit = distance.symbol || distance.targetUnit
+    // Surviving the character allowlist above doesn't make a formula callable
+    // arithmetic (`value(value)` passes it and throws), and a unit-less
+    // reading is meaningless. Prove both once here, synchronously, rather
+    // than throwing out of the caller's redraw every time.
+    if (!unit || !Number.isFinite(convert(1000))) return null
+    return (km) => `${convert(km * 1000).toFixed(digits)} ${unit}`
+  } catch {
+    // Network hiccup or a malformed response -- nmi is still a correct
+    // answer, just not necessarily the reader's preferred one.
+    return null
+  }
+}
