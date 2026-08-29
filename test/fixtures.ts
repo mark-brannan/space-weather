@@ -172,7 +172,8 @@ export const KP_FORECAST_FIXTURES = [
   'noaa-planetary-k-index-forecast.2025_04_10.json',
   'noaa-planetary-k-index-forecast.2025_04_11.json',
   'noaa-planetary-k-index-forecast.2025_04_17.json',
-  'noaa-planetary-k-index-forecast.2026_08_01.json'
+  'noaa-planetary-k-index-forecast.2026_08_01.json',
+  'noaa-planetary-k-index-forecast.2026_08_29.json'
 ]
 
 /**

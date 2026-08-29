@@ -1082,20 +1082,32 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
   if (rows.length === 0) return empty
 
   const nowMs = now.getTime()
-  const past = rows.filter((row) => row.at.getTime() <= nowMs)
-  const future = rows.filter((row) => row.at.getTime() > nowMs)
+  // NOAA marks the whole current UTC day `estimated`, so a row can be in the
+  // past and still be a forecast. Splitting on the mark rather than on time is
+  // what keeps a predicted storm out of the observed path -- it published a
+  // G2 while NOAA's own site showed the measured Kp at G0.
+  const observed = rows.filter(
+    (row) => row.observed && row.at.getTime() <= nowMs
+  )
+  // Everything not yet measured: the rows still ahead, plus the in-progress
+  // 3-hour bin, whose forecast is timestamped in the past.
+  const forecast = rows.filter(
+    (row) => row.at.getTime() > nowMs || !row.observed
+  )
 
-  const latest = past.length > 0 ? past[past.length - 1] : null
+  const latest = observed.length > 0 ? observed[observed.length - 1] : null
   const within = (hours: number) =>
-    future.filter((row) => row.at.getTime() <= nowMs + hours * 3600 * 1000)
+    forecast.filter((row) => row.at.getTime() <= nowMs + hours * 3600 * 1000)
 
   const maxKp = (subset: typeof rows) =>
     subset.length > 0 ? Math.max(...subset.map((row) => row.kp)) : null
 
   const max24h = maxKp(within(24))
   const max72h = maxKp(within(72))
+  // The in-progress 3-hour bin counts: a storm already underway is still the
+  // onset the user needs to see, and it is at most three hours old.
   const nextStorm =
-    future.find((row) => row.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
+    forecast.find((row) => row.kp >= kpFloorForG(NoaaScaleValues.MINOR)) ?? null
 
   const seriesStart = nowMs - 24 * 3600 * 1000
   const seriesEnd = nowMs + 72 * 3600 * 1000
@@ -1106,7 +1118,7 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
     .map((row) => ({
       time: row.at.toISOString(),
       kp: row.kp,
-      forecast: row.at.getTime() > nowMs
+      forecast: !row.observed
     }))
 
   return {
@@ -1124,6 +1136,13 @@ export function parseKpForecast(json: any, now: Date = new Date()): KpSummary {
 interface KpRow {
   at: Date
   kp: number
+  /**
+   * False for NOAA's `estimated` and `predicted` rows. The feed carries
+   * forecast rows for the whole current UTC day, so several of them are
+   * already in the past at any given moment -- time alone does not say
+   * whether a row was measured.
+   */
+  observed: boolean
 }
 
 /**
@@ -1164,7 +1183,13 @@ function kpRows(json: any): KpRow[] {
       at: parseUtcTimestamp(record?.time_tag),
       // The tabular form quotes its numbers; `Kp` appears on the observed-only
       // product rather than the forecast, but costs nothing to accept.
-      kp: Number(record?.kp ?? record?.Kp)
+      kp: Number(record?.kp ?? record?.Kp),
+      // A payload carrying no such column is all measurement -- that is the
+      // shape of the observed-only product.
+      observed:
+        record?.observed === undefined || record?.observed === null
+          ? true
+          : String(record.observed).trim().toLowerCase() === 'observed'
     }))
     .filter(
       (row): row is KpRow =>

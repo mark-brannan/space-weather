@@ -13,6 +13,7 @@ import {
   parseGoesFlux,
   parseGeophysicalAlert,
   fluxForFlareClass,
+  gScaleForKp,
   parseIssueDate,
   parseKpForecast,
   parseSolarWind,
@@ -672,8 +673,10 @@ describe('parseKpForecast', () => {
       fixtureJson(fixtureName),
       new Date('2026-08-01T07:00:00Z')
     )
-    expect(summary.observed).toBe(2)
-    expect(summary.observedTime).toBe('2026-08-01T06:00:00.000Z')
+    // 06:00 is in the past at this anchor but NOAA marks it `estimated`, so
+    // the last measurement is the 03:00 row.
+    expect(summary.observed).toBe(1)
+    expect(summary.observedTime).toBe('2026-08-01T03:00:00.000Z')
     expect(summary.max24h).toBeCloseTo(5.67, 5)
     expect(summary.max72h).toBeCloseTo(5.67, 5)
     // 5.67 is 6-, the bottom of NOAA's Kp 6 band, so G2 rather than G1.
@@ -696,8 +699,10 @@ describe('parseKpForecast', () => {
       forecast: false
     })
     expect(summary.series[summary.series.length - 1].forecast).toBe(true)
-    expect(summary.series.filter((p) => p.forecast).length).toBe(22)
-    expect(summary.series.filter((p) => !p.forecast).length).toBe(8)
+    // The 06:00 point is `estimated` -- drawn as forecast even though its
+    // timestamp is behind the anchor.
+    expect(summary.series.filter((p) => p.forecast).length).toBe(23)
+    expect(summary.series.filter((p) => !p.forecast).length).toBe(7)
   })
 
   it('sorts the series and never produces NaN', () => {
@@ -715,6 +720,26 @@ describe('parseKpForecast', () => {
         }
       }
     }
+  })
+
+  it('never publishes a forecast row as the observation', () => {
+    // The payload behind the 5.67-vs-4.33 report: NOAA marks the whole current
+    // UTC day `estimated`, so at 01:51Z the 00:00 row -- a G2 forecast -- was
+    // already in the past. Reading the latest row by time alone published it
+    // as observed while NOAA's own site showed the measured Kp at G0.
+    const summary = parseKpForecast(
+      fixtureJson('noaa-planetary-k-index-forecast.2026_08_29.json'),
+      new Date('2026-08-29T01:51:00Z')
+    )
+    expect(summary.observed).toBeCloseTo(4.33, 5)
+    expect(summary.observedTime).toBe('2026-08-28T21:00:00.000Z')
+    expect(gScaleForKp(summary.observed!)).toBe(NoaaScaleValues.NONE)
+    // The forecast peak is still the storm -- only the observation was wrong.
+    expect(summary.max24h).toBeCloseTo(5.67, 5)
+    const current = summary.series.find(
+      (point) => point.time === '2026-08-29T00:00:00.000Z'
+    )
+    expect(current?.forecast).toBe(true)
   })
 
   it('returns an empty series rather than throwing on malformed input', () => {
