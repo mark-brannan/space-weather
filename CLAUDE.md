@@ -308,8 +308,10 @@ pre-1.0 — the standing bias against minting minors, enforced instead of asked
 for. See [AGENTS.md](AGENTS.md).
 
 Publishing is still npm OIDC trusted publishing with no token anywhere.
-release-please creates the tag and the GitHub Release, then dispatches
-`publish.yml` explicitly — a tag pushed with the default `GITHUB_TOKEN` does
-not trigger workflows, which is GitHub's own loop prevention and not something
-to work around by making `publish.yml` listen harder. Argument in
+release-please runs as a GitHub App (not the default `GITHUB_TOKEN`) so its
+own release pull request gets real CI, and its tag push therefore *does*
+trigger workflows — which is exactly why `publish.yml` has no `push: tags`
+listener of its own: one would race the explicit dispatch.
+`release-please.yml` creates the tag and the GitHub Release, then dispatches
+`publish.yml` explicitly, the same path a human uses by hand. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#release-please-owns-the-version-no-pull-request-does).

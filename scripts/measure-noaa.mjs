@@ -62,7 +62,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * chunked -- so there is no `content-length` to read the compressed length
  * off, and asking for one reported "unknown" for every endpoint that
  * actually mattered.
+ *
+ * Bounded by an overall deadline, not just a socket idle timeout: a
+ * connection that accepts but drips one byte every few seconds would still
+ * look "active" to an idle timer. `check-noaa-live.mjs` awaits this call
+ * before it writes `drift`, so a hang here stalls the scheduled workflow
+ * rather than reporting the endpoint as unmeasurable.
  */
+const WIRE_BYTES_TIMEOUT_MS = 30_000
+
 export function wireBytes(path) {
   return new Promise((resolve, reject) => {
     const request = get(
@@ -89,6 +97,11 @@ export function wireBytes(path) {
       }
     )
     request.on('error', reject)
+    request.setTimeout(WIRE_BYTES_TIMEOUT_MS, () => {
+      request.destroy(
+        new Error(`${path} timed out after ${WIRE_BYTES_TIMEOUT_MS}ms`)
+      )
+    })
   })
 }
 
