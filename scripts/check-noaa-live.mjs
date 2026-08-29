@@ -41,6 +41,7 @@ const doc = fileURLToPath(
   new URL('../docs/noaa-products.md', import.meta.url)
 )
 const clientModule = new URL('../dist/noaa/client.js', import.meta.url)
+const endpointsModule = new URL('../dist/endpoints.js', import.meta.url)
 
 const KB = 1024
 const SIZE = /^([\d.]+)\s*(B|KB|MB)$/
@@ -88,7 +89,7 @@ function quietPublisher(log) {
   }
 }
 
-async function measure(client) {
+async function measure(client, declaredEndpoints) {
   const results = []
   for (const [path, product] of ENDPOINTS) {
     let wire = null
@@ -108,16 +109,24 @@ async function measure(client) {
     }
 
     if (!failure) {
-      const isJson = path.endsWith('.json')
-      try {
-        const body = await (isJson
-          ? client.json(path, product)
-          : client.text(path, product))
-        if (body === null || body === undefined || body === '') {
-          failure = 'empty payload'
+      // client.json/client.text take the declared Endpoint object, not the
+      // path string -- the client refuses (by identity, not by shape) any
+      // endpoint that isn't the exact object in src/endpoints.ts's ENDPOINTS.
+      const endpoint = declaredEndpoints.find((e) => e.subPath === path)
+      if (!endpoint) {
+        failure = 'not declared in src/endpoints.ts'
+      } else {
+        const isJson = path.endsWith('.json')
+        try {
+          const body = await (isJson
+            ? client.json(endpoint, product)
+            : client.text(endpoint, product))
+          if (body === null || body === undefined || body === '') {
+            failure = 'empty payload'
+          }
+        } catch (err) {
+          failure = `client threw: ${err.message}`
         }
-      } catch (err) {
-        failure = `client threw: ${err.message}`
       }
     }
 
@@ -210,10 +219,19 @@ const { createClient } = await import(clientModule).catch(() => {
   console.error('dist/noaa/client.js is missing; run `npm run build` first.')
   process.exit(2)
 })
+const { ENDPOINTS: declaredEndpoints } = await import(endpointsModule).catch(
+  () => {
+    console.error('dist/endpoints.js is missing; run `npm run build` first.')
+    process.exit(2)
+  }
+)
 
 const expected = documented()
 const clientLog = []
-const results = await measure(createClient(quietPublisher(clientLog)))
+const results = await measure(
+  createClient(quietPublisher(clientLog)),
+  declaredEndpoints
+)
 const { rows, drift: rowDrift, unmeasured } = verdicts(results, expected)
 const total = pollTotal(results, expected)
 const totalDrift = Boolean(total && !total.incomplete && total.drift)
