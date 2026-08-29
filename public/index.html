@@ -1,5 +1,10 @@
 <!doctype html>
 <title>NOAA Space Weather</title>
+<!-- signalk-server and GitHub Pages both send charset=utf-8, so this was never
+     needed while the plugin's own server was the only thing serving this file.
+     The browser demo (#199) is served by whatever a reader points at demo-dist/,
+     and without this every curly quote in the copy renders as mojibake. -->
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   /* Subset to printable ASCII plus the punctuation the JS actually emits
