@@ -380,6 +380,31 @@ function series({ peakKp, peakInMin, base = 2 }) {
   return out
 }
 
+/** A watch body, in NOAA's layout -- the list renders this verbatim. */
+function watchText(level, firstDay, stormDay) {
+  const cell = (d) => d.toUTCString().slice(5, 11).replace(/^0/, '')
+  return [
+    'Space Weather Message Code: WATA30',
+    'Serial Number: 279',
+    `Issue Time: ${fmtIssued(0)}`,
+    '',
+    `WATCH: Geomagnetic Storm Category G${level} Predicted`,
+    '',
+    'Highest Storm Level Predicted by Day:',
+    `${cell(firstDay)}:  None (Below G1)   ${cell(stormDay)}:  G${level} (Moderate)`,
+    '',
+    'THIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT',
+    '',
+    'NOAA Space Weather Scale descriptions can be found at',
+    'www.swpc.noaa.gov/noaa-scales-explanation',
+    '',
+    `Potential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.`,
+    'Induced Currents - Power grid fluctuations can occur. High-latitude power systems',
+    'may experience voltage alarms.',
+    'Aurora - Aurora may be seen as low as New York to Wisconsin to Washington state.'
+  ].join('\n')
+}
+
 const ADVISORY_ISSUED_MIN = -1140
 const ADVISORY = {
   idLine: 'Product: Weekly Highlights and 27-Day Forecast',
@@ -446,7 +471,28 @@ const STATES = {
     kpObserved: 2.0,
     series: series({ peakKp: 3.0, peakInMin: 1800 }),
     watchDayInMin: 2400,
-    watchLevel: 2
+    watchLevel: 2,
+    // The watch above plus the one it superseded, which the plugin stood down
+    // rather than deleted -- the pair is what the messages list has to get
+    // right, since a withdrawn watch shown as live is the same failure as a
+    // live one shown as nothing.
+    messages: [
+      {
+        code: 'WATA20',
+        alertLevel: 'WATCH',
+        scale: 'G1 - Minor',
+        issuedMin: -2160,
+        state: 'normal',
+        serialNumber: '278',
+        message: 'WATCH: Geomagnetic Storm Category G1 Predicted',
+        body: [
+          'Highest Storm Level Predicted by Day:',
+          'Aug 28:  G1 (Minor)   Aug 29:  None (Below G1)',
+          '',
+          'THIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT'
+        ]
+      }
+    ]
   },
   eased: {
     // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
@@ -464,6 +510,62 @@ const STATES = {
     // Two scales at once, so the hero has to fold an "Also S4:" clause into
     // the impact sentence -- the longest string the layout ever carries.
     label: 'G4 + S4 in force',
+    // What a real storm's messages look like: the alert that fired, the
+    // warning still running under it, and the summary of the burst that has
+    // already passed. Three verbs, three states, one story.
+    messages: [
+      {
+        code: 'ALTK08',
+        alertLevel: 'ALERT',
+        scale: 'G4 - Severe',
+        issuedMin: -95,
+        state: 'warn',
+        serialNumber: '4051',
+        message: 'ALERT: Geomagnetic K-index of 8, Severe',
+        body: [
+          'Threshold Reached: 2026 Aug 29 1804 UTC',
+          'Synoptic Period: 1800-2100 UTC',
+          '',
+          'Active Warning: Yes',
+          'Potential Impacts: Area of impact primarily poleward of 45 degrees',
+          'Geomagnetic Latitude. Induced Currents - Possible widespread voltage',
+          'control problems. Aurora - Aurora may be seen as low as Alabama and',
+          'northern California.'
+        ]
+      },
+      {
+        code: 'WARK07',
+        alertLevel: 'WARNING',
+        scale: 'G3 - Strong',
+        issuedMin: -260,
+        validUntilMin: 160,
+        state: 'warn',
+        serialNumber: '2210',
+        message: 'WARNING: Geomagnetic K-index of 7 expected',
+        body: [
+          'Valid From: 2026 Aug 29 1500 UTC',
+          'Valid To: 2026 Aug 30 0000 UTC',
+          'Warning Condition: Persistence'
+        ]
+      },
+      {
+        code: 'SUM10R',
+        alertLevel: 'SUMMARY',
+        scale: 'R2 - Moderate',
+        issuedMin: -640,
+        state: 'normal',
+        serialNumber: '1877',
+        message: 'SUMMARY: X-ray Event exceeded M5',
+        body: [
+          'Begin Time: 2026 Aug 29 0712 UTC',
+          'Maximum Time: 2026 Aug 29 0741 UTC',
+          'End Time: 2026 Aug 29 0759 UTC',
+          'X-ray Class: M6.4',
+          'Optical Class: 2n',
+          'Location: S14W38'
+        ]
+      }
+    ],
     observed: { G: 4, S: 4, R: 2 },
     peak24h: { G: 4, S: 4, R: 3 },
     kpObserved: 8.0,
@@ -541,26 +643,57 @@ function payload(name, s) {
         }
       }
     case 'alerts': {
-      if (!s.watchLevel) return {}
-      const day = new Date(Date.now() + s.watchDayInMin * 60000)
-      day.setUTCHours(0, 0, 0, 0)
-      return {
-        WATA30: leaf({
+      // The whole subtree, one leaf per NOAA message code -- what the hero's
+      // `watchAhead` and the messages list both read. A state's `messages`
+      // are written the way NOAA writes them, because the list renders
+      // NOAA's own words and a paraphrase would not show what it looks like.
+      const out = {}
+      if (s.watchLevel) {
+        const day = new Date(Date.now() + s.watchDayInMin * 60000)
+        day.setUTCHours(0, 0, 0, 0)
+        const yesterday = new Date(day.getTime() - 24 * 60 * 60 * 1000)
+        out.WATA30 = leaf({
           id: 'noaa_swpc_alert_WATA30',
           serialNumber: '279',
           issued: new Date().toISOString(),
           validUntil: null,
           message: `WATCH: Geomagnetic Storm Category G${s.watchLevel} Predicted`,
-          description: 'Space Weather Message Code: WATA30',
+          description: watchText(s.watchLevel, yesterday, day),
           alertLevel: 'WATCH',
           scale: `G${s.watchLevel} - Moderate`,
           state: 'alert',
           method: [],
           predictedByDay: [
+            { date: yesterday.toISOString(), letter: 'G', level: 0 },
             { date: day.toISOString(), letter: 'G', level: s.watchLevel }
           ]
         })
       }
+      for (const m of s.messages ?? []) {
+        out[m.code] = leaf({
+          id: `noaa_swpc_alert_${m.code}`,
+          serialNumber: m.serialNumber ?? '1000',
+          issued: iso(m.issuedMin),
+          validUntil: m.validUntilMin ? iso(m.validUntilMin) : null,
+          message: m.message,
+          description: [
+            `Space Weather Message Code: ${m.code}`,
+            `Serial Number: ${m.serialNumber ?? '1000'}`,
+            `Issue Time: ${fmtIssued(m.issuedMin)}`,
+            '',
+            m.message,
+            ...(m.scale ? [`NOAA Scale: ${m.scale}`] : []),
+            '',
+            ...(m.body ?? [])
+          ].join('\n'),
+          alertLevel: m.alertLevel,
+          scale: m.scale ?? '',
+          state: m.state,
+          method: [],
+          predictedByDay: []
+        })
+      }
+      return out
     }
     case 'wind':
       if (s.observed === null) return null

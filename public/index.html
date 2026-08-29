@@ -206,6 +206,51 @@
     text-wrap: balance; line-height: 1.15; margin: 0 0 8px;
   }
   .hero .sub { color: var(--text-dim); font-size: 0.86rem; max-width: 52ch; }
+  /* A link, not a button: it continues the sentence above it, and a second
+     outlined button in the hero would compete with "Read full outlook"
+     across the rule for which one is the tile's action. */
+  .link-more {
+    margin-top: 6px; padding: 0; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 0.8rem; color: var(--amber); text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .link-more[hidden] { display: none; }
+
+  /* One NOAA message: its verb and scale on a head row, then whatever it
+     carries -- a watch's day table, the body text. The list is the stop-gap
+     for the designed in-force tile, so it stays inside the overlay the
+     advisory already established rather than claiming grid space. */
+  .msg { border-top: 1px solid var(--grid); padding: 14px 0 4px; }
+  .msg:first-of-type { border-top: 0; }
+  .msg-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
+  .msg-verb { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; font-size: 0.78rem; }
+  .msg-scale { font-size: 0.78rem; color: var(--text); }
+  .msg-when { font-size: 0.68rem; color: var(--text-dim); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .msg-headline { font-size: 0.86rem; margin: 4px 0 0; }
+  /* A stood-down message is kept because the sequence is the story -- the
+     watch, then the warning, then the summary -- but it is not a claim about
+     now, and has to read as history at a glance. */
+  .msg.stood-down { opacity: 0.55; }
+  .msg-stood-down { font-size: 0.68rem; color: var(--text-dim); font-style: italic; }
+  .msg-days { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .msg-day {
+    border: 1px solid var(--grid); border-radius: 3px; padding: 3px 8px; font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+  /* The days still ahead are the reason a watch exists; the ones behind it
+     are context for reading the table, not a forecast. */
+  .msg-day.ahead { border-color: currentColor; }
+  .msg-day .lvl { font-weight: 700; }
+  .msg-body {
+    font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; white-space: pre-wrap;
+    color: var(--text-dim); margin: 8px 0 0; max-height: 15em; overflow-y: auto;
+  }
+  .msg-body[hidden] { display: none; }
+  .msg-toggle {
+    margin-top: 8px; padding: 0; border: 0; background: transparent; cursor: pointer;
+    font: inherit; font-size: 0.7rem; color: var(--amber); text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
   /* The header carries only the chip and countdown now (issue #36's HF
      indices and clock were pulled back out -- low value for most users, and
@@ -757,6 +802,10 @@
       <div class="hero-verdict">
         <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
         <div class="sub" id="heroSub"></div>
+        <!-- Sits at the end of the hero text rather than in a tile of its
+             own: the banner's one clause is a summary of these messages, so
+             the way to more of them is from where the summary ends. -->
+        <button type="button" id="messagesOpen" class="link-more" hidden></button>
       </div>
       <div class="hero-rule" aria-hidden="true"></div>
       <div class="hero-advisory">
@@ -884,8 +933,23 @@
   </div>
 </div>
 
+<div class="overlay" id="messagesOverlay" hidden>
+  <div class="overlay-backdrop" id="messagesBackdrop"></div>
+  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="messagesOverlayTitle">
+    <button type="button" class="overlay-close" id="messagesClose" aria-label="Close">&times;</button>
+    <span class="label">NOAA SWPC &middot; Space weather messages</span>
+    <h2 id="messagesOverlayTitle">Messages in force</h2>
+    <div id="messagesList"></div>
+    <p class="overlay-explainer">NOAA issues a <strong>watch</strong> when a storm is expected days out, a
+      <strong>warning</strong> when it is expected within hours, an <strong>alert</strong> when it is
+      observed, and a <strong>summary</strong> once it is over. This lists what is in force now, plus
+      anything stood down in the last two days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</p>
+  </div>
+</div>
+
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
+import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
@@ -1635,6 +1699,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   let advisoryData = null;
+  let messageRows = [];
   // The teaser is a teaser -- the full bulletin is one tap away -- so it is
   // trimmed to two lines to keep the tile off the rest of the page.
   //
@@ -1697,7 +1762,80 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('advisoryOpen').addEventListener('click', openAdvisoryOverlay);
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
+
+  // NOAA's own messages, as a list off the hero. Rebuilt from the subtree on
+  // every poll rather than cached: a message's state changes under it when it
+  // is stood down, and a list showing a withdrawn watch as in force is the
+  // failure this whole branch is about, one surface further on.
+  function renderMessages(alerts) {
+    messageRows = messagesInForce(alerts, Date.now());
+    const link = document.getElementById('messagesOpen');
+    const summary = messagesSummary(messageRows);
+    link.hidden = !summary;
+    if (summary) link.textContent = summary;
+    if (!document.getElementById('messagesOverlay').hidden) drawMessages();
+  }
+
+  function drawMessages() {
+    const list = document.getElementById('messagesList');
+    document.getElementById('messagesOverlayTitle').textContent = messagesTitle(messageRows);
+    if (messageRows.length === 0) {
+      list.innerHTML = '<div class="empty-state">No NOAA messages in force.</div>';
+      return;
+    }
+    list.innerHTML = messageRows.map(messageMarkup).join('');
+    // The body text is long and there are usually several messages, so each
+    // starts folded -- the head row is what makes the list scannable.
+    for (const toggle of list.querySelectorAll('.msg-toggle')) {
+      toggle.addEventListener('click', () => {
+        const body = document.getElementById(toggle.dataset.body);
+        body.hidden = !body.hidden;
+        toggle.textContent = body.hidden ? 'Show NOAA’s message' : 'Hide NOAA’s message';
+      });
+    }
+  }
+
+  function messageMarkup(row) {
+    const sev = sevClass(row.level) || 'sev-0';
+    const bodyId = `msgBody_${row.code || Math.random().toString(36).slice(2)}`;
+    // Everything below originates at NOAA, so all of it goes through
+    // escapeHtml --
+    // this is the one place in the page that renders a payload body.
+    const days = row.days.map((day) => `
+      <span class="msg-day ${day.ahead ? 'ahead ' + (sevClass(day.level) || 'sev-0') : ''}">
+        ${escapeHtml(day.date ? fmtWatchDay(day.date) : '—')} · <span class="lvl">${day.level > 0 ? escapeHtml(day.letter + day.level) : 'none'}</span>
+      </span>`).join('');
+    return `
+      <div class="msg ${row.inForce ? '' : 'stood-down'}">
+        <div class="msg-head">
+          <span class="msg-verb ${sev}">${escapeHtml(row.verb || 'MESSAGE')}</span>
+          <span class="msg-scale">${escapeHtml(row.scale || row.code)}</span>
+          <span class="msg-when">${escapeHtml(row.issued ? `${shortDate(row.issued)} ${fmtTime(row.issued)}` : '')}</span>
+        </div>
+        <div class="msg-headline">${escapeHtml(row.headline)}</div>
+        ${row.inForce ? '' : '<div class="msg-stood-down">No longer in force</div>'}
+        ${days ? `<div class="msg-days">${days}</div>` : ''}
+        <button type="button" class="msg-toggle" data-body="${bodyId}">Show NOAA’s message</button>
+        <pre class="msg-body" id="${bodyId}" hidden>${escapeHtml(row.text)}</pre>
+      </div>`;
+  }
+
+  function openMessagesOverlay() {
+    drawMessages();
+    document.getElementById('messagesOverlay').hidden = false;
+  }
+  function closeMessagesOverlay() {
+    document.getElementById('messagesOverlay').hidden = true;
+  }
+  document.getElementById('messagesOpen').addEventListener('click', openMessagesOverlay);
+  document.getElementById('messagesClose').addEventListener('click', closeMessagesOverlay);
+  document.getElementById('messagesBackdrop').addEventListener('click', closeMessagesOverlay);
+
   window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('messagesOverlay').hidden) {
+      closeMessagesOverlay();
+      return;
+    }
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
       closeAdvisoryOverlay();
       return;
@@ -1755,6 +1893,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const canvas = document.getElementById('spaceMapCanvas');
     if (!canvas) return;
     if (!document.getElementById('advisoryOverlay').hidden) return;
+    if (!document.getElementById('messagesOverlay').hidden) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -2616,6 +2755,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // one that has passed needs the pair. The card takes only the 24-hour
     // maximum, and picks that path itself -- see scales.js.
     renderHero(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
+    renderMessages(data.alerts);
     renderScales(scalesCard(data));
     renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();
