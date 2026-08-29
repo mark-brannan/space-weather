@@ -1,5 +1,6 @@
 import { settingsFrom } from '../src/config'
 import { Client } from '../src/noaa/client'
+import { createMeter } from '../src/meter'
 import { ValueUpdate } from '../src/parse'
 import { Meta, Publisher } from '../src/publisher'
 import { ProductContext } from '../src/products/types'
@@ -62,7 +63,11 @@ export function harness(responses: Record<string, unknown>) {
       if (typeof body !== 'string')
         throw new Error(`stub for ${subPath} is not text`)
       return body
-    }
+    },
+    // No product exercised here reads its own client's meter or trigger --
+    // this satisfies the Client shape without a product noticing the stub.
+    withTrigger: () => client,
+    meter: createMeter()
   }
 
   const ctx: ProductContext = {

@@ -187,3 +187,175 @@ describe('createClient with a torn payload', () => {
     expect(errorLines).toEqual([])
   })
 })
+
+describe('createClient metering', () => {
+  it('records a completed fetch in the ring, keyed by subPath', async () => {
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({ a: 1 }, { 'content-length': '9' })
+    )
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(SCALES, 'Scales')
+
+    expect(client.meter.ring).toHaveLength(1)
+    const record = client.meter.ring[0]
+    expect(record.subPath).toBe(SCALES.subPath)
+    expect(record.productName).toBe('Scales')
+    expect(record.trigger).toBe('schedule')
+    expect(record.status).toBe(200)
+    expect(record.wireBytes).toBe(9)
+    expect(record.wireBytesEstimated).toBe(false)
+    expect(record.outcome).toBe('ok')
+  })
+
+  it('substitutes decoded size and flags it estimated when content-length is absent', async () => {
+    vi.stubGlobal('fetch', async () => jsonResponse({ a: 1 }))
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    const record = client.meter.ring[0]
+    expect(record.wireBytesEstimated).toBe(true)
+    expect(record.wireBytes).toBe(record.decodedBytes)
+  })
+
+  it('attributes fetches on a withTrigger view to that trigger, sharing one meter', async () => {
+    vi.stubGlobal('fetch', async () => jsonResponse({ a: 1 }))
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await client.withTrigger('webapp').json(XRAY_FLARE_LATEST, 'X')
+    await client.json(ALERTS, 'Y')
+
+    expect(client.meter.ring.map((r) => r.trigger)).toEqual([
+      'webapp',
+      'schedule'
+    ])
+  })
+
+  it('records httpError and networkError outcomes distinctly', async () => {
+    vi.stubGlobal('fetch', async () => new Response('nope', { status: 500 }))
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    expect(client.meter.ring[0].outcome).toBe('httpError')
+    expect(client.meter.ring[0].status).toBe(500)
+  })
+
+  it('emits one fixed-shape debug line per fetch', async () => {
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({ a: 1 }, { 'content-length': '9' })
+    )
+    const { publisher, debugLines } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(SCALES, 'Scales')
+
+    expect(debugLines).toHaveLength(1)
+    expect(debugLines[0]).toMatch(
+      /^noaa\.fetch product=Scales path=\/products\/noaa-scales\.json trigger=schedule status=200 wire=9 ms=\d+ outcome=ok$/
+    )
+  })
+})
+
+describe('createClient logging discipline', () => {
+  it('sets the status line once per distinct message, not once per fetch', async () => {
+    vi.stubGlobal('fetch', async () => jsonResponse({ a: 1 }))
+    const { publisher, statusLines } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    expect(statusLines).toHaveLength(1)
+  })
+
+  it('calls fail() on the first failure but not on repeats of the same one', async () => {
+    let failCount = 0
+    vi.stubGlobal('fetch', async () => new Response('nope', { status: 500 }))
+    const { publisher: base } = harness()
+    const publisher = { ...base, fail: () => failCount++ }
+    const client = createClient(publisher as any)
+
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+
+    expect(failCount).toBe(1)
+  })
+
+  it('sets the status line again after a failure, so the error banner clears', async () => {
+    // `fail()` and `status()` are the same field on the server. Deduping the
+    // status message must not mean a recovery leaves the error banner up.
+    let requestCount = 0
+    vi.stubGlobal('fetch', async () => {
+      requestCount++
+      return requestCount === 2
+        ? new Response('nope', { status: 500 })
+        : jsonResponse({ a: 1 })
+    })
+    const { publisher, statusLines } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    expect(statusLines).toHaveLength(2)
+  })
+
+  it('records an unparseable content-length as an estimate, never as NaN', async () => {
+    vi.stubGlobal('fetch', async () =>
+      jsonResponse({ a: 1 }, { 'content-length': 'not-a-number' })
+    )
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    const record = client.meter.ring[0]
+    expect(record.wireBytes).toBe(record.decodedBytes)
+    expect(record.wireBytesEstimated).toBe(true)
+    const bucket = client.meter.hourly.get(XRAY_FLARE_LATEST.subPath)![0]
+    expect(Number.isFinite(bucket.wireBytes)).toBe(true)
+  })
+
+  it('calls a body that aborts mid-stream a timeout, not a parse error', async () => {
+    vi.stubGlobal('fetch', async () => {
+      const error = new Error('The operation was aborted due to timeout')
+      error.name = 'TimeoutError'
+      return new Response(
+        new ReadableStream({
+          start: (controller) => controller.error(error)
+        }),
+        { status: 200 }
+      )
+    })
+    const { publisher } = harness()
+    const client = createClient(publisher as any)
+
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    expect(client.meter.ring[0].outcome).toBe('timeout')
+  })
+
+  it('logs a recovery line with the failure count once the fetch succeeds again', async () => {
+    let requestCount = 0
+    vi.stubGlobal('fetch', async () => {
+      requestCount++
+      return requestCount <= 2
+        ? new Response('nope', { status: 500 })
+        : jsonResponse({ a: 1 })
+    })
+    const { publisher, errorLines } = harness()
+    const client = createClient(publisher as any)
+
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await expect(client.json(XRAY_FLARE_LATEST, 'X')).rejects.toThrow()
+    await client.json(XRAY_FLARE_LATEST, 'X')
+
+    expect(errorLines.some((m) => m.includes('recovered after 2'))).toBe(true)
+  })
+})
