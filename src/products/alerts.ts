@@ -125,7 +125,11 @@ function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
       alertLevel: alert.alertLevel,
       scale: alert.scaleText,
       state: alert.state,
-      method: alert.method
+      method: alert.method,
+      // Empty for everything but a watch. It is the only forward-looking
+      // thing NOAA publishes with a date on it, and the webapp's hero reads
+      // it: see `watchAhead` in public/hero.js.
+      predictedByDay: alert.predictedByDay
     },
     alert.issued.toISOString()
   )

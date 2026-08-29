@@ -885,7 +885,7 @@
 </div>
 
 <script type="module">
-import { heroState, kpFloorForG, uncapitalise } from './hero.js';
+import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { leafTime, leafValue, readAll } from './signalk.js';
@@ -939,6 +939,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '–';
     return d.toISOString().slice(11, 16) + ' UTC';
+  }
+  /** A NOAA watch names a UTC day, not a time, so this shows only the day. */
+  function fmtWatchDay(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'a day ahead';
+    return d.toUTCString().slice(0, 11).trim() + ' UTC';
   }
   // For text that ends up in innerHTML but did not originate in this file --
   // a NOAA-derived read error, a server error message -- so it renders as
@@ -1017,6 +1023,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       'since-start': ['Since plugin start', () => Date.now() - at],
       'since-update': ['Since last update', () => Date.now() - at],
       'until-level': [`Until G${timer.level} window`, () => at - Date.now()],
+      // NOAA's watch table has day granularity, so this counts to the start of
+      // the day it names and the label says "day" rather than "window" -- the
+      // storm is expected during it, not at the tick.
+      'until-watch-day': [`Until G${timer.level} watch day`, () => at - Date.now()],
       'until-easing': [gOnly ? 'Until G eases' : 'Until easing', () => at - Date.now()],
       // Deliberately 00:00 rather than a placeholder: the slot counts to the
       // next thing that matters, and when nothing is forecast, that is what
@@ -1040,7 +1050,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     cdLabel.textContent = counting[0];
   }
 
-  function renderHero(scales, peak24h, kp, status) {
+  function renderHero(scales, peak24h, kp, status, alerts) {
     const state = heroState({
       observed: {
         G: leafValue(scales?.G),
@@ -1053,6 +1063,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         R: leafValue(peak24h?.R)
       },
       series: leafValue(kp?.['forecast.series']),
+      watch: watchAhead(alerts, Date.now()),
       observedAt: leafTime(scales?.G) || leafTime(scales?.time),
       startedAt: status?.startedAt,
       staleAfterMs: STALE_MS
@@ -1091,9 +1102,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ].join(' ');
       timerSev = sevClass(state.timer.kind === 'until-level' ? state.timer.level : state.level);
     } else if (state.kind === 'brewing') {
-      setChip(chip, state.level, `G${state.level} forecast`);
+      const letter = state.letter;
+      setChip(chip, state.level, `${letter}${state.level} ${state.watch ? 'watch' : 'forecast'}`);
       headline.textContent = 'Storm’s A-Brewin’!';
-      sub.textContent = `Expect ${uncapitalise(impact('G', state.level))}`;
+      // A watch is NOAA saying so in words on a dated day, which is a
+      // different and better-sourced claim than a Kp model run -- so it gets
+      // named, with its day, rather than folded into the same sentence.
+      sub.textContent = state.watch
+        ? `NOAA watch: ${letter}${state.level} predicted for ${fmtWatchDay(state.watch.at)}. Expect ${uncapitalise(impact(letter, state.level))}`
+        : `Expect ${uncapitalise(impact(letter, state.level))}`;
       timerSev = sevClass(state.level);
     } else if (state.kind === 'all-clear') {
       // A real storm ended, so the relief is the news and the chip says so --
@@ -1123,7 +1140,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // with no series at all it bounds nothing -- so the second clause is a
       // claim this page can only make in one of the two cases.
       sub.textContent = state.timer.kind === 'forecast-clear'
-        ? 'Nothing above background in the last 24 hours, and no G3 or stronger in the forecast.'
+        ? 'Nothing above background in the last 24 hours, and no storm in the forecast.'
         : 'Nothing above background in the last 24 hours.';
     }
 
@@ -2598,7 +2615,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // The hero keeps both observed readings: telling a storm in progress from
     // one that has passed needs the pair. The card takes only the 24-hour
     // maximum, and picks that path itself -- see scales.js.
-    renderHero(data.scalesNow, data.scalesObserved, kp, status);
+    renderHero(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
     renderScales(scalesCard(data));
     renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
     labelAuroraButtons();

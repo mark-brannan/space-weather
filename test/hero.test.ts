@@ -5,7 +5,8 @@ import {
   heroState,
   kpFloorForG,
   timerFor,
-  uncapitalise
+  uncapitalise,
+  watchAhead
 } from '../public/hero.js'
 
 const NOW = Date.parse('2026-08-12T12:00:00.000Z')
@@ -321,5 +322,128 @@ describe('timerFor', () => {
 
   it('reports nothing to count rather than inventing a time', () => {
     expect(timerFor([], 0, NOW)).toEqual({ kind: 'unknown' })
+  })
+})
+
+describe('NOAA watches', () => {
+  /** The alerts subtree shape the webapp reads: one leaf per message code. */
+  function watchTree(level: number, dayOffsetMs: number, state = 'alert') {
+    return {
+      WATA30: {
+        value: {
+          id: 'noaa_swpc_alert_WATA30',
+          state,
+          predictedByDay: [
+            {
+              date: new Date(NOW + dayOffsetMs).toISOString(),
+              letter: 'G',
+              level
+            }
+          ]
+        }
+      },
+      // A non-watch message carries no table and must be ignored by shape.
+      ALTK07: { value: { id: 'noaa_swpc_alert_ALTK07', state: 'warn' } }
+    }
+  }
+
+  it('finds the strongest level a watch predicts ahead', () => {
+    expect(watchAhead(watchTree(2, 36 * HOUR), NOW)).toMatchObject({
+      letter: 'G',
+      level: 2
+    })
+  })
+
+  it('keeps a watch day until the end of that day, not its start', () => {
+    // Six hours into the predicted day: the storm is closest, so this is the
+    // last moment the banner should go quiet.
+    expect(watchAhead(watchTree(2, -6 * HOUR), NOW)).toMatchObject({ level: 2 })
+    expect(watchAhead(watchTree(2, -30 * HOUR), NOW)).toBe(null)
+  })
+
+  it('ignores a watch that has been stood down', () => {
+    expect(watchAhead(watchTree(2, 36 * HOUR, 'normal'), NOW)).toBe(null)
+  })
+
+  it('ignores a "None (Below G1)" day', () => {
+    expect(watchAhead(watchTree(0, 36 * HOUR), NOW)).toBe(null)
+  })
+
+  it('brews on a watch when the Kp forecast has not moved', () => {
+    // The 2026-08-28 case: a CME in transit, and nothing else knows.
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      series: series(2, 2.33, 2),
+      watch: {
+        letter: 'G',
+        level: 2,
+        at: new Date(NOW + 36 * HOUR).toISOString()
+      }
+    })
+    expect(result.kind).toBe('brewing')
+    expect(result.level).toBe(2)
+    expect(result.watch).toBeTruthy()
+    expect(result.timer.kind).toBe('until-watch-day')
+  })
+
+  it('keeps the series countdown but takes the louder watch level', () => {
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      series: series(2, 6.0, 6.0),
+      watch: {
+        letter: 'G',
+        level: 4,
+        at: new Date(NOW + 36 * HOUR).toISOString()
+      }
+    })
+    expect(result.kind).toBe('brewing')
+    expect(result.level).toBe(4)
+    expect(result.timer.kind).toBe('until-level')
+  })
+
+  it('leaves a quieter watch alone when the series says worse', () => {
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      series: series(2, 8.0, 8.0),
+      watch: {
+        letter: 'G',
+        level: 1,
+        at: new Date(NOW + 36 * HOUR).toISOString()
+      }
+    })
+    expect(result.level).toBe(4)
+    expect(result.watch).toBe(null)
+  })
+
+  it('does not let a watch outrank a storm running now', () => {
+    const result = state({
+      observed: { G: 4, S: 0, R: 0 },
+      watch: {
+        letter: 'G',
+        level: 2,
+        at: new Date(NOW + 36 * HOUR).toISOString()
+      }
+    })
+    expect(result.kind).toBe('storm')
+    expect(result.level).toBe(4)
+  })
+})
+
+describe('the forecast escalation floor', () => {
+  it('brews on a G2 in the forecast, which NOTABLE used to swallow', () => {
+    // A forecast level NOAA names is one the page names. Until this floor
+    // moved to IN_FORCE the banner read "space weather is quiet" with a G2 in
+    // the series.
+    const result = state({
+      observed: { G: 0, S: 0, R: 0 },
+      series: series(2, 6.0)
+    })
+    expect(result.kind).toBe('brewing')
+    expect(result.level).toBe(2)
+  })
+
+  it('still counts to a real escalation above a storm already running', () => {
+    const result = timerFor(series(6.0, 8.0), 3, NOW)
+    expect(result).toMatchObject({ kind: 'until-level', level: 4 })
   })
 })

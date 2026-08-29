@@ -309,7 +309,7 @@ one was.
 | At the default alarm level | In force | Audible |
 | --- | --- | --- |
 | At each fixture's capture time | 4, in all three | 0 |
-| Peak over each fixture's whole span | 8 / 9 / 11 | 0 |
+| Peak over each fixture's whole span | 8 / 10 / 11 | 0 |
 
 **Nothing in any captured payload is audible at the default**, including both
 April 2025 storms: they peaked at an observed G4, which is `warn` — visual only

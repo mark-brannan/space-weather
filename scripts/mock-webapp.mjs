@@ -434,6 +434,20 @@ const STATES = {
     series: series({ peakKp: 7.0, peakInMin: 860 }),
     sfi: 118 // Fair, near the Good boundary
   },
+  watch: {
+    // The 2026-08-28 case: a CME left the sun, NOAA issued a G2 watch for the
+    // day it arrives, and the Kp forecast has not moved yet. Everything the
+    // page reads except the watch says quiet, which is exactly why this state
+    // has to exist -- it is unreachable by waiting, since the interesting
+    // window is the two days *before* anything happens.
+    label: 'G2 watch, quiet series',
+    observed: { G: 0, S: 0, R: 0 },
+    peak24h: { G: 0, S: 0, R: 0 },
+    kpObserved: 2.0,
+    series: series({ peakKp: 3.0, peakInMin: 1800 }),
+    watchDayInMin: 2400,
+    watchLevel: 2
+  },
   eased: {
     // A real storm (G3, above NOTABLE) ended, but a quieter G1 is still
     // running under it. Unreachable against a live sky on demand, and the
@@ -526,6 +540,28 @@ function payload(name, s) {
           series: leaf(s.series)
         }
       }
+    case 'alerts': {
+      if (!s.watchLevel) return {}
+      const day = new Date(Date.now() + s.watchDayInMin * 60000)
+      day.setUTCHours(0, 0, 0, 0)
+      return {
+        WATA30: leaf({
+          id: 'noaa_swpc_alert_WATA30',
+          serialNumber: '279',
+          issued: new Date().toISOString(),
+          validUntil: null,
+          message: `WATCH: Geomagnetic Storm Category G${s.watchLevel} Predicted`,
+          description: 'Space Weather Message Code: WATA30',
+          alertLevel: 'WATCH',
+          scale: `G${s.watchLevel} - Moderate`,
+          state: 'alert',
+          method: [],
+          predictedByDay: [
+            { date: day.toISOString(), letter: 'G', level: s.watchLevel }
+          ]
+        })
+      }
+    }
     case 'wind':
       if (s.observed === null) return null
       // Tesla, not the nT an operator quotes: Signal K carries SI and the tile
@@ -677,6 +713,7 @@ const ROUTES = [
   [/swpc\/f107$/, 'f107'],
   [/swpc\/a_index$/, 'aIndex'],
   [/swpc\/sunspot_number$/, 'sunspotNumber'],
+  [/noaa\/swpc\/alerts$/, 'alerts'],
   [/navigation\/position$/, 'position'],
   [/advisory-outlook$/, 'advisory'],
   [/space-weather\/status$/, 'status']

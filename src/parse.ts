@@ -360,6 +360,8 @@ export interface ParsedAlert {
   validUntil: Date | null
   /** A `CANCEL ALERT`/`CANCEL WARNING` retraction of an earlier serial. */
   cancelled: boolean
+  /** A watch's per-day forecast table; empty for every other message. */
+  predictedByDay: PredictedDay[]
 }
 
 /**
@@ -377,6 +379,68 @@ function alertValidUntil(message: string): Date | null {
     if (parsed) return parsed
   }
   return null
+}
+
+export interface PredictedDay {
+  /** Start of the predicted UTC day, ISO 8601. */
+  date: string
+  /** `G`, `S` or `R`; the scale the watch names. */
+  letter: string
+  /** 0 for NOAA's "None (Below G1)". */
+  level: number
+}
+
+/**
+ * Parse a watch's "Highest Storm Level Predicted by Day" table.
+ *
+ * This is the only thing NOAA publishes that says a CME is in transit and
+ * when it is expected to arrive. Nothing else in this plugin's inputs knows:
+ * the Kp forecast series is a model run that has not yet moved, so a webapp
+ * reading only that says "quiet" for the two days between the watch being
+ * issued and the storm arriving (the case that prompted this).
+ *
+ * NOAA writes the days as `Aug 02` with no year, always within a few days of
+ * the issue time, so the year comes from the issue date and is nudged by one
+ * when that lands the day half a year away -- which is what a table spanning
+ * New Year looks like.
+ */
+export function parseWatchDays(message: string, issued: Date): PredictedDay[] {
+  // NOAA mixes CRLF and LF inside one message, so the line break is not a
+  // reliable `\n` -- 2025's fixtures carry `\r\n` here and 2026's do not.
+  const table = message.match(
+    /Highest Storm Level Predicted by Day: *\r?\n([^\r\n]*)/
+  )
+  if (!table) return []
+
+  const days: PredictedDay[] = []
+  // `Jul 31:  None (Below G1)   Aug 02:  G2 (Moderate)`, all on one line.
+  const entry = /([A-Za-z]{3}) ([0-9]{1,2}): +(?:([GSR])([0-5])|None)/g
+  let match: RegExpExecArray | null
+  while ((match = entry.exec(table[1])) !== null) {
+    const [, month, day, letter, level] = match
+    const date = watchDayDate(month, day, issued)
+    if (!date) continue
+    days.push({
+      date: date.toISOString(),
+      // A "None (Below G1)" cell names no scale, and every watch that carries
+      // this table is geomagnetic -- the `Below G1` is NOAA saying so.
+      letter: letter ?? 'G',
+      level: level ? parseInt(level, 10) : 0
+    })
+  }
+  return days
+}
+
+const HALF_YEAR_MS = 182 * 24 * 60 * 60 * 1000
+
+function watchDayDate(month: string, day: string, issued: Date): Date | null {
+  const year = issued.getUTCFullYear()
+  const parsed = new Date(`${year} ${month} ${day} 00:00 UTC`)
+  if (isNaN(parsed.getTime())) return null
+  const drift = parsed.getTime() - issued.getTime()
+  if (drift > HALF_YEAR_MS) parsed.setUTCFullYear(year - 1)
+  else if (drift < -HALF_YEAR_MS) parsed.setUTCFullYear(year + 1)
+  return parsed
 }
 
 /**
@@ -449,7 +513,8 @@ export function parseAlert(
         : stateForScaleValue(scaleValue, alarmLevel, popupLevel),
     issued,
     validUntil: alertValidUntil(alert.message),
-    cancelled
+    cancelled,
+    predictedByDay: parseWatchDays(alert.message, issued)
   }
 }
 
@@ -486,6 +551,8 @@ export interface AlertNotification {
   validUntil: Date | null
   /** The full NOAA message body. */
   description: string
+  /** A watch's per-day forecast table; empty for every other message. */
+  predictedByDay: PredictedDay[]
 }
 
 /**
@@ -499,6 +566,27 @@ export interface AlertNotification {
  * which is most of the ones a boat cares about.
  */
 export const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * A watch's own fallback expiry: the end of the last day its forecast table
+ * names, never earlier than {@link ALERT_MAX_AGE_MS}.
+ *
+ * A `WATA` watch never carries "Now Valid Until" (checked against every
+ * captured fixture), so without this every one fell back to
+ * {@link ALERT_MAX_AGE_MS} — but the table it does carry runs 36 to 69 hours
+ * past issue in those same fixtures, so the flat 24-hour fallback dropped a
+ * CME watch as no-longer-in-force a day or more before the storm it predicted
+ * was due to arrive.
+ */
+function watchFallbackExpiry(alert: ParsedAlert, maxAgeMs: number): Date {
+  const floor = alert.issued.getTime() + maxAgeMs
+  const latestDay = alert.predictedByDay.reduce(
+    (latest, day) => Math.max(latest, Date.parse(day.date)),
+    -Infinity
+  )
+  if (!Number.isFinite(latestDay)) return new Date(floor)
+  return new Date(Math.max(floor, latestDay + 24 * 60 * 60 * 1000))
+}
 
 export interface AlertSelectionOptions {
   now: Date
@@ -557,8 +645,7 @@ export function currentAlertNotifications(
       continue
     }
 
-    const expiresAt =
-      parsed.validUntil ?? new Date(parsed.issued.getTime() + maxAgeMs)
+    const expiresAt = parsed.validUntil ?? watchFallbackExpiry(parsed, maxAgeMs)
     if (expiresAt.getTime() <= now.getTime()) continue
 
     const candidate: AlertNotification = {
@@ -571,7 +658,8 @@ export function currentAlertNotifications(
       method: methodForState(parsed.state),
       issued: parsed.issued,
       validUntil: parsed.validUntil,
-      description: entry.message
+      description: entry.message,
+      predictedByDay: parsed.predictedByDay
     }
 
     const held = newest.get(candidate.code)

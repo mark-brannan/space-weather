@@ -93,6 +93,41 @@ function othersInForce(levels, leadLetter, leadLevel) {
   ).map((letter) => ({ letter, level: levels[letter] }))
 }
 
+/**
+ * The strongest storm a NOAA watch predicts on a day still ahead.
+ *
+ * `alerts` is the `notifications.noaa.swpc.alerts` subtree: one leaf per
+ * message code, each carrying the message in force for that condition. Only a
+ * watch has a `predictedByDay` table, so this ignores the rest by shape
+ * rather than by parsing the code.
+ *
+ * A day is "ahead" until its own end, not its start -- NOAA's table has day
+ * granularity, so a G2 predicted for today is still a prediction at 0600 on
+ * that day, and dropping it at midnight would blank the banner exactly when
+ * the storm is closest.
+ */
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export function watchAhead(alerts, nowMs) {
+  let best = null
+  for (const node of Object.values(alerts ?? {})) {
+    const value = node?.value
+    if (!Array.isArray(value?.predictedByDay)) continue
+    // A withdrawn watch is stood down to `normal` rather than deleted; its
+    // table is still there and still says a storm is coming.
+    if (value.state === 'normal' || value.state === 'nominal') continue
+
+    for (const day of value.predictedByDay) {
+      const at = Date.parse(day?.date)
+      if (!Number.isFinite(at) || at + DAY_MS <= nowMs) continue
+      if (!(day.level >= IN_FORCE)) continue
+      if (best && best.level >= day.level) continue
+      best = { letter: day.letter ?? 'G', level: day.level, at: day.date }
+    }
+  }
+  return best
+}
+
 function forecastPoints(series, nowMs) {
   return (series ?? [])
     .filter((point) => {
@@ -121,7 +156,13 @@ export function timerFor(series, currentLevel, nowMs) {
   const ahead = forecastPoints(series, nowMs)
   if (ahead.length === 0) return { kind: 'unknown' }
 
-  const escalation = Math.max(NOTABLE, (currentLevel ?? 0) + 1)
+  // Floored at IN_FORCE, not NOTABLE. NOTABLE is the bar for interrupting
+  // somebody; this is the bar for the page mentioning a storm at all, and
+  // they are not the same question -- the same split IN_FORCE already makes
+  // for observed conditions. At NOTABLE the forecast could see a G2 coming
+  // and the banner still read "space weather is quiet", which is the claim
+  // this whole module exists to stop making (issue #34).
+  const escalation = Math.max(IN_FORCE, (currentLevel ?? 0) + 1)
   const worse = ahead.find((point) => gScaleForKp(point.kp) >= escalation)
   if (worse) {
     return {
@@ -145,6 +186,8 @@ export function timerFor(series, currentLevel, nowMs) {
  * @param input.observed        {G,S,R} levels observed now
  * @param input.peak24h         {G,S,R} 24-hour observed maximums
  * @param input.series          Kp forecast points, {time, kp, forecast}
+ * @param input.watch           strongest level a NOAA watch predicts ahead,
+ *                              from `watchAhead`; null when none is in force
  * @param input.observedAt      timestamp of the newest observation
  * @param input.startedAt       when this run of the plugin began
  * @param input.staleAfterMs    age at which observations stop being trusted
@@ -154,6 +197,7 @@ export function heroState(input, now = Date.now()) {
     observed,
     peak24h,
     series,
+    watch,
     observedAt,
     startedAt,
     staleAfterMs
@@ -195,8 +239,37 @@ export function heroState(input, now = Date.now()) {
   // running now: all three leave the boat fine today, and only the forecast
   // is still a decision. Anything reaching this line is below NOTABLE, so
   // what the forecast offers is always the louder of the two.
+  // The Kp forecast and NOAA's watch are two different claims about the same
+  // future, and they disagree routinely: the watch is a forecaster reading a
+  // coronagraph, the series is a model run that has not caught up. When both
+  // speak, the louder one supplies the words. The countdown stays with the
+  // series either way -- a watch is a table of days, and counting to the
+  // start of one would invent an arrival time NOAA did not give.
   if (timer.kind === 'until-level') {
-    return { kind: 'brewing', letter: 'G', level: timer.level, timer }
+    const louder = watch && watch.level > timer.level ? watch : null
+    return {
+      kind: 'brewing',
+      letter: louder ? louder.letter : 'G',
+      level: louder ? louder.level : timer.level,
+      watch: louder,
+      timer
+    }
+  }
+
+  // Nothing in the series, but NOAA says something is on its way. This is the
+  // CME-in-transit case and the reason `watch` exists: the model has not moved
+  // yet, so a page reading only the series calls the next two days quiet
+  // while a G2 is en route. The timer counts to the watch's own day, because
+  // the alternative -- "no storm inbound" under a banner saying one is --
+  // contradicts itself.
+  if (watch) {
+    return {
+      kind: 'brewing',
+      letter: watch.letter,
+      level: watch.level,
+      watch,
+      timer: { kind: 'until-watch-day', level: watch.level, at: watch.at }
+    }
   }
 
   // What is still running, for the states below that lead with the day's

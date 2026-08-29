@@ -8,6 +8,7 @@ import {
 } from '../src/parse'
 import { alerts } from '../src/products/alerts'
 import { ALERT_FIXTURES, fixtureJson } from './fixtures'
+import { parseAlert, parseWatchDays } from '../src/parse'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -138,7 +139,7 @@ describe('currentAlertNotifications', () => {
     // messages expire, so the instants are exactly where any peak can occur.
     const peaks: Record<string, number> = {
       'alerts.2025_04_11.json': 8,
-      'alerts.2025_04_17.json': 9,
+      'alerts.2025_04_17.json': 10,
       'alerts.2026_08_01.json': 11
     }
 
@@ -245,7 +246,17 @@ describe('currentAlertNotifications', () => {
     expect(narrow.length).toBeLessThan(wide.length)
     for (const alert of narrow) {
       const age = now.getTime() - alert.issued.getTime()
-      expect(alert.validUntil !== null || age < 6 * HOUR_MS).toBe(true)
+      // A watch's own forecast table can push its fallback expiry past the
+      // flat maxAgeMs window -- see watchFallbackExpiry.
+      const latestDay = alert.predictedByDay.reduce(
+        (latest, day) => Math.max(latest, Date.parse(day.date)),
+        -Infinity
+      )
+      const boundedByTable =
+        Number.isFinite(latestDay) && latestDay + 24 * HOUR_MS > now.getTime()
+      expect(
+        alert.validUntil !== null || age < 6 * HOUR_MS || boundedByTable
+      ).toBe(true)
     }
   })
 
@@ -536,5 +547,92 @@ describe('alerts product', () => {
     const h = harness({ error: 'nope' })
     await alerts.refresh(h.ctx as any)
     expect(h.published).toEqual([])
+  })
+})
+
+describe("a watch's per-day forecast table", () => {
+  /** The one message in a fixture that carries the table. */
+  function watchIn(name: string) {
+    const payload = fixtureJson(name)
+    const entry = payload.find((a: any) =>
+      /Highest Storm Level Predicted by Day/.test(a.message)
+    )
+    expect(entry, `${name} carries no watch`).toBeTruthy()
+    return parseAlert(entry)!
+  }
+
+  it('reads the three days NOAA names, with the year off the issue date', () => {
+    const watch = watchIn('alerts.2026_08_01.json')
+    expect(watch.alertLevel).toBe('WATCH')
+    expect(watch.predictedByDay).toEqual([
+      { date: '2026-07-31T00:00:00.000Z', letter: 'G', level: 0 },
+      { date: '2026-08-01T00:00:00.000Z', letter: 'G', level: 0 },
+      { date: '2026-08-02T00:00:00.000Z', letter: 'G', level: 2 }
+    ])
+  })
+
+  it('reads a table whose storm is on the first day', () => {
+    expect(watchIn('alerts.2025_04_17.json').predictedByDay).toEqual([
+      { date: '2025-04-16T00:00:00.000Z', letter: 'G', level: 3 },
+      { date: '2025-04-17T00:00:00.000Z', letter: 'G', level: 1 },
+      { date: '2025-04-18T00:00:00.000Z', letter: 'G', level: 0 }
+    ])
+  })
+
+  it('carries the table onto the notification the webapp reads', () => {
+    const watch = select('alerts.2026_08_01.json').inForce.find(
+      (a) => a.alertLevel === 'WATCH'
+    )
+    expect(watch?.predictedByDay?.some((d) => d.level > 0)).toBe(true)
+  })
+
+  it('is empty for every message that is not a watch', () => {
+    for (const name of ALERT_FIXTURES) {
+      for (const alert of select(name).inForce) {
+        if (alert.alertLevel === 'WATCH') continue
+        expect(alert.predictedByDay, alert.code).toEqual([])
+      }
+    }
+  })
+
+  it('stays in force through the last day its own table predicts', () => {
+    // No captured watch ever carries "Now Valid Until" -- the flat 24-hour
+    // fallback (the one every non-watch message rides) would have dropped
+    // this one a day before the G2 it names was even due.
+    const message =
+      'Space Weather Message Code: WATA50\nSerial Number: 1\n' +
+      'Issue Time: 2026 Jan 10 0000 UTC\n\nWATCH: test\n\n' +
+      'Highest Storm Level Predicted by Day:\n' +
+      'Jan 10:  None (Below G1)   Jan 12:  G2 (Moderate)\n'
+    const entry = {
+      product_id: 'WATA50',
+      issue_datetime: '2026-01-10 00:00:00.000',
+      message
+    }
+
+    const stillDue = currentAlertNotifications([entry], {
+      now: new Date('2026-01-12T12:00:00Z'), // 36h in: past a flat 24h cutoff
+      maxAgeMs: 24 * HOUR_MS
+    })
+    expect(stillDue.inForce.map((a) => a.code)).toContain('WATA50')
+
+    const afterLastDay = currentAlertNotifications([entry], {
+      now: new Date('2026-01-13T00:01:00Z'), // past the end of Jan 12
+      maxAgeMs: 24 * HOUR_MS
+    })
+    expect(afterLastDay.inForce.map((a) => a.code)).not.toContain('WATA50')
+  })
+
+  it('rolls the year back for a table that spans New Year', () => {
+    // NOAA writes `Jan 01` with no year, so a watch issued on Dec 31 names
+    // days in two different ones.
+    const days = parseWatchDays(
+      'Highest Storm Level Predicted by Day:\nDec 31:  G1 (Minor)   Jan 01:  G2 (Moderate)\n',
+      new Date('2026-12-31T23:00:00Z')
+    )
+    expect(days.map((d) => d.date)).toEqual([
+      '2026-12-31T00:00:00.000Z',
+      '2027-01-01T00:00:00.000Z'
+    ])
   })
 })

@@ -25,6 +25,10 @@ export const ENDPOINTS = {
   f107: vessel('environment/noaa/swpc/f107'),
   aIndex: vessel('environment/noaa/swpc/a_index'),
   sunspotNumber: vessel('environment/noaa/swpc/sunspot_number'),
+  // The whole alerts subtree, one leaf per NOAA message code. The hero reads
+  // the watches out of it (`watchAhead` in hero.js); it is one request either
+  // way, and per-code paths are not knowable in advance.
+  alerts: vessel('notifications/noaa/swpc/alerts'),
   position: vessel('navigation/position'),
   // Nothing publishes this yet -- the MUF is issue #82, and the HF tile draws
   // its half of the gauge as explicitly unmeasured until something does. The
