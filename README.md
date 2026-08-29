@@ -263,4 +263,4 @@ Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
-[ISC](LICENSE). Copyright (c) 2025 Mark Brannan.
+[AGPL-3.0-or-later](LICENSE). Copyright (c) 2025 Mark Brannan.

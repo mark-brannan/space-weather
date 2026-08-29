@@ -57,7 +57,7 @@
     ]
   },
   "author": "mark-brannan",
-  "license": "ISC",
+  "license": "AGPL-3.0-or-later",
   "devDependencies": {
     "@types/node": "^26.1.2",
     "coast-wright": "^0.0.1-alpha.0",

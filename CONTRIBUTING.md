@@ -110,5 +110,5 @@ Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Licence
 
-Contributions are licensed under the [ISC licence](LICENSE) that covers this
-project.
+Contributions are licensed under the [AGPL-3.0-or-later licence](LICENSE) that
+covers this project.
