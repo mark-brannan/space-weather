@@ -53,11 +53,18 @@ export function messagesInForce(alerts, nowMs) {
 
     const issuedAt = Date.parse(value.issued)
     const inForce = !STOOD_DOWN.has(value.state)
-    // A stood-down message earns its place by being recent, so one that
-    // cannot be dated has not earned it -- keeping it would mean a leaf with
-    // an unreadable `issued` sat on the list for as long as the plugin ran.
-    if (!inForce && !(Number.isFinite(issuedAt) && nowMs - issuedAt <= RECENT_MS)) {
-      continue
+    if (!inForce) {
+      // Aged by the leaf's own timestamp -- when the plugin observed the
+      // withdrawal (standDown in products/alerts.ts republishes with a
+      // fresh one) -- not by `value.issued`. A message issued long ago but
+      // stood down five minutes ago is still fresh news; issued would drop
+      // it on arrival. One that cannot be dated has not earned its place
+      // either way, so it fails closed the same as an unreadable `issued`
+      // did -- age Infinity, dropped, rather than sitting on the list for as
+      // long as the plugin runs.
+      const stoodDownAt = Date.parse(node?.timestamp)
+      const age = Number.isFinite(stoodDownAt) ? nowMs - stoodDownAt : Infinity
+      if (age > RECENT_MS) continue
     }
 
     rows.push({

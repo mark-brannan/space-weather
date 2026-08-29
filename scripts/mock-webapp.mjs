@@ -485,6 +485,12 @@ const STATES = {
         state: 'normal',
         serialNumber: '278',
         message: 'WATCH: Geomagnetic Storm Category G1 Predicted',
+        // Matches the body text below -- a stood-down watch still carries the
+        // table it was superseded with, so its day chips are reachable too.
+        predictedByDay: [
+          { date: iso(-2160), letter: 'G', level: 1 },
+          { date: iso(-2160 + 24 * 60), letter: 'G', level: 0 }
+        ],
         body: [
           'Highest Storm Level Predicted by Day:',
           'Aug 28:  G1 (Minor)   Aug 29:  None (Below G1)',
@@ -674,7 +680,7 @@ function payload(name, s) {
           id: `noaa_swpc_alert_${m.code}`,
           serialNumber: m.serialNumber ?? '1000',
           issued: iso(m.issuedMin),
-          validUntil: m.validUntilMin ? iso(m.validUntilMin) : null,
+          validUntil: m.validUntilMin != null ? iso(m.validUntilMin) : null,
           message: m.message,
           description: [
             `Space Weather Message Code: ${m.code}`,
@@ -690,7 +696,7 @@ function payload(name, s) {
           scale: m.scale ?? '',
           state: m.state,
           method: [],
-          predictedByDay: []
+          predictedByDay: m.predictedByDay ?? []
         })
       }
       return out
