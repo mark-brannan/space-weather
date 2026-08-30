@@ -171,6 +171,28 @@ same already-expired bulletin must not undo `expireIfStale`'s stand-down on
 the very next tick. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#the-advisory-outlook-is-also-published-as-plain-data).
 
+**Predicted-vs-measured is compared in the webapp, not in the plugin, and its
+verdict waits for a full 24 hours.** `src/telemetry.ts` serves the two halves
+of the cross-check keyed by the same `subPath` and compares nothing; where the
+line falls is a presentation decision, and `public/diagnostics.js` owns it.
+There are two thresholds and they are not interchangeable: **±50% on one
+endpoint's bytes-per-fetch** (no 24-hour gate, but three successful fetches
+required before a row is judged; set loose because the flares and alerts
+payloads genuinely track the weather) and **±25% on the
+total** (set tight, because the total's only real movers are structural).
+**The total is not judged until `hoursCovered` reads 24** — the meter starts
+empty at every plugin start and the aurora grid arrives in 147 KB lumps, so
+judging a partial window would raise the alarm after every restart, and
+pro-rating does not fix it. A row whose `wireBytes` came back
+`estimated` — no `Content-Length`, so a decoded size stood in, which is every
+JSON endpoint in a browser — is compared against nothing at all, and one of
+those suppresses the total's verdict too: a decoded size is roughly ten times a
+cost, and judging one against a declared wire size reports a tenfold
+over-fetch on a healthy plugin. Don't collapse the two thresholds into one,
+don't move the comparison into the route, don't drop the window gate, and don't
+compare an estimated size to a declared one. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#predicted-vs-measured-has-two-thresholds-and-one-window-gate).
+
 **The map's data goes through `public/mapRaster.js`; everything with a
 measurable edge is drawn vectorially over it.** One canvas — the products are
 layers, the projection and the extent are controls — and the rasteriser walks

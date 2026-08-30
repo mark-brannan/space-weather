@@ -76,6 +76,116 @@ const publishedValues = new Map()
 const AURORA_BASE = 'environment.noaa.swpc.aurora'
 const DRAP_BASE = 'environment.noaa.swpc.drap'
 
+/**
+ * The plugin's own fetch telemetry, fabricated -- surface 3 of
+ * docs/instrumentation-design.md. The measured half is made up here because a
+ * day of drifting traffic is exactly the kind of state that is impractical to
+ * reach against a live server: it takes a full 24 hours of running plus a NOAA
+ * payload that has actually changed size. The *predicted* half is the real
+ * `predictedTable` out of dist/, so the paths, the declared sizes and the
+ * cadences are the ones the plugin really ships with and a declaration added
+ * to src/endpoints.ts shows up here with no edit.
+ *
+ * One endpoint is deliberately over its declared size and one has gone silent,
+ * so both row markers and the divergence banner are visible without waiting
+ * for NOAA to break.
+ */
+/**
+ * Settings for the fabricated telemetry, with every product switched on. The
+ * `status` route deliberately reports aurora and D-RAP off (see its case in
+ * payload) -- but a bill in which most rows are predicted zero has nothing to
+ * compare, so the diagnostics panel is shown a fully configured install.
+ */
+const TELEMETRY_PROPS = {
+  auroraEnabled: true,
+  drapEnabled: true,
+  goesFluxEnabled: true
+}
+
+let predicted = null
+async function loadPredicted() {
+  if (predicted) return predicted
+  const distTelemetry = path.join(REPO_ROOT, 'dist', 'telemetry.js')
+  if (!fssync.existsSync(distTelemetry)) {
+    throw new Error('dist/ missing -- run `npm run build` first')
+  }
+  const [{ predictedTable }, { settingsFrom }] = await Promise.all([
+    import(distTelemetry),
+    import(path.join(REPO_ROOT, 'dist', 'config.js'))
+  ])
+  const settings = settingsFrom(TELEMETRY_PROPS)
+  predicted = { settings, table: predictedTable(settings) }
+  return predicted
+}
+
+const HOUR_MS = 60 * 60 * 1000
+/** Which fabricated endpoint misbehaves, and how. Everything else agrees. */
+const MOCK_DRIFT = {
+  '/json/goes/primary/xrays-6-hour.json': { sizeFactor: 3.4 },
+  '/text/wwv.txt': { silent: true },
+  '/products/alerts.json': { failing: 'httpError' }
+}
+
+async function telemetryBodyMock() {
+  const { settings, table } = await loadPredicted()
+  const now = Date.now()
+  const hourly = {}
+  const ring = []
+  let nth = 0
+  for (const endpoint of table.endpoints) {
+    const drift = MOCK_DRIFT[endpoint.subPath] || {}
+    if (drift.silent || endpoint.fetchesPerDay === 0) continue
+    const perHour = endpoint.fetchesPerDay / 24
+    const wire = Math.round(endpoint.wireBytes * (drift.sizeFactor || 1))
+    const buckets = []
+    for (let h = 23; h >= 0; h--) {
+      // Whole fetches only, so an endpoint slower than hourly gets buckets in
+      // the hours it would really have run in rather than a fraction in each.
+      const fetches =
+        Math.round(perHour * (24 - h)) - Math.round(perHour * (23 - h))
+      if (!fetches) continue
+      const errors = drift.failing ? fetches : 0
+      buckets.push({
+        hourStart: Math.floor((now - h * HOUR_MS) / HOUR_MS) * HOUR_MS,
+        fetches,
+        wireBytes: errors ? 0 : fetches * wire,
+        decodedBytes: errors ? 0 : fetches * wire * 8,
+        errors,
+        notModified: 0,
+        // A server reports Content-Length, so nothing here is estimated -- the
+        // browser case is the demo's (#239), not this one's.
+        estimated: 0
+      })
+    }
+    if (buckets.length) hourly[endpoint.subPath] = buckets
+    // Spread over the last half hour by declaration order rather than at
+    // random: a fetch list that reshuffles itself on every poll is harder to
+    // read than one that does not, and nothing here is testing jitter.
+    ring.push({
+      subPath: endpoint.subPath,
+      productName: endpoint.productName,
+      trigger: 'schedule',
+      startedAt: now - (table.endpoints.length - nth++) * 90 * 1000,
+      durationMs: 120 + ((nth * 37) % 400),
+      status: drift.failing ? 503 : 200,
+      wireBytes: drift.failing ? null : wire,
+      wireBytesEstimated: false,
+      decodedBytes: drift.failing ? null : wire * 8,
+      outcome: drift.failing || 'ok'
+    })
+  }
+  return {
+    schema: 2,
+    // Long enough ago that the 24-hour window reads as full, which is what
+    // lets the banner say anything at all.
+    startedAt: new Date(now - 30 * HOUR_MS).toISOString(),
+    settings,
+    predicted: table,
+    ring,
+    hourly
+  }
+}
+
 let realProducts = null
 async function loadRealProducts() {
   if (realProducts) return realProducts
@@ -899,7 +1009,8 @@ const ROUTES = [
   [/noaa\/swpc\/alerts$/, 'alerts'],
   [/navigation\/position$/, 'position'],
   [/advisory-outlook$/, 'advisory'],
-  [/space-weather\/status$/, 'status']
+  [/space-weather\/status$/, 'status'],
+  [/space-weather\/telemetry$/, 'telemetry']
 ]
 
 const SWITCHER = (current) => `
@@ -998,6 +1109,18 @@ http
     if (/aurora-refresh$/.test(url.pathname))
       return handleRefresh('aurora', res)
     if (/drap-refresh$/.test(url.pathname)) return handleRefresh('drap', res)
+
+    // Its own branch rather than a ROUTES row: the body is assembled
+    // asynchronously out of dist/, and payload() is synchronous. Under
+    // --upstream it falls through to the proxy like every other route.
+    if (/space-weather\/telemetry$/.test(url.pathname) && !UPSTREAM) {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store'
+      })
+      res.end(JSON.stringify(await telemetryBodyMock()))
+      return
+    }
 
     const route = ROUTES.find(([re]) => re.test(url.pathname))
     if (route) {

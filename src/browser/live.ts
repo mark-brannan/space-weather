@@ -25,6 +25,7 @@ import { aurora } from '../products/aurora.js'
 import { drap } from '../products/drap.js'
 import { PRODUCTS } from '../products/registry.js'
 import { FORCE_REFRESH_COOLDOWN_MS } from '../refreshPolicy.js'
+import { telemetryBody } from '../telemetry.js'
 import type { Product, ProductContext } from '../products/types.js'
 import { BrowserPublisher, Leaf, createBrowserPublisher } from './publisher.js'
 
@@ -62,6 +63,12 @@ export interface LiveDocument {
   routes: {
     advisory: unknown
     status: { startedAt: string; settings: Settings }
+    /**
+     * The same body the plugin's own /telemetry route serves. This page really
+     * is the plugin here, so the diagnostics panel gets real numbers rather
+     * than the "no telemetry" a static page has to show.
+     */
+    telemetry: unknown
   }
 }
 
@@ -236,7 +243,8 @@ export function startLivePlugin(options: LiveOptions = {}): LivePlugin {
       },
       routes: {
         advisory: readAdvisoryCache(publisher),
-        status: { startedAt, settings }
+        status: { startedAt, settings },
+        telemetry: telemetryBody(startedAt, settings, client.meter)
       }
     }),
     /**

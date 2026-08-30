@@ -64,6 +64,20 @@ export interface HourBucket {
   decodedBytes: number
   errors: number
   notModified: number
+  /**
+   * Of `fetches`, how many had no `content-length` and so contributed their
+   * *decoded* size to `wireBytes` above. Kept because a reader comparing these
+   * bytes against a declared, measured wire size has to be able to tell: gzip
+   * makes the decoded size roughly ten times the real cost, and quoting one as
+   * a cost is the thing docs/instrumentation-design.md forbids outright.
+   *
+   * A browser is the case this exists for. The demo runs these same products
+   * in a tab (#239), where `fetch` decompresses transparently and does not
+   * expose the compressed length -- so every figure there is estimated, and a
+   * surface that did not know would report a tenfold over-fetch on a plugin
+   * behaving perfectly.
+   */
+  estimated: number
 }
 
 /** Tier 3: cumulative since install. Same fields as HourBucket, minus the hour it belongs to -- there isn't one. */
@@ -150,13 +164,15 @@ export function recordFetch(meter: Meter, entry: FetchRecord): boolean {
       wireBytes: 0,
       decodedBytes: 0,
       errors: 0,
-      notModified: 0
+      notModified: 0,
+      estimated: 0
     }
     buckets.push(bucket)
   }
   bucket.fetches += 1
   bucket.wireBytes += entry.wireBytes ?? 0
   bucket.decodedBytes += entry.decodedBytes ?? 0
+  if (entry.wireBytesEstimated) bucket.estimated += 1
   if (entry.outcome === 'notModified') bucket.notModified += 1
   if (isError(entry.outcome)) bucket.errors += 1
   meter.hourly.set(entry.subPath, buckets)

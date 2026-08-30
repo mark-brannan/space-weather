@@ -756,6 +756,75 @@
     color: var(--text); margin: 8px 0 0;
   }
 
+  /* Fetch diagnostics. A table, not a picture: the map's one-canvas rule is
+     about the map, and a divergence between two byte figures is a number
+     beside a number. In the overlay the advisory and the messages list
+     already established rather than in a tile, because the grid is for the
+     weather and this is housekeeping about the plugin -- but reachable from
+     the footstrip, which is already where the page says how old its data is.
+     Wider than the other two overlays: six columns of figures, and a table
+     that has to wrap is a table nobody compares anything in. */
+  .overlay-panel.wide { max-width: 940px; }
+  .diag-verdict { border-left: 3px solid var(--sev-0); padding: 6px 0 6px 12px; margin: 10px 0 16px; }
+  .diag-verdict.agrees { border-left-color: var(--sev-1); }
+  .diag-verdict.collecting { border-left-color: var(--sev-0); }
+  .diag-verdict.diverged { border-left-color: var(--sev-4); }
+  .diag-headline { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+  .diag-verdict.diverged .diag-headline { color: var(--sev-4); }
+  .diag-detail { font-size: 0.74rem; color: var(--text-dim); margin-top: 4px; max-width: 68ch; }
+  /* Both the table and the fetch list are fixed-width rows of figures, so
+     they scroll sideways inside the panel rather than reflowing -- an 800x480
+     kiosk is a supported size and a wrapped byte count is unreadable. */
+  .diag-table-wrap { overflow-x: auto; }
+  .diag-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; white-space: nowrap; }
+  .diag-table th {
+    font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 0.62rem; font-weight: 500; color: var(--text-dim); text-align: right;
+    padding: 0 0 6px 14px; border-bottom: 1px solid var(--grid);
+  }
+  .diag-table th:first-child { text-align: left; padding-left: 0; }
+  .diag-table td { padding: 7px 0 7px 14px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  .diag-table td:first-child { padding-left: 0; }
+  .diag-row.diverged { background: color-mix(in srgb, var(--sev-4) 12%, transparent); }
+  .diag-path code { font-size: 0.68rem; color: var(--text); }
+  .diag-product, .diag-measured {
+    display: block; font-size: 0.62rem; color: var(--text-dim); margin-top: 2px;
+  }
+  .diag-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+  .diag-num.diag-bad { color: var(--sev-4); }
+  .diag-sub { display: block; font-size: 0.62rem; color: var(--text-dim); margin-top: 2px; }
+  .diag-est { color: var(--text-dim); }
+  .diag-flags { text-align: right; }
+  .diag-flag {
+    display: inline-block; margin-top: 2px; font-size: 0.6rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--sev-4);
+  }
+  .diag-errors { margin: 0 0 16px; }
+  .diag-error {
+    display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.7rem;
+    color: var(--sev-4); padding: 4px 0;
+  }
+  .diag-error code { color: var(--text); }
+  .diag-recent { margin-top: 16px; overflow-x: auto; }
+  .diag-fetch {
+    display: flex; gap: 12px; white-space: nowrap; font-size: 0.66rem;
+    color: var(--text-dim); padding: 3px 0;
+  }
+  .diag-fetch code { color: var(--text); }
+  .diag-fetch.diag-bad code, .diag-fetch.diag-bad .diag-fetch-meta { color: var(--sev-4); }
+  .diag-fetch-time { font-variant-numeric: tabular-nums; }
+  .diag-fetch-meta { margin-left: auto; }
+  /* The footstrip's entry point. Plain until something has actually diverged
+     -- a diagnostics link that is always shouting is one nobody reads -- and
+     then it carries the finding itself, so the page says it without being
+     opened. */
+  .footstrip-link {
+    padding: 0; border: 0; background: transparent; cursor: pointer;
+    font: inherit; color: var(--amber); text-decoration: underline; text-underline-offset: 2px;
+  }
+  .diag-note { color: var(--sev-4); font-weight: 600; margin-left: 6px; }
+  .diag-note[hidden] { display: none; }
+
   .footstrip {
     margin-top: 18px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px;
     font-size: 0.68rem; color: var(--text-dim); border-top: 1px solid var(--grid); padding-top: 10px;
@@ -924,6 +993,8 @@
     <span>Scales updated <span class="v" id="tsScales">&ndash;</span></span>
     <span>Aurora updated <span class="v" id="tsAurora">&ndash;</span></span>
     <span>Kp forecast updated <span class="v" id="tsKp">&ndash;</span></span>
+    <span><button type="button" id="diagnosticsOpen" class="footstrip-link">Fetch diagnostics</button><span
+      class="diag-note" id="diagnosticsNote" hidden></span></span>
   </div>
 </div>
 
@@ -952,12 +1023,29 @@
   </div>
 </div>
 
+<div class="overlay" id="diagnosticsOverlay" hidden>
+  <div class="overlay-backdrop" id="diagnosticsBackdrop"></div>
+  <div class="overlay-panel wide" role="dialog" aria-modal="true" aria-labelledby="diagnosticsOverlayTitle">
+    <button type="button" class="overlay-close" id="diagnosticsClose" aria-label="Close">&times;</button>
+    <span class="label">This plugin &middot; What it fetches from NOAA</span>
+    <h2 id="diagnosticsOverlayTitle">Fetch diagnostics</h2>
+    <div id="diagnosticsBody"><div class="empty-state">Waiting for data&hellip;</div></div>
+    <p class="overlay-explainer">Every endpoint this plugin fetches declares its measured size, and
+      the configuration screen prices your settings out of those declarations. This is the other
+      half: what the last 24 hours actually cost, against what was predicted. A declared size goes
+      stale when NOAA changes a payload, and a stale one makes the configuration screen quietly
+      wrong &mdash; which is what these figures are here to catch. Sizes are compressed
+      transfer sizes, which is what a fetch really costs, not the size of the parsed document.</p>
+  </div>
+</div>
+
 <script type="module">
 import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
-import { AuthRequiredError, distanceUnitPreference, fetchGridCache, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
+import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
+import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
@@ -1849,6 +1937,65 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('messagesClose').addEventListener('click', closeMessagesOverlay);
   document.getElementById('messagesBackdrop').addEventListener('click', closeMessagesOverlay);
 
+  // --- Fetch diagnostics ----------------------------------------------------
+  //
+  // The one thing on this page that is about the plugin rather than about the
+  // weather, and the only read that does not go through `readAll`. The
+  // telemetry body carries the meter's whole 200-record ring, which is tens of
+  // kilobytes; asking for that once a minute for a panel that is shut would
+  // cost more than every reading on the page put together. So it is read on
+  // its own slow cadence, and immediately whenever the panel is opened.
+  const TELEMETRY_MS = 10 * 60 * 1000;
+  let telemetryData = null;
+  let telemetryReadAt = 0;
+
+  const diagnosticsOpen = () => !document.getElementById('diagnosticsOverlay').hidden;
+
+  async function readTelemetry(force) {
+    if (!force && Date.now() - telemetryReadAt < TELEMETRY_MS) return;
+    telemetryReadAt = Date.now();
+    try {
+      telemetryData = await fetchTelemetry();
+    } catch (err) {
+      // The same reading every other surface gives a 401: leave what is
+      // already drawn alone and say to log in, rather than reporting the
+      // plugin as broken.
+      if (err instanceof AuthRequiredError) {
+        document.getElementById('authBanner').classList.add('show');
+        return;
+      }
+      throw err;
+    }
+    renderDiagnostics();
+  }
+
+  function renderDiagnostics() {
+    const view = diagnosticsView(telemetryData, Date.now());
+    const note = footstripNote(view);
+    const noteEl = document.getElementById('diagnosticsNote');
+    noteEl.textContent = note ? `\u00b7 ${note.text}` : '';
+    noteEl.hidden = !note;
+    // Only when it is on screen: the markup is a full table rebuild, and this
+    // runs on the page's own poll.
+    if (diagnosticsOpen()) {
+      document.getElementById('diagnosticsBody').innerHTML = diagnosticsMarkup(view);
+    }
+  }
+
+  function openDiagnosticsOverlay() {
+    document.getElementById('diagnosticsOverlay').hidden = false;
+    // Draw whatever is already held first, so the panel opens with content
+    // rather than blank while the request is in flight.
+    renderDiagnostics();
+    readTelemetry(true).catch(() => {});
+  }
+  function closeDiagnosticsOverlay() {
+    document.getElementById('diagnosticsOverlay').hidden = true;
+  }
+  document.getElementById('diagnosticsOpen').addEventListener('click', openDiagnosticsOverlay);
+  document.getElementById('diagnosticsClose').addEventListener('click', closeDiagnosticsOverlay);
+  document.getElementById('diagnosticsBackdrop').addEventListener('click', closeDiagnosticsOverlay);
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !document.getElementById('messagesOverlay').hidden) {
       closeMessagesOverlay();
@@ -1856,6 +2003,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
       closeAdvisoryOverlay();
+      return;
+    }
+    if (e.key === 'Escape' && diagnosticsOpen()) {
+      closeDiagnosticsOverlay();
       return;
     }
     handleMapKey(e);
@@ -1912,6 +2063,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (!canvas) return;
     if (!document.getElementById('advisoryOverlay').hidden) return;
     if (!document.getElementById('messagesOverlay').hidden) return;
+    if (diagnosticsOpen()) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -2706,6 +2858,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     renderHf(hfCard(data));
     renderKp(kp);
     renderAdvisory(data.advisory);
+    // Not awaited: a slow or missing telemetry route must not hold up the
+    // readings on the page. Forced while the panel is open, so what a reader
+    // is looking at keeps up with the poll; on its own ten-minute cadence
+    // otherwise, which is plenty for a figure measured over 24 hours.
+    readTelemetry(diagnosticsOpen()).catch(() => {});
 
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the

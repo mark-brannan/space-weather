@@ -92,6 +92,16 @@ const REFRESH_ROUTE = {
   drap: plugin('drap-refresh')
 }
 
+/**
+ * The plugin's own fetch instrumentation (docs/instrumentation-design.md's
+ * surface 1). Deliberately not a row in `ENDPOINTS` above: everything there is
+ * read on every poll, and this body carries the meter's whole 200-record ring
+ * -- tens of kilobytes for a panel that is closed most of the time. The
+ * diagnostics panel asks for it on its own slower cadence and whenever it is
+ * opened instead.
+ */
+const TELEMETRY = plugin('telemetry')
+
 // The server's own API, not a Signal K path, so it hangs off neither helper.
 const UNIT_PREFERENCES = '/signalk/v1/unitpreferences/active'
 
@@ -116,6 +126,15 @@ export async function getJson(path) {
   } catch {
     return null
   }
+}
+
+/**
+ * The telemetry route's body, or null. `getJson` answers null for the 503 a
+ * stopped plugin sends and for a server too old to have the route, both of
+ * which the panel draws as "no telemetry" rather than as a failure.
+ */
+export async function fetchTelemetry() {
+  return getJson(TELEMETRY)
 }
 
 export async function fetchGridCache(which) {

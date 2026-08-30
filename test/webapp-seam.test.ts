@@ -49,6 +49,7 @@ describe('the webapp page reaches the server only through signalk.js', () => {
       'AuthRequiredError',
       'getJson',
       'fetchGridCache',
+      'fetchTelemetry',
       'forceRefresh',
       'distanceUnitPreference',
       'ENDPOINTS',

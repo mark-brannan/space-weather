@@ -245,7 +245,8 @@ describe('meterSnapshot', () => {
       wireBytes: 1,
       decodedBytes: 1,
       errors: 0,
-      notModified: 0
+      notModified: 0,
+      estimated: 0
     })
 
     expect(meter.ring).toHaveLength(1)
