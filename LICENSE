@@ -659,3 +659,35 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+
+================================================================================
+
+                  ADDITIONAL PERMISSION UNDER AGPL-3.0 SECTION 7
+
+  This program is signalk-noaa-space-weather.
+  Copyright (C) 2025-2026 Mark Brannan.
+
+  As a special exception, the copyright holders of this program give you
+  permission to link or combine it with a Host Program, and to convey the
+  resulting combination, without the Host Program -- or any other work
+  aggregated or conveyed with it -- becoming subject to the requirements of
+  the GNU Affero General Public License by reason of that combination alone.
+
+  A "Host Program" is a program that loads this program into its own process
+  in order to run it, by `require()`, `import`, or an equivalent mechanism,
+  and that uses it only through the interfaces this program publishes for
+  that purpose. Signal K server, and a distribution or disk image that ships
+  Signal K server together with this program, are Host Programs.
+
+  This permission covers the act of loading and nothing else. This program
+  itself -- copying it, modifying it, propagating it, conveying it, and
+  making it available to users over a network as described in section 13 --
+  remains governed in full by the GNU Affero General Public License. A work
+  that incorporates source code or object code from this program, rather
+  than loading it as described above, is not a Host Program and gets no
+  permission from this paragraph.
+
+  You may remove this additional permission from any copy of this program,
+  or from any copy you convey, as provided in section 7 of the GNU Affero
+  General Public License. The GNU Affero General Public License above is otherwise unmodified.

@@ -108,7 +108,19 @@ release, `chore`/`docs`/`test`/`refactor` ride along in the next one, and a
 
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Licence
+## Licence and the CLA
 
 Contributions are licensed under the [AGPL-3.0-or-later licence](LICENSE) that
-covers this project.
+covers this project, which carries an additional permission under section 7 of
+the AGPL for programs that merely load this plugin — Signal K server, and the
+boat images that ship it.
+
+They also need the [contributor licence agreement](CLA.md), which is one line
+in the description of your first pull request:
+
+> I have read CLA.md and I agree to it.
+
+You sign it once and it covers everything you send afterwards. You keep the
+copyright in your own work; the grant is what lets this code be offered under
+other terms later without your patch having to be torn back out. CLA.md says
+what you are granting and why, in full.
