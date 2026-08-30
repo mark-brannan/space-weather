@@ -21,6 +21,7 @@
  */
 export const DEFAULTS = Object.freeze({
   sendAdvisoryOutlook: true,
+  stormAlertsEnabled: true,
   alarmLevel: 5,
   popupLevel: 4,
   listLevel: 3,
@@ -530,6 +531,7 @@ export function panelSettings(configuration) {
   const popupLevel = popupBand(c.popupLevel, alarmLevel)
   return {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
+    stormAlertsEnabled: c.stormAlertsEnabled !== false,
     alarmLevel,
     popupLevel,
     // Same clamp, one rung down: `listLevel` cannot outrank the popup level,

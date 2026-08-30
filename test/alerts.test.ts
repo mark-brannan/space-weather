@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
-import { ALERTS_BASE, NOTIFICATIONS_BASE } from '../src/paths'
+import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../src/paths'
 import {
   ALERT_MAX_AGE_MS,
   MAX_ALERT_NOTIFICATIONS,
@@ -8,8 +8,12 @@ import {
 } from '../src/parse'
 import { alerts } from '../src/products/alerts'
 import { ALERT_FIXTURES, fixtureJson } from './fixtures'
-import { parseAlert, parseWatchDays } from '../src/parse'
-import { createFileStore } from '../src/publisher.js'
+import {
+  parseAlert,
+  parseWatchDays,
+  stormLevelInForce,
+  stormTransition
+} from '../src/parse'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -60,7 +64,11 @@ function atCaptureTime(payload: any[]) {
   vi.useFakeTimers({ now: captureTime(payload), toFake: ['Date'] })
 }
 
-function harness(payload: any, existing: Record<string, any> = {}) {
+function harness(
+  payload: any,
+  existing: Record<string, any> = {},
+  cache: Record<string, string> = {}
+) {
   const model: Record<string, any> = { ...existing }
   const published: { path: string; value: any; timestamp: string }[] = []
 
@@ -87,7 +95,13 @@ function harness(payload: any, existing: Record<string, any> = {}) {
     fail: () => {},
     error: () => {},
     debug: () => {},
-    ...createFileStore(() => '/nonexistent')
+    // In memory rather than createFileStore: the storm state machine reads
+    // its previous step back from the cache, so a store that silently drops
+    // writes would make every refresh look like the first.
+    readCache: (name: string) => cache[name] ?? null,
+    writeCache: (name: string, text: string) => {
+      cache[name] = text
+    }
   }
 
   const ctx = {
@@ -101,6 +115,7 @@ function harness(payload: any, existing: Record<string, any> = {}) {
     ctx,
     model,
     published,
+    cache,
     at: (path: string) => model[path],
     paths: () => published.map((p) => p.path)
   }
@@ -468,6 +483,7 @@ describe('alerts product', () => {
 
     expect(h.paths().length).toBeGreaterThan(0)
     for (const path of h.paths()) {
+      if (path === STORM_BASE) continue
       expect(path.startsWith(ALERTS_BASE + '.')).toBe(true)
       expect(path).not.toContain('sn:')
     }
@@ -556,15 +572,220 @@ describe('alerts product', () => {
     // the timeout drops the notification at the same moment this plugin would
     // stop republishing it.
     const meta = alerts.metadata!(settingsFrom({}))
-    expect(meta).toHaveLength(1)
+    expect(meta).toHaveLength(2)
     expect(meta[0].path).toBe(ALERTS_BASE)
     expect(meta[0].value.timeout).toBe(ALERT_MAX_AGE_MS / 1000)
+    expect(meta[1].path).toBe(STORM_BASE)
+    expect(meta[1].value.timeout).toBe(ALERT_MAX_AGE_MS / 1000)
   })
 
   it('reports a payload that is not an array instead of publishing', async () => {
     const h = harness({ error: 'nope' })
     await alerts.refresh(h.ctx as any)
     expect(h.published).toEqual([])
+  })
+})
+
+describe('collapsed storm notification', () => {
+  // The Gannon storm, May 2024: the geomagnetic subset (ALTK/WARK/WATA) of
+  // NOAA's own message archive, in the alerts.json shape. The heaviest
+  // episode in the 2018-2025 record, which is what makes it the fixture for
+  // the collapsing behaviour: 26 per-code path deltas, of which 16 were the
+  // same level under a fresh serial number (#297, #298).
+  const GANNON = 'alerts.gannon.2024_05.json'
+  const HOLD_MS = 6 * HOUR_MS
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** A harness polling the fixture as the faked clock would have seen it. */
+  function stormHarness(startIso: string, cache: Record<string, string> = {}) {
+    const payload = fixtureJson(GANNON)
+    vi.useFakeTimers({ now: new Date(startIso), toFake: ['Date'] })
+    const h = harness(payload, {}, cache)
+    h.ctx.client = {
+      json: async () => asOf(payload, new Date()),
+      text: async () => ''
+    }
+    return h
+  }
+
+  async function refreshAt(h: ReturnType<typeof harness>, iso: string) {
+    vi.setSystemTime(new Date(iso))
+    h.published.length = 0
+    await alerts.refresh(h.ctx as any)
+    return h.published.filter((p) => p.path === STORM_BASE)
+  }
+
+  it('follows the storm up and down by level, not by serial number', async () => {
+    const h = stormHarness('2024-05-10T17:30:00Z')
+
+    // WARK07 (17:16) and ALTK07 (17:18) in force: a G3 storm begins.
+    let deltas = await refreshAt(h, '2024-05-10T17:30:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(3)
+    expect(deltas[0].value.state).toBe('alert')
+
+    // ALTK08 (17:44): deeper is news.
+    deltas = await refreshAt(h, '2024-05-10T18:00:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(4)
+    expect(deltas[0].value.state).toBe('warn')
+
+    // ALTK08 serial 32 (19:04): the same level under a fresh serial is the
+    // bulk of a storm's issuance and none of it is news.
+    deltas = await refreshAt(h, '2024-05-10T19:30:00Z')
+    expect(deltas).toEqual([])
+
+    // ALTK09 (23:34): G5.
+    deltas = await refreshAt(h, '2024-05-10T23:45:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(5)
+    expect(deltas[0].value.state).toBe('alarm')
+    expect(deltas[0].value.method).toEqual(['visual', 'sound'])
+
+    // ALTK08 serial 34 (May 11 01:02) supersedes the K9: easing is also news,
+    // quietly -- the level follows the storm down so a return to G5 can alarm
+    // again as a fresh escalation.
+    deltas = await refreshAt(h, '2024-05-11T01:30:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(4)
+    expect(deltas[0].value.state).toBe('warn')
+  })
+
+  it('watches alone do not raise it', async () => {
+    // May 9: G4-severity watches in force ahead of the storm, but nothing
+    // observed yet. The watch is the per-code path's job; this path says a
+    // storm is happening, not that one is forecast.
+    const h = stormHarness('2024-05-09T18:00:00Z')
+    const payload = asOf(fixtureJson(GANNON), new Date('2024-05-09T18:00:00Z'))
+    const { inForce } = currentAlertNotifications(payload, {
+      now: new Date('2024-05-09T18:00:00Z')
+    })
+    expect(inForce.some((a) => a.code.startsWith('WATA'))).toBe(true)
+    expect(stormLevelInForce(inForce).level).toBe(0)
+
+    const deltas = await refreshAt(h, '2024-05-09T18:00:00Z')
+    expect(deltas).toEqual([])
+  })
+
+  it('rides out the six-hour hold before standing down', async () => {
+    const h = stormHarness('2024-05-12T05:00:00Z')
+
+    // ALTK07 serial 155 (04:37): still G3.
+    await refreshAt(h, '2024-05-12T05:00:00Z')
+    expect(h.at(STORM_BASE).level).toBe(3)
+
+    // May 14: everything has expired. The first quiet poll starts the hold
+    // and publishes nothing -- the dips between synoptic periods are not the
+    // storm ending.
+    let deltas = await refreshAt(h, '2024-05-14T00:00:00Z')
+    expect(deltas).toEqual([])
+    expect(h.at(STORM_BASE).level).toBe(3)
+
+    deltas = await refreshAt(h, '2024-05-14T05:00:00Z')
+    expect(deltas).toEqual([])
+
+    // Six hours quiet: stood down, message kept for the client to read.
+    deltas = await refreshAt(h, '2024-05-14T06:01:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(0)
+    expect(deltas[0].value.state).toBe('normal')
+    expect(deltas[0].value.method).toEqual([])
+    expect(deltas[0].value.message).not.toBe('')
+  })
+
+  it('republishes into an emptied model without a fresh transition', async () => {
+    // A server restart empties the model but not the cache. The path has to
+    // come back at its held level -- and silently deciding it is a new storm
+    // would re-alarm at an unchanged level.
+    const h = stormHarness('2024-05-10T19:30:00Z')
+    await refreshAt(h, '2024-05-10T19:30:00Z')
+    expect(h.at(STORM_BASE).level).toBe(4)
+
+    const restarted = stormHarness('2024-05-10T19:40:00Z', h.cache)
+    const deltas = await refreshAt(restarted, '2024-05-10T19:40:00Z')
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0].value.level).toBe(4)
+
+    // And once healed, quiet again.
+    expect(await refreshAt(restarted, '2024-05-10T19:50:00Z')).toEqual([])
+  })
+
+  it('stands down when the toggle is switched off mid-storm', async () => {
+    const h = stormHarness('2024-05-10T19:30:00Z')
+    await refreshAt(h, '2024-05-10T19:30:00Z')
+    expect(h.at(STORM_BASE).level).toBe(4)
+
+    h.ctx.settings = settingsFrom({ stormAlertsEnabled: false })
+    await refreshAt(h, '2024-05-10T20:30:00Z')
+    expect(h.at(STORM_BASE).state).toBe('normal')
+    expect(h.at(STORM_BASE).method).toEqual([])
+
+    // Off means off: nothing comes back while the storm continues.
+    expect(await refreshAt(h, '2024-05-10T21:50:00Z')).toEqual([])
+  })
+
+  it('loudness follows the two thresholds like every other notification', async () => {
+    const h = stormHarness('2024-05-10T17:30:00Z')
+    h.ctx.settings = settingsFrom({ alarmLevel: 3, popupLevel: 3 })
+    const deltas = await refreshAt(h, '2024-05-10T17:30:00Z')
+    expect(deltas[0].value.level).toBe(3)
+    expect(deltas[0].value.state).toBe('alarm')
+    expect(deltas[0].value.method).toEqual(['visual', 'sound'])
+  })
+
+  it('a cancellation never counts as the storm still running', () => {
+    // A real CANCEL WARNING under WARK07, from the July 2026 capture. It stays
+    // in the in-force set at `normal` -- that is how it stands the per-code
+    // path down -- and reading its code as a live G3 kept the storm raised on
+    // the strength of the message that ended it.
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    const cancel = payload.find((a: any) =>
+      /CANCEL WARNING: Geomagnetic K-index of 7/.test(a.message)
+    )
+    expect(cancel).toBeDefined()
+    const now = new Date(Date.parse(cancel.issue_datetime + 'Z') + HOUR_MS)
+    const { inForce } = currentAlertNotifications(asOf(payload, now), { now })
+    expect(inForce.some((a) => a.code === 'WARK07')).toBe(true)
+    expect(stormLevelInForce(inForce).level).toBe(0)
+  })
+
+  it('steps the state machine exactly on transitions', () => {
+    const t0 = new Date('2024-05-10T17:00:00Z')
+    const raise = stormTransition(null, 3, t0)
+    expect(raise).toEqual({
+      next: { level: 3, belowSince: null },
+      changed: true
+    })
+
+    // Same level: not a transition, whatever serial carried it.
+    expect(stormTransition(raise.next, 3, t0).changed).toBe(false)
+
+    const dip = stormTransition(raise.next, 0, t0)
+    expect(dip.changed).toBe(false)
+    expect(dip.next).toEqual({ level: 3, belowSince: t0.toISOString() })
+
+    // Recovery inside the hold clears the clock without a delta.
+    const back = stormTransition(dip.next, 3, new Date(t0.getTime() + HOUR_MS))
+    expect(back).toEqual({
+      next: { level: 3, belowSince: null },
+      changed: false
+    })
+
+    const still = stormTransition(
+      dip.next,
+      0,
+      new Date(t0.getTime() + HOLD_MS - 1)
+    )
+    expect(still.changed).toBe(false)
+
+    const down = stormTransition(dip.next, 0, new Date(t0.getTime() + HOLD_MS))
+    expect(down).toEqual({
+      next: { level: 0, belowSince: null },
+      changed: true
+    })
   })
 })
 

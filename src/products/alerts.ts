@@ -1,14 +1,22 @@
 // https://services.swpc.noaa.gov/products/alerts.json
 // Message codes: http://www.spaceweather.org/ISES/code/fmt/exam.html
-import { ALERTS_BASE, NOTIFICATIONS_BASE } from '../paths.js'
+import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../paths.js'
 import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
   NOAA_MESSAGE_CODE_REGEX,
+  NoaaScaleNames,
   NotificationStates,
+  StormState,
   currentAlertNotifications,
-  isRaised
+  isRaised,
+  methodForState,
+  stateForScaleValue,
+  stormLevelInForce,
+  stormTransition
 } from '../parse.js'
+import { readStormCache, writeStormCache } from '../cache/stormCache.js'
+import type { Settings } from '../config.js'
 import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { ALERTS } from '../endpoints.js'
@@ -36,6 +44,18 @@ export const alerts: Product = {
           // The delta timestamp on each of these is the NOAA issue time, so a
           // client honouring the timeout expires the notification at the same
           // moment this plugin would stop republishing it.
+          timeout: ALERT_MAX_AGE_MS / 1000
+        }
+      },
+      {
+        path: STORM_BASE,
+        value: {
+          name: 'NOAA SWPC geomagnetic storm (G3 and above)',
+          description:
+            'One notification raised while a Strong (G3) or greater' +
+            ' geomagnetic storm is in force, whichever message codes are' +
+            ' carrying it, standing down once the storm has been below G3' +
+            ' for six hours.',
           timeout: ALERT_MAX_AGE_MS / 1000
         }
       }
@@ -68,6 +88,8 @@ export const alerts: Product = {
     const cleared =
       clearWithdrawn(publisher, live, now) +
       clearSerialNumberPaths(publisher, now)
+
+    publishStorm(publisher, inForce, settings, now)
 
     publisher.debug(
       '%d of %d NOAA messages in force; %d raised or changed, %d cleared',
@@ -142,6 +164,123 @@ function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
     alert.issued.toISOString()
   )
   return true
+}
+
+const STORM_ID = 'noaa_swpc_storm'
+
+/**
+ * The collapsed G3+ storm notification: a derived view over the same in-force
+ * set the per-code paths are published from, not a second reading of NOAA.
+ *
+ * The per-code stream republishes on every fresh serial number, which during
+ * a real storm is most of what NOAA issues (16 of Gannon's 26 path deltas —
+ * the replay in #297/#298). This path publishes a delta only when the storm's
+ * G level actually changes, in either direction, and stands down only after
+ * the in-force set has been quiet for {@link STORM_HOLD_MS}, riding out the
+ * dips between K-index synoptic periods. Loudness runs through the same two
+ * thresholds as everything else — tentative, being revisited in #298 along
+ * with the path name.
+ *
+ * The cache, not the model, holds the state machine: a server restart empties
+ * the model mid-storm, and rereading the level from the path would then
+ * re-alarm at an unchanged level. The model is only healed to match.
+ */
+function publishStorm(
+  publisher: Publisher,
+  inForce: AlertNotification[],
+  settings: Settings,
+  now: Date
+): void {
+  const cached = readStormCache(publisher)
+  const existing = publisher.selfPath(`${STORM_BASE}.value`)
+
+  if (!settings.stormAlertsEnabled) {
+    // Signal K cannot delete a path, so switching the feature off while the
+    // path is raised has to stand it down or it stays raised forever.
+    if (existing && isRaised(existing)) {
+      standDown(publisher, STORM_BASE, existing, now)
+    }
+    if (cached && (cached.level > 0 || cached.belowSince !== null)) {
+      writeCache(
+        publisher,
+        { level: 0, belowSince: null },
+        cached.message,
+        cached.issued
+      )
+    }
+    return
+  }
+
+  const prev: StormState | null = cached
+    ? { level: cached.level, belowSince: cached.belowSince }
+    : null
+  const { level, driver } = stormLevelInForce(inForce)
+  const { next, changed } = stormTransition(prev, level, now)
+
+  // The driver names the current level while one is in force; through the
+  // hold and the stand-down the last raised message is what a client reads.
+  const fromDriver = driver !== null && next.level > 0
+  const message = fromDriver ? driver.mainMessage : (cached?.message ?? '')
+  const issued = fromDriver
+    ? driver.issued.toISOString()
+    : (cached?.issued ?? now.toISOString())
+
+  if (
+    !cached ||
+    cached.level !== next.level ||
+    cached.belowSince !== next.belowSince ||
+    cached.message !== message
+  ) {
+    writeCache(publisher, next, message, issued)
+  }
+
+  const state =
+    next.level === 0
+      ? NotificationStates.NORMAL
+      : stateForScaleValue(next.level, settings.alarmLevel, settings.popupLevel)
+
+  // Publish on a transition, and heal a model that lost the delta (a server
+  // restart empties it); otherwise stay silent — an unchanged value
+  // re-broadcast every poll is what issue #45 was made of.
+  const inSync =
+    existing && existing.level === next.level && existing.state === state
+  const nothingToSay = next.level === 0 && (!existing || !isRaised(existing))
+  if (!changed && (inSync || nothingToSay)) return
+
+  publisher.value(
+    STORM_BASE,
+    {
+      id: STORM_ID,
+      level: next.level,
+      scale:
+        next.level === 0
+          ? null
+          : `G${next.level} - ${NoaaScaleNames[next.level]}`,
+      message,
+      issued,
+      state,
+      method: methodForState(state)
+    },
+    next.level === 0 ? now.toISOString() : issued
+  )
+}
+
+function writeCache(
+  publisher: Publisher,
+  state: StormState,
+  message: string,
+  issued: string
+): void {
+  try {
+    writeStormCache(publisher, {
+      level: state.level,
+      belowSince: state.belowSince,
+      message,
+      issued
+    })
+  } catch (err) {
+    publisher.error(`Failed to cache the storm notification state: ${err}`)
+  }
 }
 
 /** `{ ...value, quiet }` -- keeps the message so a client can still read it. */

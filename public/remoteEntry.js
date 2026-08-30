@@ -667,6 +667,17 @@ function createPanel(React) {
         )
       }),
 
+      h(Check, {
+        id: 'noaa-storm',
+        checked: settings.stormAlertsEnabled,
+        onChange: (value) => set('stormAlertsEnabled', value),
+        label: 'Send a single geomagnetic storm notification (G3 and above)',
+        help:
+          'One notification while a Strong or greater storm is in force,' +
+          ' changing only when the storm deepens or eases — a handful of' +
+          ' episodes in a typical year. Loudness follows the lines below.'
+      }),
+
       h(
         Field,
         {

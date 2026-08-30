@@ -1,0 +1,447 @@
+[
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-13 23:56:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4608\nIssue Time: 2024 May 13 2356 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 4 expected\nExtension to Serial Number: 4607\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 14 2359 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WATA30",
+  "issue_datetime": "2024-05-13 21:03:00",
+  "message": "Space Weather Message Code: WATA30\nSerial Number: 232\nIssue Time: 2024 May 13 2103 UTC\n\nWATCH: Geomagnetic Storm Category G2 Predicted\nHighest Storm Level Predicted by Day:\nMay 14:  G2 (Moderate)   May 15:  G1 (Minor)   May 16:  None (Below G1)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-13 14:55:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1879\nIssue Time: 2024 May 13 1455 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 5 expected\nExtension to Serial Number: 1878\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 13 2100 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-13 04:02:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 571\nIssue Time: 2024 May 13 0402 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-13 03:28:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1591\nIssue Time: 2024 May 13 0328 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-13 02:59:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 570\nIssue Time: 2024 May 13 0259 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-13 01:20:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1590\nIssue Time: 2024 May 13 0120 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK07",
+  "issue_datetime": "2024-05-12 22:43:00",
+  "message": "Space Weather Message Code: WARK07\nSerial Number: 107\nIssue Time: 2024 May 12 2243 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 7 or greater expected\nExtension to Serial Number: 106\nValid From: 2024 May 10 1715 UTC\nNow Valid Until: 2024 May 13 0600 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-12 22:38:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 569\nIssue Time: 2024 May 12 2238 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-12 22:21:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1589\nIssue Time: 2024 May 12 2221 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-12 04:37:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 155\nIssue Time: 2024 May 12 0437 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-12 04:21:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 568\nIssue Time: 2024 May 12 0421 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-12 03:46:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1588\nIssue Time: 2024 May 12 0346 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-12 03:01:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 154\nIssue Time: 2024 May 12 0301 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-12 01:34:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 567\nIssue Time: 2024 May 12 0134 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-12 01:17:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1587\nIssue Time: 2024 May 12 0117 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 21:44:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 153\nIssue Time: 2024 May 11 2144 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 21:16:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 566\nIssue Time: 2024 May 11 2116 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 21:14:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1586\nIssue Time: 2024 May 11 2114 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 19:42:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 152\nIssue Time: 2024 May 11 1942 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 18:31:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 565\nIssue Time: 2024 May 11 1831 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 18:25:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1585\nIssue Time: 2024 May 11 1825 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-11 17:53:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1878\nIssue Time: 2024 May 11 1753 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 5 expected\nExtension to Serial Number: 1876\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 13 1500 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK06",
+  "issue_datetime": "2024-05-11 17:53:00",
+  "message": "Space Weather Message Code: WARK06\nSerial Number: 523\nIssue Time: 2024 May 11 1753 UTC\n\nEXTENDED WARNING: Geomagnetic K-Index of 6 expected\nExtension to Serial Number: 521\nValid From: 2024 May 10 1714 UTC\nNow Valid Until: 2024 May 13 1200 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "WARK07",
+  "issue_datetime": "2024-05-11 17:53:00",
+  "message": "Space Weather Message Code: WARK07\nSerial Number: 106\nIssue Time: 2024 May 11 1753 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 7 or greater expected\nExtension to Serial Number: 105\nValid From: 2024 May 10 1715 UTC\nNow Valid Until: 2024 May 12 2359 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "WATA99",
+  "issue_datetime": "2024-05-11 17:53:00",
+  "message": "Space Weather Message Code: WATA99\nSerial Number: 7\nIssue Time: 2024 May 11 1753 UTC\n\nWATCH: Geomagnetic Storm Category G4 or Greater Predicted\nHighest Storm Level Predicted by Day:\nMay 12:  G5 (Extreme)   May 13:  G3 (Strong)   May 14:  G1 (Minor)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 16:50:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 39\nIssue Time: 2024 May 11 1650 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 15:48:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 151\nIssue Time: 2024 May 11 1548 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 15:22:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 564\nIssue Time: 2024 May 11 1522 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 15:15:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1584\nIssue Time: 2024 May 11 1515 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 12:40:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 38\nIssue Time: 2024 May 11 1240 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 1200-1500 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 12:36:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 150\nIssue Time: 2024 May 11 1236 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 1200-1500 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 12:21:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 563\nIssue Time: 2024 May 11 1221 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 1200-1500 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 12:15:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1583\nIssue Time: 2024 May 11 1215 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 1200-1500 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK09",
+  "issue_datetime": "2024-05-11 11:39:00",
+  "message": "Space Weather Message Code: ALTK09\nSerial Number: 8\nIssue Time: 2024 May 11 1139 UTC\n\nALERT: Geomagnetic K-index of 9o\nSynoptic Period: 0900-1200 UTC\nActive Warning: Yes\nNOAA Scale: G5 - Extreme\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 40 degrees Geomagnetic Latitude.\nInduced Currents - Widespread voltage control problems and protective system problems may occur; some power grid systems may experience component failures or protective device trips resulting in blackouts or disruption of service. Pipeline currents can reach hundreds of amps.\nSpacecraft - Systems may experience anomalies to include: extensive surface charging, unexpected orientation and attitude changes, uplink/downlink errors, and satellite orbit degradation.\nNavigation - Satellite navigation (GPS) may be degraded or unavailable for days.\nRadio - HF (high frequency) radio propagation may be impossible in many areas for one to two days.\nAurora - Aurora may be seen as low as Florida to southern Texas and southern California.\n"
+ },
+ {
+  "product_id": "WATA50",
+  "issue_datetime": "2024-05-11 11:20:00",
+  "message": "Space Weather Message Code: WATA50\nSerial Number: 76\nIssue Time: 2024 May 11 1120 UTC\n\nWATCH: Geomagnetic Storm Category G3 Predicted\nHighest Storm Level Predicted by Day:\nMay 11:  G4 (Severe)   May 12:  G3 (Strong)   May 13:  G3 (Strong)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-11 11:20:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4607\nIssue Time: 2024 May 11 1120 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 4 expected\nExtension to Serial Number: 4606\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 13 2359 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-11 11:20:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1876\nIssue Time: 2024 May 11 1120 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 5 expected\nExtension to Serial Number: 1875\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 12 1500 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK07",
+  "issue_datetime": "2024-05-11 11:20:00",
+  "message": "Space Weather Message Code: WARK07\nSerial Number: 105\nIssue Time: 2024 May 11 1120 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 7 or greater expected\nExtension to Serial Number: 104\nValid From: 2024 May 10 1715 UTC\nNow Valid Until: 2024 May 11 2359 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "WARK06",
+  "issue_datetime": "2024-05-11 11:20:00",
+  "message": "Space Weather Message Code: WARK06\nSerial Number: 521\nIssue Time: 2024 May 11 1120 UTC\n\nEXTENDED WARNING: Geomagnetic K-Index of 6 expected\nExtension to Serial Number: 520\nValid From: 2024 May 10 1714 UTC\nNow Valid Until: 2024 May 12 0900 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 09:44:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 37\nIssue Time: 2024 May 11 0944 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 0900-1200 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 09:41:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 149\nIssue Time: 2024 May 11 0941 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0900-1200 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 09:28:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 562\nIssue Time: 2024 May 11 0928 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0900-1200 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 09:16:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1582\nIssue Time: 2024 May 11 0916 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0900-1200 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 07:09:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 36\nIssue Time: 2024 May 11 0709 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 0600-0900 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 06:49:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 148\nIssue Time: 2024 May 11 0649 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0600-0900 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 06:33:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 561\nIssue Time: 2024 May 11 0633 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0600-0900 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 06:19:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1581\nIssue Time: 2024 May 11 0619 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0600-0900 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 03:38:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 35\nIssue Time: 2024 May 11 0338 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 03:22:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 147\nIssue Time: 2024 May 11 0322 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 03:16:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 560\nIssue Time: 2024 May 11 0316 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 03:12:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1580\nIssue Time: 2024 May 11 0312 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0300-0600 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK09",
+  "issue_datetime": "2024-05-11 02:46:00",
+  "message": "Space Weather Message Code: ALTK09\nSerial Number: 7\nIssue Time: 2024 May 11 0246 UTC\n\nALERT: Geomagnetic K-index of 9o\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G5 - Extreme\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 40 degrees Geomagnetic Latitude.\nInduced Currents - Widespread voltage control problems and protective system problems may occur; some power grid systems may experience component failures or protective device trips resulting in blackouts or disruption of service. Pipeline currents can reach hundreds of amps.\nSpacecraft - Systems may experience anomalies to include: extensive surface charging, unexpected orientation and attitude changes, uplink/downlink errors, and satellite orbit degradation.\nNavigation - Satellite navigation (GPS) may be degraded or unavailable for days.\nRadio - HF (high frequency) radio propagation may be impossible in many areas for one to two days.\nAurora - Aurora may be seen as low as Florida to southern Texas and southern California.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-11 01:02:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 34\nIssue Time: 2024 May 11 0102 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-11 00:36:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 146\nIssue Time: 2024 May 11 0036 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-11 00:31:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 559\nIssue Time: 2024 May 11 0031 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-11 00:21:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1579\nIssue Time: 2024 May 11 0021 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-10 23:57:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4606\nIssue Time: 2024 May 10 2357 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 4 expected\nExtension to Serial Number: 4605\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 12 0000 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-10 23:57:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1875\nIssue Time: 2024 May 10 2357 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 5 expected\nExtension to Serial Number: 1874\nValid From: 2024 May 10 1700 UTC\nNow Valid Until: 2024 May 11 2100 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK06",
+  "issue_datetime": "2024-05-10 23:57:00",
+  "message": "Space Weather Message Code: WARK06\nSerial Number: 520\nIssue Time: 2024 May 10 2357 UTC\n\nEXTENDED WARNING: Geomagnetic K-Index of 6 expected\nExtension to Serial Number: 519\nValid From: 2024 May 10 1714 UTC\nNow Valid Until: 2024 May 11 1800 UTC\nWarning Condition: Onset\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "WARK07",
+  "issue_datetime": "2024-05-10 23:48:00",
+  "message": "Space Weather Message Code: WARK07\nSerial Number: 104\nIssue Time: 2024 May 10 2348 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 7 or greater expected\nExtension to Serial Number: 103\nValid From: 2024 May 10 1715 UTC\nNow Valid Until: 2024 May 11 1200 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK09",
+  "issue_datetime": "2024-05-10 23:34:00",
+  "message": "Space Weather Message Code: ALTK09\nSerial Number: 6\nIssue Time: 2024 May 10 2334 UTC\n\nALERT: Geomagnetic K-index of 9o\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G5 - Extreme\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 40 degrees Geomagnetic Latitude.\nInduced Currents - Widespread voltage control problems and protective system problems may occur; some power grid systems may experience component failures or protective device trips resulting in blackouts or disruption of service. Pipeline currents can reach hundreds of amps.\nSpacecraft - Systems may experience anomalies to include: extensive surface charging, unexpected orientation and attitude changes, uplink/downlink errors, and satellite orbit degradation.\nNavigation - Satellite navigation (GPS) may be degraded or unavailable for days.\nRadio - HF (high frequency) radio propagation may be impossible in many areas for one to two days.\nAurora - Aurora may be seen as low as Florida to southern Texas and southern California.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-10 21:45:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 33\nIssue Time: 2024 May 10 2145 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-10 21:26:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 145\nIssue Time: 2024 May 10 2126 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-10 21:15:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1578\nIssue Time: 2024 May 10 2115 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-10 21:15:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 558\nIssue Time: 2024 May 10 2115 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-10 19:04:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 32\nIssue Time: 2024 May 10 1904 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-10 18:31:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 144\nIssue Time: 2024 May 10 1831 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-10 18:22:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 557\nIssue Time: 2024 May 10 1822 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-10 18:14:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1577\nIssue Time: 2024 May 10 1814 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 1800-2100 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK08",
+  "issue_datetime": "2024-05-10 17:44:00",
+  "message": "Space Weather Message Code: ALTK08\nSerial Number: 31\nIssue Time: 2024 May 10 1744 UTC\n\nALERT: Geomagnetic K-index of 8, 9-\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G4 - Severe\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "ALTK07",
+  "issue_datetime": "2024-05-10 17:18:00",
+  "message": "Space Weather Message Code: ALTK07\nSerial Number: 143\nIssue Time: 2024 May 10 1718 UTC\n\nALERT: Geomagnetic K-index of 7\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G3 - Strong\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "ALTK06",
+  "issue_datetime": "2024-05-10 17:17:00",
+  "message": "Space Weather Message Code: ALTK06\nSerial Number: 556\nIssue Time: 2024 May 10 1717 UTC\n\nALERT: Geomagnetic K-index of 6\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "WARK07",
+  "issue_datetime": "2024-05-10 17:16:00",
+  "message": "Space Weather Message Code: WARK07\nSerial Number: 103\nIssue Time: 2024 May 10 1716 UTC\n\nWARNING: Geomagnetic K-index of 7 or greater expected\nValid From: 2024 May 10 1715 UTC\nValid To: 2024 May 10 2359 UTC\nWarning Condition: Onset\nNOAA Scale: G3 or greater\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "WARK06",
+  "issue_datetime": "2024-05-10 17:15:00",
+  "message": "Space Weather Message Code: WARK06\nSerial Number: 519\nIssue Time: 2024 May 10 1715 UTC\n\nWARNING: Geomagnetic K-Index of 6 expected\nValid From: 2024 May 10 1714 UTC\nValid To: 2024 May 11 0900 UTC\nWarning Condition: Onset\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-10 17:14:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1576\nIssue Time: 2024 May 10 1714 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK04",
+  "issue_datetime": "2024-05-10 17:11:00",
+  "message": "Space Weather Message Code: ALTK04\nSerial Number: 2446\nIssue Time: 2024 May 10 1711 UTC\n\nALERT: Geomagnetic K-index of 4\nSynoptic Period: 1500-1800 UTC\nActive Warning: Yes\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-10 16:51:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1874\nIssue Time: 2024 May 10 1651 UTC\n\nWARNING: Geomagnetic K-index of 5 expected\nValid From: 2024 May 10 1700 UTC\nValid To: 2024 May 11 1200 UTC\nWarning Condition: Onset\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-10 16:50:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4605\nIssue Time: 2024 May 10 1650 UTC\n\nWARNING: Geomagnetic K-index of 4 expected\nValid From: 2024 May 10 1700 UTC\nValid To: 2024 May 11 1500 UTC\nWarning Condition: Onset\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WATA99",
+  "issue_datetime": "2024-05-09 17:22:00",
+  "message": "Space Weather Message Code: WATA99\nSerial Number: 6\nIssue Time: 2024 May 09 1722 UTC\n\nWATCH: Geomagnetic Storm Category G4 or Greater Predicted\nHighest Storm Level Predicted by Day:\nMay 10:  G1 (Minor)   May 11:  G4 (Severe)   May 12:  G2 (Moderate)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 45 degrees Geomagnetic Latitude.\nInduced Currents - Possible widespread voltage control problems and some protective systems may mistakenly trip out key assets from the power grid. Induced pipeline currents intensify.\nSpacecraft - Systems may experience surface charging; increased drag on low earth orbit satellites, and tracking and orientation problems may occur.\nNavigation - Satellite navigation (GPS) degraded or inoperable for hours.\nRadio - HF (high frequency) radio propagation sporadic or blacked out.\nAurora - Aurora may be seen as low as Alabama and northern California.\n"
+ },
+ {
+  "product_id": "WATA50",
+  "issue_datetime": "2024-05-09 08:34:00",
+  "message": "Space Weather Message Code: WATA50\nSerial Number: 75\nIssue Time: 2024 May 09 0834 UTC\n\nWATCH: Geomagnetic Storm Category G3 Predicted\nHighest Storm Level Predicted by Day:\nMay 09:  None (Below G1)   May 10:  G1 (Minor)   May 11:  G3 (Strong)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 50 degrees Geomagnetic Latitude.\nInduced Currents - Power system voltage irregularities possible, false alarms may be triggered on some protection devices.\nSpacecraft - Systems may experience surface charging; increased drag on low Earth-orbit satellites and orientation problems may occur.\nNavigation - Intermittent satellite navigation (GPS) problems, including loss-of-lock and increased range error may occur.\nRadio - HF (high frequency) radio may be intermittent.\nAurora - Aurora may be seen as low as Pennsylvania to Iowa to Oregon.\n"
+ },
+ {
+  "product_id": "WATA30",
+  "issue_datetime": "2024-05-08 16:03:00",
+  "message": "Space Weather Message Code: WATA30\nSerial Number: 231\nIssue Time: 2024 May 08 1603 UTC\n\nWATCH: Geomagnetic Storm Category G2 Predicted\nHighest Storm Level Predicted by Day:\nMay 09:  None (Below G1)   May 10:  G1 (Minor)   May 11:  G2 (Moderate)\nTHIS SUPERSEDES ANY/ALL PRIOR WATCHES IN EFFECT\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-06 09:00:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4604\nIssue Time: 2024 May 06 0900 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 4 expected\nExtension to Serial Number: 4603\nValid From: 2024 May 05 1930 UTC\nNow Valid Until: 2024 May 06 2100 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-06 08:55:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1873\nIssue Time: 2024 May 06 0855 UTC\n\nEXTENDED WARNING: Geomagnetic K-index of 5 expected\nExtension to Serial Number: 1872\nValid From: 2024 May 05 2335 UTC\nNow Valid Until: 2024 May 06 1800 UTC\nWarning Condition: Persistence\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK06",
+  "issue_datetime": "2024-05-06 01:18:00",
+  "message": "Space Weather Message Code: WARK06\nSerial Number: 518\nIssue Time: 2024 May 06 0118 UTC\n\nWARNING: Geomagnetic K-Index of 6 expected\nValid From: 2024 May 06 0118 UTC\nValid To: 2024 May 06 0900 UTC\nWarning Condition: Onset\nNOAA Scale: G2 - Moderate\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 55 degrees Geomagnetic Latitude.\nInduced Currents - Power grid fluctuations can occur. High-latitude power systems may experience voltage alarms.\nSpacecraft - Satellite orientation irregularities may occur; increased drag on low Earth-orbit satellites is possible.\nRadio - HF (high frequency) radio propagation can fade at higher latitudes.\nAurora - Aurora may be seen as low as New York to Wisconsin to Washington state.\n"
+ },
+ {
+  "product_id": "ALTK05",
+  "issue_datetime": "2024-05-06 01:18:00",
+  "message": "Space Weather Message Code: ALTK05\nSerial Number: 1575\nIssue Time: 2024 May 06 0118 UTC\n\nALERT: Geomagnetic K-index of 5\nSynoptic Period: 0000-0300 UTC\nActive Warning: Yes\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "WARK05",
+  "issue_datetime": "2024-05-05 23:36:00",
+  "message": "Space Weather Message Code: WARK05\nSerial Number: 1872\nIssue Time: 2024 May 05 2336 UTC\n\nWARNING: Geomagnetic K-index of 5 expected\nValid From: 2024 May 05 2335 UTC\nValid To: 2024 May 06 0900 UTC\nWarning Condition: Onset\nNOAA Scale: G1 - Minor\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 60 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nSpacecraft - Minor impact on satellite operations possible.\nAurora - Aurora may be visible at high latitudes, i.e., northern tier of the U.S. such as northern Michigan and Maine.\n"
+ },
+ {
+  "product_id": "ALTK04",
+  "issue_datetime": "2024-05-05 23:33:00",
+  "message": "Space Weather Message Code: ALTK04\nSerial Number: 2445\nIssue Time: 2024 May 05 2333 UTC\n\nALERT: Geomagnetic K-index of 4\nSynoptic Period: 2100-2400 UTC\nActive Warning: Yes\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ },
+ {
+  "product_id": "WARK04",
+  "issue_datetime": "2024-05-05 19:32:00",
+  "message": "Space Weather Message Code: WARK04\nSerial Number: 4603\nIssue Time: 2024 May 05 1932 UTC\n\nWARNING: Geomagnetic K-index of 4 expected\nValid From: 2024 May 05 1930 UTC\nValid To: 2024 May 06 1200 UTC\nWarning Condition: Onset\nwww.swpc.noaa.gov/noaa-scales-explanation\nPotential Impacts: Area of impact primarily poleward of 65 degrees Geomagnetic Latitude.\nInduced Currents - Weak power grid fluctuations can occur.\nAurora - Aurora may be visible at high latitudes such as Canada and Alaska.\n"
+ }
+]

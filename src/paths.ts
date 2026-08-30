@@ -38,6 +38,16 @@ export const ADVISORY_VALUE_BASE = 'environment.noaa.swpc.advisory_outlook'
  * explains why, and `clearSerialNumberPaths` cleans up after the old scheme.
  */
 export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
+/**
+ * The collapsed G3+ geomagnetic storm notification: one path that is raised
+ * while a Strong-or-greater storm is in force, whatever mix of message codes
+ * is carrying it. `stormLevelInForce`/`stormTransition` in parse.ts own the
+ * semantics.
+ *
+ * The leaf is a deliberately unshippable PLACEHOLDER: the real name is still
+ * being decided in #298. Rename it there before this reaches a release.
+ */
+export const STORM_BASE = 'notifications.noaa.swpc.stormPlaceholder'
 // A single "most recent Noon reading" value, not bucketed by observation
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'

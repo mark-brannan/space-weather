@@ -12,6 +12,7 @@ import { ALARM_NEVER, DEFAULT_LIST_LEVEL, NoaaScaleValues } from './parse.js'
 
 export interface Settings {
   sendAdvisoryOutlook: boolean
+  stormAlertsEnabled: boolean
   auroraEnabled: boolean
   auroraInterval: number
   drapEnabled: boolean
@@ -80,6 +81,17 @@ export const schema = {
       description:
         'Governs the notification only \u2014 the bulletin is fetched either' +
         ' way, at under a kilobyte a day.',
+      default: true
+    },
+    stormAlertsEnabled: {
+      type: 'boolean',
+      title: 'Send a single geomagnetic storm notification (G3 and above)',
+      description:
+        'One notification raised while a Strong (G3) or greater storm is in' +
+        ' force, changing only when the storm deepens or eases and standing' +
+        ' down six hours after it ends — a handful of episodes in a typical' +
+        ' year. Loudness follows the two thresholds below. The per-message' +
+        ' notifications are published either way.',
       default: true
     },
     // Loudest first, so reading down the form turns the plugin down. Each of
@@ -280,6 +292,7 @@ export function settingsFrom(props: any): Settings {
   const popupLevel = popupBand(p.popupLevel, alarmLevel)
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
+    stormAlertsEnabled: p.stormAlertsEnabled !== false,
     auroraEnabled: p.auroraEnabled === true,
     auroraInterval: minutes(p.auroraInterval, 120),
     // On by default, unlike aurora: it is the same order of size as the poll

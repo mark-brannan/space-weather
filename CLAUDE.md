@@ -93,6 +93,18 @@ per-message loop in the product
 argument in
 [docs/design-decisions.md](docs/design-decisions.md#alerts-are-keyed-by-message-code-not-serial-number)).
 
+**The collapsed G3+ storm notification (`STORM_BASE`) publishes on level
+transitions, in both directions, and stands down only after six quiet hours.**
+It is a derived view over the alerts product's own in-force set —
+`publishStorm` in `products/alerts.ts`, state machine in `stormTransition` in
+`parse.ts`, hold state persisted in `stormCache.ts` so a restart doesn't
+re-alarm or re-time the hold. Same-level re-triggers are suppressed, watches
+(`WATA`) never raise it, and the path leaf is a deliberate placeholder — the
+name and the loudness policy are still open in
+[#298](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/298).
+Replay-measured argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-storm-notification-collapses-by-level-and-rides-a-six-hour-hold).
+
 **Every notification goes through `methodForState`, and loudness is
 controlled only by three ordered thresholds — `alarmLevel` (sounds),
 `popupLevel` (visible, silent) and `listLevel` (listed, silent).** State is

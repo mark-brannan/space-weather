@@ -775,6 +775,100 @@ function downgraded(
 }
 
 /**
+ * How long the collapsed storm notification stays raised after the last G3+
+ * message leaves the in-force set.
+ *
+ * Storms genuinely dip below G3 between K-index synoptic periods: replaying
+ * the 2018-2025 SWPC archive through `currentAlertNotifications` at hourly
+ * polls, a zero-hold "in force right now" signal raised and stood down 51
+ * times in 7 years, with within-episode down-gaps of 1-6 hours (median 2).
+ * Six hours merges every observed gap and cuts the raises to 29; 12 hours
+ * buys one fewer. Counts and the replay are in issues #297/#298.
+ */
+export const STORM_HOLD_MS = 6 * 60 * 60 * 1000
+
+/**
+ * The collapsed notification's memory between polls: the level it is
+ * published at, and when the in-force set last went quiet while it was up.
+ */
+export interface StormState {
+  /** 0 when stood down, otherwise the G level the path is raised at. */
+  level: number
+  /** ISO instant the in-force set dropped below G3, while still holding. */
+  belowSince: string | null
+}
+
+/**
+ * The G level a Strong-or-greater storm is currently at, judged only from the
+ * K-index alert/warning ladder. Watches (`WATA`) are multi-day forecasts, not
+ * a storm in progress, and every other G-scale message either has no level or
+ * duplicates these. 0 when nothing G3+ is in force.
+ *
+ * A `normal` entry is skipped even though its code is on the ladder: a
+ * cancellation stays in the in-force set at `normal` — that is how it stands
+ * the per-code path down — and reading its code as a live level would keep
+ * the storm raised on the strength of the message that ended it.
+ */
+export function stormLevelInForce(inForce: AlertNotification[]): {
+  level: number
+  driver: AlertNotification | null
+} {
+  let level = 0
+  let driver: AlertNotification | null = null
+  for (const alert of inForce) {
+    if (alert.state === NotificationStates.NORMAL) continue
+    const rung = ladderRung(alert.code)
+    if (!rung || rung.family === 'WATA') continue
+    const g = gScaleForKp(rung.level)
+    if (g >= NoaaScaleValues.STRONG && g > level) {
+      level = g
+      driver = alert
+    }
+  }
+  return { level, driver }
+}
+
+/**
+ * One step of the collapsed storm notification's state machine.
+ *
+ * Escalation-aware: the published level follows the in-force level both ways
+ * while a storm runs, so a dip to G4 and a return to G5 is a fresh alarm --
+ * new actionable information, not a repeat. What it suppresses is the same
+ * level arriving under a fresh serial number (most of a storm's issuance:
+ * 16 of Gannon's 26 path deltas in the replay), and the flap below G3 between
+ * synoptic periods, which {@link STORM_HOLD_MS} rides out. `changed` is true
+ * exactly when a subscriber should see a delta.
+ */
+export function stormTransition(
+  prev: StormState | null,
+  level: number,
+  now: Date,
+  holdMs: number = STORM_HOLD_MS
+): { next: StormState; changed: boolean } {
+  const held = prev ?? { level: 0, belowSince: null }
+
+  if (level >= NoaaScaleValues.STRONG) {
+    return {
+      next: { level, belowSince: null },
+      changed: level !== held.level
+    }
+  }
+  if (held.level === 0) {
+    return { next: { level: 0, belowSince: null }, changed: false }
+  }
+  if (held.belowSince === null) {
+    return {
+      next: { level: held.level, belowSince: now.toISOString() },
+      changed: false
+    }
+  }
+  if (now.getTime() - Date.parse(held.belowSince) >= holdMs) {
+    return { next: { level: 0, belowSince: null }, changed: true }
+  }
+  return { next: held, changed: false }
+}
+
+/**
  * Transform one range entry of
  * https://services.swpc.noaa.gov/products/noaa-scales.json
  *
