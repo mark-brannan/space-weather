@@ -53,6 +53,39 @@ export function uncapitalise(text) {
  */
 export const kpFloorForG = (g) => KP_FOR_G1 + g - 1 - 1 / 3
 
+/**
+ * The 27-day outlook's peak and first storm day, over the stretch of it that
+ * is still ahead of `from` -- not over the whole table.
+ *
+ * `...outlook27.maxKp` and `...nextStormTime` are published over all 27 rows,
+ * because the plugin has no view to answer to and the whole table is what it
+ * parsed. On screen that is wrong twice over: the window is fixed when NOAA
+ * issues it, so those two can name a day that has already been and gone, and
+ * most of the days they can name that have not are days the 3-day forecast
+ * answers at far higher resolution and skill. So the webapp passes `from` as
+ * the end of the 3-day series and asks what the outlook adds beyond it, which
+ * is also the only stretch the chart draws un-ghosted -- one rule, so the
+ * sentence and the peak marker cannot name different days.
+ *
+ * Returns null when nothing is left, which a table stale by more than its own
+ * window would give.
+ *
+ * @param days  `{time, kp}` per UTC day, as `...outlook27.series` publishes
+ * @param from  epoch ms; days starting before this are somebody else's answer
+ */
+export function outlookAhead(days, from) {
+  const live = days.filter(
+    (d) => Date.parse(d.time) >= from && d.kp !== null && d.kp !== undefined
+  )
+  if (live.length === 0) return null
+  return {
+    // First day attaining the peak, not the last: for planning, the question
+    // is when the disturbed stretch starts. Same rule as parse27DayOutlook.
+    peak: live.reduce((best, d) => (d.kp > best.kp ? d : best)),
+    storm: live.find((d) => d.kp >= kpFloorForG(1)) ?? null
+  }
+}
+
 /** Mirrors gScaleForKp in src/parse.ts. */
 export function gScaleForKp(kp) {
   if (!Number.isFinite(kp)) return 0

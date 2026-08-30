@@ -4,6 +4,7 @@ import {
   gScaleForKp,
   heroState,
   kpFloorForG,
+  outlookAhead,
   timerFor,
   uncapitalise,
   watchAhead
@@ -445,5 +446,55 @@ describe('the forecast escalation floor', () => {
   it('still counts to a real escalation above a storm already running', () => {
     const result = timerFor(series(6.0, 8.0), 3, NOW)
     expect(result).toMatchObject({ kind: 'until-level', level: 4 })
+  })
+})
+
+describe('outlookAhead', () => {
+  const DAY = 24 * HOUR
+  /** One row per UTC day, the way `...outlook27.series` publishes them. */
+  const days = (startOffsetDays: number, ...kps: (number | null)[]) => {
+    const midnight = Date.UTC(2026, 7, 12)
+    return kps.map((kp, i) => ({
+      time: new Date(midnight + (startOffsetDays + i) * DAY).toISOString(),
+      kp
+    }))
+  }
+  // Where the 3-day forecast stops, which is what the webapp passes.
+  const FROM = NOW + 3 * DAY
+
+  it('ignores days the 3-day forecast already answers', () => {
+    // The peak of the whole table is on day 0, five days before `from`, and
+    // is exactly what `...outlook27.maxKp` would report.
+    const result = outlookAhead(days(-5, 8, 7, 2, 2, 2, 2, 2, 2, 2, 4, 3), FROM)
+    expect(result?.peak.kp).toBe(4)
+    expect(result?.peak.time).toBe('2026-08-16T00:00:00.000Z')
+  })
+
+  it('names the first day attaining the peak, not the last', () => {
+    const result = outlookAhead(days(0, 2, 2, 2, 2, 5, 3, 5), FROM)
+    expect(result?.peak.time).toBe('2026-08-16T00:00:00.000Z')
+  })
+
+  it('finds the first storm day at or above the G1 floor', () => {
+    const result = outlookAhead(days(0, 2, 2, 2, 2, 4, 5, 6), FROM)
+    expect(result?.storm?.kp).toBe(5)
+    expect(result?.storm?.time).toBe('2026-08-17T00:00:00.000Z')
+  })
+
+  it('reports no storm when nothing ahead reaches G1', () => {
+    // A G1 day inside the stretch the 3-day forecast covers is not this
+    // product's news, so it must not be reported as one.
+    expect(outlookAhead(days(0, 6, 6, 6, 4, 4), FROM)?.storm).toBe(null)
+  })
+
+  it('skips a day whose Kp column NOAA shipped corrupt', () => {
+    // parse.ts drops an implausible column to null rather than guessing; a
+    // dropped day must not read as a quiet one, nor become the peak.
+    const result = outlookAhead(days(0, 2, 2, 2, null, 3, null), FROM)
+    expect(result?.peak.kp).toBe(3)
+  })
+
+  it('returns null once the whole window is behind us', () => {
+    expect(outlookAhead(days(-30, 4, 5, 6), FROM)).toBe(null)
   })
 })

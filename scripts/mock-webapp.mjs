@@ -506,6 +506,38 @@ function series({
   return out
 }
 
+/**
+ * The 27-day outlook: one row per UTC day for a full solar rotation, as
+ * NOAA's weekly table gives it.
+ *
+ * `issuedDaysAgo` is the knob that matters and has no equivalent in the 3-day
+ * series -- the table's window is fixed when it is issued and the product
+ * polls it daily, so by the time it is read some of its leading days are
+ * already history and the next three are answered better by the chart above.
+ * A window that always started today would never show the ghosted stretch,
+ * which is most of what the chart has to get right.
+ */
+function outlook27({ peakKp = 4, peakDayFromNow = 12, issuedDaysAgo = 5 } = {}) {
+  const midnight = new Date()
+  midnight.setUTCHours(0, 0, 0, 0)
+  const day0 = midnight.getTime() - issuedDaysAgo * 86400000
+  const out = []
+  for (let i = 0; i < 27; i++) {
+    const from = i - issuedDaysAgo
+    const decay = Math.abs(from - peakDayFromNow) / 2.2
+    const kp = Math.max(1, Math.min(9, Math.round(
+      Math.max(2 + Math.sin(i / 2.1) * 0.8, peakKp - decay)
+    )))
+    out.push({
+      time: new Date(day0 + i * 86400000).toISOString(),
+      f107: 90 + Math.round(Math.sin(i / 4) * 25 + i * 0.8),
+      aIndex: Math.max(2, Math.round(kp * kp * 0.9)),
+      kp
+    })
+  }
+  return out
+}
+
 /** A watch body, in NOAA's layout -- the list renders this verbatim. */
 function watchText(level, firstDay, stormDay) {
   const cell = (d) => d.toUTCString().slice(5, 11).replace(/^0/, '')
@@ -579,6 +611,9 @@ const STATES = {
   },
   brewing: {
     label: 'G3 forecast',
+    // Issued this morning, so the only ghosted bars are the three the chart
+    // above already answers -- the narrowest that stretch ever gets.
+    outlook: outlook27({ peakKp: 6, peakDayFromNow: 9, issuedDaysAgo: 0 }),
     observed: { G: 0, S: 0, R: 1 },
     peak24h: { G: 1, S: 0, R: 1 },
     kpObserved: 3.0,
@@ -642,6 +677,9 @@ const STATES = {
     // Two scales at once, so the hero has to fold an "Also S4:" clause into
     // the impact sentence -- the longest string the layout ever carries.
     label: 'G4 + S4 in force',
+    // Six days into the issue: the widest the ghosted stretch ever gets, and
+    // a storm day that has already been and gone inside the window.
+    outlook: outlook27({ peakKp: 7, peakDayFromNow: -4, issuedDaysAgo: 6 }),
     // What a real storm's messages look like: the alert that fired, the
     // warning still running under it, and the summary of the burst that has
     // already passed. Three verbs, three states, one story.
@@ -728,6 +766,9 @@ const STATES = {
   },
   stale: {
     label: 'Stale data',
+    // No 27-day outlook: the fresh-install case, where the daily product has
+    // not run yet and the tile has to end cleanly after the 72-hour chart.
+    outlook: null,
     observed: { G: 1, S: 0, R: 0 },
     peak24h: { G: 1, S: 0, R: 0 },
     kpObserved: 2.0,
@@ -744,6 +785,21 @@ const STATES = {
     kpObserved: null,
     series: null,
     startedMin: -60
+  }
+}
+
+/** The five scalar leaves outlook27.ts publishes beside the series. */
+function outlookLeaves(days) {
+  const rated = days.filter((d) => d.kp !== null)
+  const peak = rated.reduce((best, d) => (d.kp > best.kp ? d : best), rated[0])
+  const storm = rated.find((d) => d.kp >= 5) ?? null
+  return {
+    maxKp: leaf(peak.kp),
+    maxKpTime: leaf(peak.time),
+    maxNoaaScale: leaf(Math.max(0, Math.min(5, Math.floor(peak.kp) - 4))),
+    nextStormTime: leaf(storm ? storm.time : null),
+    nextStormKp: leaf(storm ? storm.kp : null),
+    series: leaf(days)
   }
 }
 
@@ -799,7 +855,12 @@ function payload(name, s) {
           max24h: leaf(Math.max(...s.series.slice(from, from + 8).map((p) => p.kp))),
           max72h: leaf(Math.max(...s.series.map((p) => p.kp))),
           maxNoaaScale: leaf(s.observed?.G ?? 0),
-          series: leaf(s.series)
+          series: leaf(s.series),
+          // Absent on a state that sets `outlook: null`: the 27-day product
+          // polls daily against a weekly issue, so a fresh install has the
+          // 3-day forecast for most of a day before it has this one, and the
+          // tile has to be complete without it.
+          ...(s.outlook === null ? {} : { outlook27: outlookLeaves(s.outlook ?? outlook27()) })
         }
       }
     case 'alerts': {

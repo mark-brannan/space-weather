@@ -124,7 +124,8 @@
      justify-content:space-between on .statusbar has nothing left to space
      between a single item, so the countdown pins itself to the far edge
      with margin-left:auto instead. */
-  .statusbar-lead { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; }
+  .statusbar-lead { display: flex; flex: 0 1 auto; align-items: center; gap: 12px; min-width: 0; }
+  .statusbar-tail { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; margin-left: auto; }
   .statusbar-sep { width: 1px; align-self: stretch; min-height: 1.4em; background: var(--grid); }
   /* The same element and the same renderTimer as the old hero clock, at bar
      scale: digits and label share one baseline instead of stacking. */
@@ -311,8 +312,8 @@
      (letter + flare class) is visually taller than G/S's.
 
      The name and badge columns, and everything sized off them, are fluid
-     (clamp of a cqw fraction) rather than fixed px -- #scalesBody is the
-     query container below. Below ~600px in the container the fixed 190px
+     (clamp of a cqw fraction) rather than fixed px -- the scales container
+     below is the query container. Below ~600px in the container the fixed 190px
      name column was reserving more space than "Solar Radiation Storm" needs,
      which is wasted at every width; below ~540px that same fixed reservation
      left the 1fr forecast columns too little room and the third day got
@@ -322,7 +323,7 @@
      lose it to. Measured across the mock's `storm` state (its longest
      content: G4/S4/R3, three populated forecast days) in a browser sweep
      from 1180px down to 380px. */
-  #scalesBody {
+  [data-slot="scales"] {
     container-type: inline-size;
     --scales-col-name: clamp(60px, 28cqw, 175px);
     --scales-col-badge: clamp(44px, 14cqw, 90px);
@@ -591,9 +592,21 @@
   .timeline-wrap {
     margin-left: calc(-1 * var(--tile-pad-x)); margin-right: calc(-1 * var(--tile-pad-x));
   }
-  #kpChart { display: block; width: 100%; height: 132px; }
+  /* The height here is only what the box reserves before the first paint;
+     kpPlot sets the real one, so a chart that asks for a date gutter does not
+     need a second hand-typed number here to agree with it. */
+  #kpChart, #outlook27Chart { display: block; width: 100%; height: 132px; }
   .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
+  .timeline-legend .sw.block { height: 9px; width: 7px; opacity: 0.45; }
+  /* The span control sits over the chart's right-hand end rather than up in
+     the tile head, because what it changes is the chart's x-axis and nothing
+     else on the tile. Right-aligned: it is the far end of the window that
+     moves when it is pressed. */
+  .kp-span { display: flex; justify-content: flex-end; margin: -2px 0 8px; }
+  .caveat {
+    margin: 12px 0 0; font-size: 0.72rem; color: var(--text-dim); max-width: 74ch;
+  }
   .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
   .kp-summary b { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 400; }
 
@@ -614,12 +627,6 @@
   }
   .btn-outline:hover { border-color: var(--amber); color: var(--amber); }
   .btn-outline:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-  .map-body { margin-top: 14px; }
-  /* Width and margin are set in JS (applyExpandedWidth) rather than here: how
-     much room "Expand" can give depends on the viewport, which CSS alone
-     cannot ask. The transition is the only thing that belongs in the
-     stylesheet. */
-  .space-map-tile { transition: width 0.15s ease, margin 0.15s ease; }
   /* The toolbar wraps rather than scrolls: on a phone the controls stack
      above the map, which is the order they are read in anyway. */
   .map-toolbar {
@@ -849,154 +856,355 @@
   }
   .auth-banner.show { display: flex; }
   .auth-banner a { color: var(--sev-4); font-weight: 600; text-decoration: underline; }
+
+  /* --- Views ---------------------------------------------------------------
+     One page, one poll, one state object: the tabs choose what is drawn.
+     Every panel but the shown one carries `hidden`, which is also what keeps
+     a hidden canvas from drawing -- its container has no box, so the map's
+     ResizeObserver reports nothing to draw into. */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--grid);
+  }
+  .topbar-inner { max-width: 1180px; margin: 0 auto; padding: 14px 20px 0; }
+  .topbar .statusbar { margin-bottom: 0; }
+  .topbar .auth-banner { margin-top: 12px; }
+  /* In the bar, not under it. A row of four words does not earn a band of its
+     own across the top of every view -- and on the map, where the bar is the
+     only thing above a full-bleed picture, that band was pixels taken straight
+     off the picture. */
+  .viewnav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; align-self: stretch; }
+  .viewnav::-webkit-scrollbar { display: none; }
+  .viewnav button {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    color: var(--text-dim); cursor: pointer; white-space: nowrap;
+    font-family: var(--font-display); font-size: 0.7rem;
+    letter-spacing: 0.09em; text-transform: uppercase; padding: 4px 13px;
+  }
+  .viewnav button:hover { color: var(--text); }
+  .viewnav button[aria-selected="true"] { color: var(--amber); border-bottom-color: var(--amber); }
+  .viewnav button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+  .view:focus { outline: none; }
+  .view[hidden] { display: none; }
+  .shell { padding-top: 18px; }
+  .view-placeholder { min-height: 320px; display: flex; flex-direction: column; }
+
+  /* --- The map view --------------------------------------------------------
+     Full-bleed: the canvas row is the only thing that flexes, so the picture
+     is whatever the viewport leaves it. There is no computed height and no
+     ceiling any more -- RASTER_MAX_SIDE already caps what the raster costs,
+     so a full-screen map is the same work as a tile-sized one.
+     The shell is out of the way entirely while this view is up, which is what
+     lets 100dvh be the whole viewport rather than 100dvh below a footer. */
+  body[data-view="map"] { overflow: hidden; height: 100dvh; display: flex; flex-direction: column; }
+  body[data-view="map"] .shell { display: none; }
+  /* The view asks for the whole viewport and the column hands it what is left
+     after the bar above it. Asking in that order is what keeps the height a
+     declaration rather than a measurement: nothing here reads the bar's box,
+     so nothing can bounce against it. */
+  .map-view { height: 100dvh; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; }
+  .map-view .map-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .map-canvas-row { position: relative; flex: 1 1 auto; min-height: 0; }
+  /* Absolutely positioned so the canvas can never feed its own size back into
+     the row it is measured from. */
+  .map-view #spaceMapCanvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
+
+  /* The toolbar floats over the picture rather than stacking above it: the map
+     is what the reader came for, and the controls are worth the pixels they
+     cover, not the ones they would push the picture down by. Two floating
+     pieces only -- controls and readout -- because a third would have to be
+     positioned against the height of one of the others, and measuring one
+     element to place another is the bounce this view exists to be rid of. */
+  .map-view .map-body { position: relative; }
+  .map-view .map-toolbar,
+  .map-view .map-footer {
+    position: absolute; z-index: 2; margin: 0;
+    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    backdrop-filter: blur(10px);
+    border: 1px solid color-mix(in srgb, var(--grid) 70%, transparent);
+    padding: 8px 14px;
+  }
+  .map-view .map-help { margin: 0; }
+  .map-view .drap-probe { margin: 0; }
+  .map-view .map-footer { gap: 8px; }
+  .map-view .map-footer .drap-probe:empty { display: none; }
+
+  /* Wide viewports: one gutter down the left edge, holding the controls and
+     the per-layer readout together, and the picture takes everything else.
+     A plain flex row -- the rail declares its width, the canvas row is what is
+     left -- so nothing here measures anything and nothing floats over the map.
+     Two gutters on opposite edges spent two margins to say the same thing. */
+  .map-view .map-body { flex-direction: row; }
+  .map-rail {
+    flex: 0 0 17rem; min-width: 0; display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto; overscroll-behavior: contain;
+    background: color-mix(in srgb, var(--panel) 78%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--grid) 70%, transparent);
+    padding: 10px 14px;
+  }
+  .map-view .map-toolbar,
+  .map-view .map-footer {
+    position: static; background: none; border: 0; backdrop-filter: none;
+    padding: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px;
+  }
+  .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .diag-teaser { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .diag-verdict { color: var(--text-dim); font-size: 0.86rem; }
+  .diag-verdict.warn { color: var(--amber); }
+  .diag-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 14px; }
+  .advisory-tile .advisory-teaser { margin-top: 8px; max-width: 78ch; }
+  .map-rail .aurora-rail .tile,
+  .map-rail .aurora-rail .aurora-body { padding: 0; background: none; border: 0; }
+
+  /* Narrow enough that a gutter would be most of the width. The rail stops
+     being a box at all -- `display: contents` hands its two children straight
+     back to .map-body -- and they go back to floating as strips, where the
+     dimension they spend is the one a wide-and-short picture can spare. */
+  @media (max-width: 1100px) {
+    .map-view .map-body { flex-direction: column; }
+    .map-rail { display: contents; }
+    .map-view .map-toolbar,
+    .map-view .map-footer {
+      position: absolute; z-index: 2; left: 0; right: 0; padding: 8px 14px;
+      background: color-mix(in srgb, var(--panel) 78%, transparent);
+      backdrop-filter: blur(10px);
+      border: 1px solid color-mix(in srgb, var(--grid) 70%, transparent);
+      flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+    }
+    .map-view .map-toolbar { top: 0; border-width: 0 0 1px; }
+    .map-view .map-footer { bottom: 0; border-width: 1px 0 0; }
+    .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
+    .map-view .map-section { flex-direction: row; align-items: center; flex: 1 1 24rem; gap: 8px; }
+    .map-view .drap-probe { flex: 1 1 100%; }
+    .map-view .aurora-rail { flex: 1 1 100%; }
+    /* The two strips will happily take half the screen between them, and what
+       they would take it from is the map. Bounded and scrolled instead -- a
+       control that has to be scrolled to is still reachable; a map squeezed to
+       a letterbox is not a map. */
+    .map-view .map-toolbar { max-height: 26%; overflow-y: auto; overscroll-behavior: contain; }
+    .map-view .map-footer { max-height: 32%; overflow-y: auto; overscroll-behavior: contain; }
+  }
+
+  @media (max-width: 760px) {
+    .topbar-inner { padding: 10px 12px 0; }
+    .viewnav button { padding: 4px 9px; font-size: 0.64rem; letter-spacing: 0.06em; }
+    .map-view .map-toolbar, .map-view .map-footer { padding: 6px 10px; }
+  }
 </style>
 
+<header class="topbar">
+  <div class="topbar-inner">
+    <!-- Command bar: the bar carries the whole verdict -- severity, then the
+         countdown with its label -- so the tile below is text only. Nothing
+         about the boat belongs here: the vessel name is on every other page of
+         the server, and position is what the aurora map is drawn around, so it
+         is labelled there instead. It sits above the views rather than in one
+         because the verdict is true whichever question the reader is asking --
+         including on the map, which has no room for a tile of its own. -->
+    <div class="statusbar">
+      <div class="statusbar-lead">
+        <h1>NOAA Space Weather</h1>
+        <span class="chip sev-0" id="heroChip">Loading</span>
+      </div>
+      <!-- Three questions, not a partition of the data: a reading belongs in
+           every view that answers with it, which is why the renderers below
+           take a container instead of an id. One page, one poll, one state --
+           the tabs choose what is drawn, never what is fetched. -->
+      <nav class="viewnav" role="tablist" aria-label="Views">
+        <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
+          aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
+        <button type="button" role="tab" id="tab-kpview" data-view="kpview"
+          aria-controls="view-kpview" aria-selected="false" tabindex="-1">Conditions</button>
+        <button type="button" role="tab" id="tab-map" data-view="map"
+          aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
+      </nav>
+      <div class="statusbar-tail">
+        <span class="statusbar-sep" aria-hidden="true"></span>
+        <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
+      </div>
+    </div>
+
+    <div class="auth-banner" id="authBanner">
+      <span>Not logged in to this Signal K server, so nothing below can load &mdash; a disabled product and "not authorized" look identical otherwise.</span>
+      <a href="/admin/#/login">Log in</a>
+    </div>
+
+  </div>
+</header>
+
 <div class="shell">
-  <!-- Command bar: the bar carries the whole verdict -- severity, then the
-       countdown with its label -- so the tile below is text only. Nothing
-       about the boat belongs here: the vessel name is on every other page of
-       the server, and position is what the aurora map is drawn around, so it
-       is labelled there instead. -->
-  <div class="statusbar">
-    <div class="statusbar-lead">
-      <h1>NOAA Space Weather</h1>
-      <span class="chip sev-0" id="heroChip">Loading</span>
-      <span class="statusbar-sep" aria-hidden="true"></span>
-      <div class="bar-countdown" id="heroCountdown">&mdash;<span class="unit" id="heroCountdownLabel">&nbsp;</span></div>
-    </div>
-  </div>
-
-  <div class="auth-banner" id="authBanner">
-    <span>Not logged in to this Signal K server, so nothing below can load &mdash; a disabled product and "not authorized" look identical otherwise.</span>
-    <a href="/admin/#/login">Log in</a>
-  </div>
-
-  <div class="grid">
-    <div class="tile span-12 hero">
-      <div class="hero-verdict">
-        <div class="headline" id="heroHeadline">Reading current conditions&hellip;</div>
-        <div class="sub" id="heroSub"></div>
-        <!-- Sits at the end of the hero text rather than in a tile of its
-             own: the banner's one clause is a summary of these messages, so
-             the way to more of them is from where the summary ends. -->
-        <button type="button" id="messagesOpen" class="link-more" hidden></button>
+  <section class="view" id="view-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
+    <div class="grid">
+      <div class="tile span-12 hero" data-slot="hero">
+        <div class="hero-verdict">
+          <div class="headline" data-part="headline">Reading current conditions&hellip;</div>
+          <div class="sub" data-part="sub"></div>
+        </div>
       </div>
-      <div class="hero-rule" aria-hidden="true"></div>
-      <div class="hero-advisory">
+
+      <!-- Promoted out of the hero's right-hand column into a tile of its own.
+           Squeezed beside the verdict it was two clipped lines of a bulletin
+           written in paragraphs -- the one piece of prose on the page, and the
+           only thing here that says what the week ahead looks like, reading
+           like a caption. It gets the width now. -->
+      <div class="tile span-12 advisory-tile" data-slot="advisory">
         <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
-        <div class="advisory-teaser" id="advisoryTeaser">Waiting for data&hellip;</div>
-        <button type="button" id="advisoryOpen" class="btn-outline" disabled style="margin-top:10px;">Read full outlook</button>
+        <div class="advisory-teaser" data-part="teaser">Waiting for data&hellip;</div>
+        <button type="button" data-part="advisory-open" class="btn-outline" disabled style="margin-top:12px;">Read full outlook</button>
       </div>
-    </div>
 
-    <div class="tile span-12">
-      <div class="tile-head">
-        <h2>Planetary K-Index</h2>
-        <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
-          target="_blank" rel="noopener">i<span class="bubble">How disturbed Earth&rsquo;s magnetic
-          field is, on a 0&ndash;9 scale. It&rsquo;s what NOAA&rsquo;s G-scale below is built from
-          &mdash; the higher the number, the stronger the geomagnetic storm and the further from the
-          poles the aurora can be seen.</span></a>
-      </div>
-      <div id="kpBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-12">
-      <div class="tile-head">
-        <h2>NOAA Storm Scales</h2>
-        <a class="info" href="https://www.spaceweather.gov/noaa-scales-explanation"
-          target="_blank" rel="noopener">i<span class="bubble">NOAA rates space weather on three
-          0&ndash;5 scales: G (geomagnetic storms), S (solar radiation storms) and R (radio
-          blackouts). 1 is minor, 5 is extreme. Click for NOAA&rsquo;s full
-          explanation.</span></a>
-      </div>
-      <div id="scalesBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-4 aurora-tile">
-      <div class="map-header">
-        <div>
-          <h2>Aurora at Your Position</h2>
+      <!-- Always on the page, never behind a link. What NOAA has said is in
+           force is the one thing on this dashboard the reader is meant to act
+           on, and it was reachable only by noticing a clause at the end of the
+           hero and clicking it. A modal for the same list would now be a
+           second copy of it, so there is no longer one. -->
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2 data-part="messages-title">Messages in force</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/noaa-scales-explanation"
+            target="_blank" rel="noopener">i<span class="bubble">NOAA issues a <strong>watch</strong>
+            when a storm is expected days out, a <strong>warning</strong> when it is expected within
+            hours, an <strong>alert</strong> when it is observed, and a <strong>summary</strong> once
+            it is over. This lists what is in force now, plus anything stood down in the last two
+            days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</span></a>
         </div>
-        <button type="button" id="auroraRefresh" class="btn-outline">Refresh</button>
-      </div>
-      <div id="auroraBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-4">
-      <div class="tile-head">
-        <h2>Solar Activity</h2>
-        <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
-          target="_blank" rel="noopener">i<span class="bubble">What the Sun is doing and what has
-          reached us. Bz pointing south (a negative number) is what actually triggers geomagnetic
-          storms and aurora &mdash; north mostly does nothing. The flare is the most recent one,
-          and the A-index and sunspot number are daily figures.</span></a>
-      </div>
-      <div id="solarBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-4" id="hfTile">
-      <div class="tile-head">
-        <h2>HF Radio</h2>
-        <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
-        <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
-          target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
-          on the way out, at this position, on the same 0&ndash;35&nbsp;MHz scale as the map.
-          The filled stretch from the bottom is absorbed; the open stretch above it, up to the
-          MUF mark, is usable. Nothing here measures the F2 layer directly, so unless NOAA ever
-          publishes a measured MUF, that mark is a model estimate from F10.7, position, time of
-          day and Kp &mdash; not a measurement. Ticks are the marine SSB band edges. The solar
-          flux gauge is drawn from the zone ladder the plugin publishes on the path itself; its
-          wording (Poor / Fair / Good) is operator convention with no published derivation, not a
-          NOAA scale.</span></a>
-      </div>
-      <div id="hfBody">
-        <div class="empty-state">Waiting for data&hellip;</div>
-      </div>
-    </div>
-
-    <div class="tile span-12 space-map-tile">
-      <div class="map-header">
-        <div>
-          <h2>Map</h2>
+        <div data-slot="messages">
+          <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
-      <div id="mapBody" class="map-body">
-        <div class="empty-state">Waiting for data&hellip;</div>
+
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2>NOAA Storm Scales</h2>
+          <a class="info" href="https://www.spaceweather.gov/noaa-scales-explanation"
+            target="_blank" rel="noopener">i<span class="bubble">NOAA rates space weather on three
+            0&ndash;5 scales: G (geomagnetic storms), S (solar radiation storms) and R (radio
+            blackouts). 1 is minor, 5 is extreme. Click for NOAA&rsquo;s full
+            explanation.</span></a>
+        </div>
+        <div data-slot="scales">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+
+      <!-- The fetch diagnostics, promoted out of a link in the footstrip. What
+           this plugin costs the boat's connection is not a developer's
+           curiosity -- it is the one figure a user on a satellite plan needs --
+           and it was a grey word at the bottom of the page. Folded rather than
+           expanded, because the verdict is one line and the table behind it is
+           long. -->
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2>Fetch diagnostics</h2>
+          <a class="info" href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">i<span
+            class="bubble">Every endpoint this plugin fetches declares its measured size, and the
+            configuration screen prices your settings out of those declarations. This is the other
+            half: what the last 24 hours actually cost, against what was predicted. A declared size
+            goes stale when NOAA changes a payload, and a stale one makes the configuration screen
+            quietly wrong &mdash; which is what these figures are here to catch. Sizes are
+            compressed transfer sizes, which is what a fetch really costs, not the size of the
+            parsed document.</span></a>
+        </div>
+        <div data-slot="diagnostics">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
       </div>
     </div>
 
-  </div>
+    <div class="learn-more">
+      <span class="label" style="margin-right:2px">Learn more</span>
+      <!-- Ordered for this app's reader, not to match NOAA's own menu: most
+           specific to what is on screen first, general background last. Do not
+           reorder these to agree with spaceweather.gov (#114, and the argument
+           in docs/design-decisions.md). -->
+      <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
+      <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
+      <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
+      <a href="https://www.spaceweather.gov/about-space-weather" target="_blank" rel="noopener">About space weather</a>
+    </div>
+  </section>
 
-  <div class="learn-more">
-    <span class="label" style="margin-right:2px">Learn more</span>
-    <!-- Ordered for this app's reader, not to match NOAA's own menu: most
-         specific to what is on screen first, general background last. Do not
-         reorder these to agree with spaceweather.gov (#114, and the argument
-         in docs/design-decisions.md). -->
-    <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
-    <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
-    <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
-    <a href="https://www.spaceweather.gov/about-space-weather" target="_blank" rel="noopener">About space weather</a>
-  </div>
+  <!-- Every measured reading on one page, which is what "Conditions" means to
+       a mariner already: geomagnetic, solar, radio. They are one tab rather
+       than three because they are one question asked at three removes -- the
+       Sun is doing something (solar wind, flux, flares), the field responds
+       (Kp), and the band you were about to use opens or closes (HF). Reading
+       any of them alone leaves the reader guessing at the other two, and each
+       on its own left most of a page empty.
+
+       Not "Timeline" -- that named a widget, not a subject, and only one of
+       these three is a chart. Not "Details" -- a tab named for how much there
+       is of something collects whatever nobody placed. -->
+  <section class="view" id="view-kpview" role="tabpanel" aria-labelledby="tab-kpview" tabindex="0" hidden>
+    <div class="grid">
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2>Planetary K-Index</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
+            target="_blank" rel="noopener">i<span class="bubble">How disturbed Earth&rsquo;s magnetic
+            field is, on a 0&ndash;9 scale. It&rsquo;s what NOAA&rsquo;s G-scale is built from
+            &mdash; the higher the number, the stronger the geomagnetic storm and the further from the
+            poles the aurora can be seen.</span></a>
+        </div>
+        <div data-slot="kp">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+
+      <div class="tile span-4">
+        <div class="tile-head">
+          <h2>Solar Activity</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
+            target="_blank" rel="noopener">i<span class="bubble">What the Sun is doing and what has
+            reached us. Bz pointing south (a negative number) is what actually triggers geomagnetic
+            storms and aurora &mdash; north mostly does nothing. The flare is the most recent one,
+            and the A-index and sunspot number are daily figures.</span></a>
+        </div>
+        <div data-slot="solar">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+
+      <div class="tile span-8" id="hfTile">
+        <div class="tile-head">
+          <h2>HF Radio</h2>
+          <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
+          <a class="info" href="https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap"
+            target="_blank" rel="noopener">i<span class="bubble">Which frequencies are being absorbed
+            on the way out, at this position, on the same 0&ndash;35&nbsp;MHz scale as the map.
+            The filled stretch from the bottom is absorbed; the open stretch above it, up to the
+            MUF mark, is usable. Nothing here measures the F2 layer directly, so unless NOAA ever
+            publishes a measured MUF, that mark is a model estimate from F10.7, position, time of
+            day and Kp &mdash; not a measurement. Ticks are the marine SSB band edges. The solar
+            flux gauge is drawn from the zone ladder the plugin publishes on the path itself; its
+            wording (Poor / Fair / Good) is operator convention with no published derivation, not a
+            NOAA scale.</span></a>
+        </div>
+        <div data-slot="hf">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div class="footstrip">
     <span>Source: <a href="https://www.spaceweather.gov" target="_blank" rel="noopener">NOAA Space Weather Prediction Center</a></span>
     <span>Scales updated <span class="v" id="tsScales">&ndash;</span></span>
     <span>Aurora updated <span class="v" id="tsAurora">&ndash;</span></span>
     <span>Kp forecast updated <span class="v" id="tsKp">&ndash;</span></span>
-    <span><button type="button" id="diagnosticsOpen" class="footstrip-link">Fetch diagnostics</button><span
-      class="diag-note" id="diagnosticsNote" hidden></span></span>
   </div>
 </div>
+
+<!-- Full-bleed, and a sibling of .shell rather than a tile inside it: the map
+     is the view, not a picture in a column of them. -->
+<section class="view map-view" id="view-map" role="tabpanel" aria-labelledby="tab-map" tabindex="0" hidden>
+  <div class="map-body" data-slot="map">
+    <div class="empty-state">Waiting for data&hellip;</div>
+  </div>
+</section>
 
 <div class="overlay" id="advisoryOverlay" hidden>
   <div class="overlay-backdrop" id="advisoryBackdrop"></div>
@@ -1009,38 +1217,8 @@
   </div>
 </div>
 
-<div class="overlay" id="messagesOverlay" hidden>
-  <div class="overlay-backdrop" id="messagesBackdrop"></div>
-  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="messagesOverlayTitle">
-    <button type="button" class="overlay-close" id="messagesClose" aria-label="Close">&times;</button>
-    <span class="label">NOAA SWPC &middot; Space weather messages</span>
-    <h2 id="messagesOverlayTitle">Messages in force</h2>
-    <div id="messagesList"></div>
-    <p class="overlay-explainer">NOAA issues a <strong>watch</strong> when a storm is expected days out, a
-      <strong>warning</strong> when it is expected within hours, an <strong>alert</strong> when it is
-      observed, and a <strong>summary</strong> once it is over. This lists what is in force now, plus
-      anything stood down in the last two days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</p>
-  </div>
-</div>
-
-<div class="overlay" id="diagnosticsOverlay" hidden>
-  <div class="overlay-backdrop" id="diagnosticsBackdrop"></div>
-  <div class="overlay-panel wide" role="dialog" aria-modal="true" aria-labelledby="diagnosticsOverlayTitle">
-    <button type="button" class="overlay-close" id="diagnosticsClose" aria-label="Close">&times;</button>
-    <span class="label">This plugin &middot; What it fetches from NOAA</span>
-    <h2 id="diagnosticsOverlayTitle">Fetch diagnostics</h2>
-    <div id="diagnosticsBody"><div class="empty-state">Waiting for data&hellip;</div></div>
-    <p class="overlay-explainer">Every endpoint this plugin fetches declares its measured size, and
-      the configuration screen prices your settings out of those declarations. This is the other
-      half: what the last 24 hours actually cost, against what was predicted. A declared size goes
-      stale when NOAA changes a payload, and a stale one makes the configuration screen quietly
-      wrong &mdash; which is what these figures are here to catch. Sizes are compressed
-      transfer sizes, which is what a fetch really costs, not the size of the parsed document.</p>
-  </div>
-</div>
-
 <script type="module">
-import { heroState, kpFloorForG, uncapitalise, watchAhead } from './hero.js';
+import { heroState, kpFloorForG, outlookAhead, uncapitalise, watchAhead } from './hero.js';
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
@@ -1053,6 +1231,109 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
+
+  // --- views ---------------------------------------------------------------
+  //
+  // Four questions over one state object. A view is a tabpanel that is either
+  // in the document or `hidden` -- never a second page, never a second poll,
+  // never a second copy of the map. Switching decides what is drawn and
+  // nothing else.
+  //
+  // Views are not a partition of the data: a reading belongs in every view
+  // that answers with it, so everything below renders into a container it is
+  // handed rather than one it looks up by id. An id would let the second
+  // appearance of a datum drift from the first.
+  const VIEWS = ['dashboard', 'kpview', 'map'];
+  let currentView = null;
+
+  /** Every container for a slot that is on screen. A hidden view has none. */
+  function visibleSlots(name) {
+    return [...document.querySelectorAll(`[data-slot="${name}"]`)]
+      .filter((el) => !el.closest('.view[hidden]'));
+  }
+  const kpCanvas = () => visibleSlots('kp')[0]?.querySelector('#kpChart') || null;
+
+  const viewFromHash = () => {
+    const name = decodeURIComponent(location.hash.replace(/^#/, ''));
+    return VIEWS.includes(name) ? name : 'dashboard';
+  };
+
+  function showView(name) {
+    if (name === currentView) return;
+    currentView = name;
+    for (const view of VIEWS) {
+      document.getElementById(`view-${view}`).hidden = view !== name;
+      const tab = document.getElementById(`tab-${view}`);
+      tab.setAttribute('aria-selected', String(view === name));
+      tab.tabIndex = view === name ? 0 : -1;
+    }
+    document.body.dataset.view = name;
+    // Whatever was hidden drew nothing while it was, so it is redrawn from
+    // the last poll rather than left blank until the next minute.
+    paint();
+    // Both grids are read back from the plugin's own cache and never reach
+    // NOAA -- but they are still two requests, so a reader who never opens
+    // the map does not make them. The canvas itself is drawn by the observer
+    // in renderMap, once the row it sits in has a box.
+    if (name === 'map' && mapState === 'idle') loadMap();
+  }
+
+  for (const tab of document.querySelectorAll('.viewnav [role="tab"]')) {
+    // Through the hash rather than straight to showView: the back button
+    // walking the views is the whole reason the view is in the URL.
+    tab.addEventListener('click', () => { location.hash = tab.dataset.view; });
+  }
+  // Left/right walk the tabs and home/end jump to the ends -- the ARIA
+  // tablist pattern, which is what the roles on these buttons promise.
+  document.querySelector('.viewnav').addEventListener('keydown', (e) => {
+    const step = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    const index = VIEWS.indexOf(currentView);
+    const next = step
+      ? (index + step + VIEWS.length) % VIEWS.length
+      : e.key === 'Home' ? 0
+        : e.key === 'End' ? VIEWS.length - 1
+          : null;
+    if (next === null) return;
+    e.preventDefault();
+    location.hash = VIEWS[next];
+    document.getElementById(`tab-${VIEWS[next]}`).focus();
+  });
+  window.addEventListener('hashchange', () => showView(viewFromHash()));
+
+  // The last poll, kept whole. A view switch redraws out of this rather than
+  // showing a placeholder until the next one, and a reading that appears in
+  // two views is drawn from the same numbers both times.
+  let latest = null;
+
+  function paint() {
+    if (!latest) return;
+    const { data, kp, status, pos } = latest;
+    const card = scalesCard(data);
+    const said = verdict(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
+    // Chrome: the chip, the countdown and the footstrip are on screen for
+    // views that draw none of the readings behind them, so neither can be a
+    // side effect of drawing one.
+    renderVerdict(said);
+    setTimestamp(document.getElementById('tsScales'), card.observedAt);
+    setTimestamp(document.getElementById('tsAurora'), leafTime(data.aurora?.probability));
+    setTimestamp(document.getElementById('tsKp'), leafTime(kp?.observed));
+
+    for (const el of visibleSlots('hero')) renderHero(el, said);
+    for (const el of visibleSlots('messages')) {
+      renderMessagesTitle(el.closest('.tile') || el);
+      drawMessages(el);
+    }
+    for (const el of visibleSlots('diagnostics')) drawDiagnostics(el);
+    for (const el of visibleSlots('advisory')) renderAdvisory(el, data.advisory);
+    for (const el of visibleSlots('scales')) renderScales(el, card);
+    for (const el of visibleSlots('aurora')) {
+      renderAurora(el, data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
+    }
+    for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
+    for (const el of visibleSlots('hf')) renderHf(el, hfCard(data));
+    for (const el of visibleSlots('kp')) renderKp(el, kp);
+    labelAuroraButtons();
+  }
 
   // sevClass/sevWord are shared with the badges below and now live in
   // scales.js, alongside the rest of what issue #121 asks a fixture to drive
@@ -1187,7 +1468,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     cdLabel.textContent = counting[0];
   }
 
-  function renderHero(scales, peak24h, kp, status, alerts) {
+  // The verdict is computed once and written twice, to two different places:
+  // the chip and the countdown are page chrome (they are true on every view,
+  // including the map, which has no hero tile), and the headline and its
+  // subtext belong to whichever hero tile is on screen. So this returns what
+  // to say rather than saying it -- one state, however many containers.
+  function verdict(scales, peak24h, kp, status, alerts) {
     const state = heroState({
       observed: {
         G: leafValue(scales?.G),
@@ -1206,82 +1492,106 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       staleAfterMs: STALE_MS
     });
 
-    const chip = document.getElementById('heroChip');
-    const headline = document.getElementById('heroHeadline');
-    const sub = document.getElementById('heroSub');
     const level = (n) => `<em style="color:var(--amber);font-style:normal">${n}</em>`;
+    // `cls` says the chip's colour outright; `level` asks setChip to derive it
+    // from a severity. Only one of the two is ever set.
+    let chip;
+    let headline;
+    let sub;
     let timerSev = 'sev-1';
 
     if (state.kind === 'starting') {
-      chip.className = 'chip sev-0'; chip.textContent = 'No Data';
-      headline.textContent = 'Waiting for the first observation cycle.';
-      sub.textContent = 'Nothing received since the plugin started.';
+      chip = { cls: 'sev-0', label: 'No Data' };
+      headline = { text: 'Waiting for the first observation cycle.' };
+      sub = { text: 'Nothing received since the plugin started.' };
       timerSev = 'sev-0';
     } else if (state.kind === 'silent') {
-      chip.className = 'chip sev-4'; chip.textContent = 'No Data';
-      headline.textContent = `No data since the plugin started at ${fmtTime(state.startedAt)}.`;
-      sub.textContent = 'Nothing has been received since then. Check the server log.';
+      chip = { cls: 'sev-4', label: 'No Data' };
+      headline = { text: `No data since the plugin started at ${fmtTime(state.startedAt)}.` };
+      sub = { text: 'Nothing has been received since then. Check the server log.' };
       timerSev = 'sev-4';
     } else if (state.kind === 'stale') {
       // A value sits at whatever it last was; a quiet reading and a plugin
       // that died look identical. Stale means we do not know, which is not
       // the same claim as an all-clear.
-      chip.className = 'chip sev-4'; chip.textContent = 'Stale Data';
-      headline.textContent = `No update since ${fmtTime(state.observedAt)}.`;
-      sub.textContent = 'This is not an all-clear. Check the server log.';
+      chip = { cls: 'sev-4', label: 'Stale Data' };
+      headline = { text: `No update since ${fmtTime(state.observedAt)}.` };
+      sub = { text: 'This is not an all-clear. Check the server log.' };
       timerSev = 'sev-4';
     } else if (state.kind === 'storm') {
-      setChip(chip, state.level, `${state.letter}${state.level} · ${sevWord(state.level)}`);
-      headline.innerHTML = `${SCALE_NOUNS[state.letter]} at level ${level(state.letter + state.level)}.`;
-      sub.textContent = [
+      chip = { level: state.level, label: `${state.letter}${state.level} · ${sevWord(state.level)}` };
+      headline = { html: `${SCALE_NOUNS[state.letter]} at level ${level(state.letter + state.level)}.` };
+      sub = { text: [
         impact(state.letter, state.level),
         ...state.also.map((other) => `Also ${other.letter}${other.level}: ${uncapitalise(impact(other.letter, other.level))}`)
-      ].join(' ');
+      ].join(' ') };
       timerSev = sevClass(state.timer.kind === 'until-level' ? state.timer.level : state.level);
     } else if (state.kind === 'brewing') {
       const letter = state.letter;
-      setChip(chip, state.level, `${letter}${state.level} ${state.watch ? 'watch' : 'forecast'}`);
-      headline.textContent = 'Storm’s A-Brewin’!';
+      chip = { level: state.level, label: `${letter}${state.level} ${state.watch ? 'watch' : 'forecast'}` };
+      headline = { text: 'Storm’s A-Brewin’!' };
       // A watch is NOAA saying so in words on a dated day, which is a
       // different and better-sourced claim than a Kp model run -- so it gets
       // named, with its day, rather than folded into the same sentence.
-      sub.textContent = state.watch
+      sub = { text: state.watch
         ? `NOAA watch: ${letter}${state.level} predicted for ${fmtWatchDay(state.watch.at)}. Expect ${uncapitalise(impact(letter, state.level))}`
-        : `Expect ${uncapitalise(impact(letter, state.level))}`;
+        : `Expect ${uncapitalise(impact(letter, state.level))}` };
       timerSev = sevClass(state.level);
     } else if (state.kind === 'all-clear') {
       // A real storm ended, so the relief is the news and the chip says so --
       // unless a quieter level is still running, in which case the chip has
       // to say that instead or it contradicts the subtext right below it.
       if (state.inForce) {
-        setChip(chip, state.inForce.level, `${state.inForce.letter}${state.inForce.level} · ${sevWord(state.inForce.level)}`);
-        headline.textContent = 'Space weather has eased, not cleared.';
-        sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; ${state.inForce.letter}${state.inForce.level} still in force.`;
+        chip = { level: state.inForce.level, label: `${state.inForce.letter}${state.inForce.level} · ${sevWord(state.inForce.level)}` };
+        headline = { text: 'Space weather has eased, not cleared.' };
+        sub = { html: `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; ${state.inForce.letter}${state.inForce.level} still in force.` };
       } else {
-        chip.className = 'chip sev-1'; chip.textContent = 'All Clear';
-        headline.textContent = 'Space weather is quiet.';
-        sub.innerHTML = `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.`;
+        chip = { cls: 'sev-1', label: 'All Clear' };
+        headline = { text: 'Space weather is quiet.' };
+        sub = { html: `Peak ${level(state.peak.letter + state.peak.level)} in the last 24 hours; conditions have since eased.` };
       }
     } else if (state.kind === 'recent') {
       // Nothing in force this minute, but NOAA reports the 24-hour maximum as
       // the day's condition and WWV says it out loud. Nothing ended here, so
       // there is no relief to report -- just what the day has been.
-      setChip(chip, state.peak.level, `${state.peak.letter}${state.peak.level} · ${sevWord(state.peak.level)}`);
-      headline.innerHTML = `${SCALE_NOUNS[state.peak.letter]} reached ${level(state.peak.letter + state.peak.level)} in the past 24 hours.`;
-      sub.textContent = `${impact(state.peak.letter, state.peak.level)} ${state.inForce ? `${state.inForce.letter}${state.inForce.level} still in force.` : 'Nothing in force right now.'}`;
+      chip = { level: state.peak.level, label: `${state.peak.letter}${state.peak.level} · ${sevWord(state.peak.level)}` };
+      headline = { html: `${SCALE_NOUNS[state.peak.letter]} reached ${level(state.peak.letter + state.peak.level)} in the past 24 hours.` };
+      sub = { text: `${impact(state.peak.letter, state.peak.level)} ${state.inForce ? `${state.inForce.letter}${state.inForce.level} still in force.` : 'Nothing in force right now.'}` };
       timerSev = sevClass(state.peak.level);
     } else {
-      chip.className = 'chip sev-1'; chip.textContent = 'Quiet';
-      headline.textContent = 'Space weather is quiet.';
+      chip = { cls: 'sev-1', label: 'Quiet' };
+      headline = { text: 'Space weather is quiet.' };
       // The forecast only bounds G3-and-above (see timerFor's escalation), and
       // with no series at all it bounds nothing -- so the second clause is a
       // claim this page can only make in one of the two cases.
-      sub.textContent = state.timer.kind === 'forecast-clear'
+      sub = { text: state.timer.kind === 'forecast-clear'
         ? 'Nothing above background in the last 24 hours, and no storm in the forecast.'
-        : 'Nothing above background in the last 24 hours.';
+        : 'Nothing above background in the last 24 hours.' };
     }
 
-    renderTimer(state.timer, timerSev, state.kind === 'storm' && state.letter !== 'G');
+    return { state, chip, headline, sub, timerSev };
+  }
+
+  const write = (el, said) => {
+    if (said.html === undefined) el.textContent = said.text;
+    else el.innerHTML = said.html;
+  };
+
+  /** The chip and the countdown: chrome, so this runs whatever view is up. */
+  function renderVerdict(said) {
+    const chipEl = document.getElementById('heroChip');
+    if (said.chip.cls) {
+      chipEl.className = 'chip ' + said.chip.cls;
+      chipEl.textContent = said.chip.label;
+    } else {
+      setChip(chipEl, said.chip.level, said.chip.label);
+    }
+    renderTimer(said.state.timer, said.timerSev, said.state.kind === 'storm' && said.state.letter !== 'G');
+  }
+
+  function renderHero(root, said) {
+    write(root.querySelector('[data-part="headline"]'), said.headline);
+    write(root.querySelector('[data-part="sub"]'), said.sub);
   }
 
   // flareMarkup moved to scales.js with the rest of the Storm Scales markup.
@@ -1296,16 +1606,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // `scalesMarkup` in that same module, so a fixture can drive it end to end
   // without a browser -- what's left here is only the two things a fixture
   // genuinely can't reach: writing to a real element, and reading the clock.
-  function renderScales(card) {
-    document.getElementById('scalesBody').innerHTML = scalesMarkup(card);
-    setLetter(document.getElementById('letterG'), card.observed.G);
-    setLetter(document.getElementById('letterS'), card.observed.S);
-    setLetter(document.getElementById('letterR'), card.observed.R);
-    setTimestamp(document.getElementById('tsScales'), card.observedAt);
+  function renderScales(body, card) {
+    body.innerHTML = scalesMarkup(card);
+    setLetter(body.querySelector('#letterG'), card.observed.G);
+    setLetter(body.querySelector('#letterS'), card.observed.S);
+    setLetter(body.querySelector('#letterR'), card.observed.R);
   }
 
-  function renderAurora(aurora, scheduled, intervalMinutes, running, pos) {
-    const body = document.getElementById('auroraBody');
+  function renderAurora(body, aurora, scheduled, intervalMinutes, running, pos) {
     const p = leafValue(aurora?.probability);
     const state = auroraCardState({ probability: p, scheduled, running });
     if (state !== 'value') {
@@ -1321,7 +1629,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           Start it under <a href="../admin/#/apps/configuration/signalk-noaa-space-weather">plugin configuration</a>.`
       };
       body.innerHTML = `<div class="empty-state">${EMPTY[state]}</div>`;
-      document.getElementById('tsAurora').textContent = '–';
       return;
     }
     const pct = Math.round(p * 100);
@@ -1347,7 +1654,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       </div>
       ${scheduled ? '' : `<div class="empty-state" style="margin-top:2px;padding:0;background:none;font-size:0.68rem;">
         Automatic updates are off &mdash; fetched only when asked.</div>`}`;
-    setTimestamp(document.getElementById('tsAurora'), leafTime(aurora?.probability));
   }
 
   const DASH = '–';
@@ -1366,8 +1672,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // Labels are spelled out -- "Solar flux (10.7 cm)", "Planetary A-index",
   // never "SFI / A / K". NOAA's own WWV bulletin spells them out, so the
   // shorthand is shack convention rather than the authoritative form.
-  function renderSolar(card) {
-    const body = document.getElementById('solarBody');
+  function renderSolar(body, card) {
     const { speed, bt, bz, flareClass, aIndex, sunspotNumber } = card;
     if (speed === null && bt === null && bz === null && flareClass === null
         && aIndex === null && sunspotNumber === null) {
@@ -1387,8 +1692,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       row('Sunspot number (SSN)', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '', '', SUNSPOT_NOTE);
   }
 
-  function renderHf(card) {
-    const body = document.getElementById('hfBody');
+  function renderHf(body, card) {
     const { cutoffHz, mufHz, mufEstimated, gauge, sfuGauge, sfu, f107Band,
       protonPfu, protonElevated, trendRatio, trendWord } = card;
     if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
@@ -1530,22 +1834,81 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     body.innerHTML = sfiRow + strip + protonRow + trendRow;
   }
 
-  function drawKpTimeline(canvas, series) {
+  /**
+   * The Kp chart: one canvas, one time axis, two spans.
+   *
+   * The 3-day forecast and the 27-day outlook are two horizons on the same
+   * index, and the chart is a window onto both -- 72 hours by default,
+   * expanding to the whole solar rotation. It is not two charts and it is not
+   * two series spliced onto one axis: the outlook draws as daily bars and the
+   * forecast draws as a line over them, so the marks stay distinct at every
+   * span and the eye never reads a daily maximum as a continuation of a
+   * 3-hourly sample. The bars are always at their true times, so expanding
+   * reveals more of them rather than redrawing anything.
+   *
+   * Hence the x scale is time, not index. Index positions cannot animate
+   * between spans, cannot put a 3-hourly point at the right place inside a
+   * day, and cannot be shared by two series sampled differently.
+   *
+   * `span` is the domain in ms. The two named ones are below; anything
+   * between them is a frame of the expansion.
+   */
+  const SPAN_72H = 'near';
+  const SPAN_27D = 'rotation';
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * The domain each span asks for, in epoch ms.
+   *
+   * The near view starts at the series and ends at it: that is the window
+   * NOAA measured and forecast, and cropping it to a round "now +72h" would
+   * throw away the observed stretch the chart is half made of. The rotation
+   * view is the outlook's own window, extended at either end if the forecast
+   * pokes out of it -- it can, since NOAA issues the table weekly and the
+   * 3-day product runs continuously.
+   */
+  function kpDomain(span, series, days) {
+    const s0 = Date.parse(series[0].time);
+    const s1 = Date.parse(series[series.length - 1].time);
+    if (span === SPAN_72H || !days) return [s0, s1];
+    const d0 = Date.parse(days[0].time);
+    const d1 = Date.parse(days[days.length - 1].time) + DAY_MS;
+    return [Math.min(s0, d0), Math.max(s1, d1)];
+  }
+
+  /** The plot's own height, before any axis gutter under it. */
+  const KP_CHART_H = 132;
+  /** The row under the baseline the date stamps sit in. */
+  const KP_AXIS_H = 13;
+  /**
+   * The geometry and the palette the chart draws in.
+   *
+   * `padT` and the plot height never change, so the G ladder lands on the
+   * same screen rows at every span -- expanding moves the data under a fixed
+   * ladder rather than rescaling both, which is what keeps a bar's height
+   * meaning what a point's height means.
+   */
+  function kpPlot(canvas) {
+    const cssH = KP_CHART_H + KP_AXIS_H;
     const dpr = window.devicePixelRatio || 1;
-    const cssW = canvas.clientWidth || 900, cssH = 132;
+    const cssW = canvas.clientWidth || 900;
+    canvas.style.height = `${cssH}px`;
     canvas.width = cssW * dpr; canvas.height = cssH * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, cssW, cssH);
 
     const styles = getComputedStyle(document.documentElement);
-    const gridColor = styles.getPropertyValue('--grid').trim();
-    const dimColor = styles.getPropertyValue('--text-dim').trim();
-    const amber = styles.getPropertyValue('--amber').trim();
-    const sev5 = styles.getPropertyValue('--sev-5').trim();
-    const sev4 = styles.getPropertyValue('--sev-4').trim();
-    const sev3 = styles.getPropertyValue('--sev-3').trim();
-    const sev1 = styles.getPropertyValue('--sev-1').trim();
+    const c = {
+      grid: styles.getPropertyValue('--grid').trim(),
+      dim: styles.getPropertyValue('--text-dim').trim(),
+      panel: styles.getPropertyValue('--panel').trim(),
+      amber: styles.getPropertyValue('--amber').trim(),
+      sev5: styles.getPropertyValue('--sev-5').trim(),
+      sev4: styles.getPropertyValue('--sev-4').trim(),
+      sev3: styles.getPropertyValue('--sev-3').trim(),
+      sev1: styles.getPropertyValue('--sev-1').trim()
+    };
 
     // The canvas is pulled out into the tile's horizontal padding, so the
     // gutter the y-axis labels sit in is that padding and the plot starts and
@@ -1557,43 +1920,24 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // number that could drift from it.
     const rootPadX = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tile-pad-x')) || 18;
     const padX = tile ? parseFloat(getComputedStyle(tile).paddingLeft) || 0 : rootPadX;
-    const padL = padX, padR = padX, padT = 10, padB = 8;
+    const padL = padX, padR = padX, padT = 10, padB = 8 + KP_AXIS_H;
     const plotW = cssW - padL - padR, plotH = cssH - padT - padB;
     const maxKp = 9;
-    const n = series.length;
-    const x = (i) => padL + (n <= 1 ? 0 : (i / (n - 1)) * plotW);
-    const y = (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH;
-    // Where measurement stops. NOAA's `observed` column lags the clock by one
-    // to two 3-hour bins, so this is not "now" -- the points between it and
-    // now are estimates, and colouring them as history would be the same lie
-    // `kp.observed` used to tell (see design-decisions.md).
-    const splitIndex = series.findIndex((p) => p.forecast);
-    const splitI = splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1);
-    // The x scale is by index, not by time, so a date boundary has to be
-    // placed between two points rather than at one.
-    const times = series.map((p) => Date.parse(p.time));
-    function xAtTime(ms) {
-      if (!(ms > times[0]) || !(ms < times[n - 1])) return null;
-      const next = times.findIndex((t) => t >= ms);
-      const prev = next - 1;
-      const span = times[next] - times[prev] || 1;
-      return x(prev + (ms - times[prev]) / span);
-    }
-    // NOW has to land somewhere even when the clock is outside the series --
-    // a stalled feed leaves the last point hours behind, and returning null
-    // would drop the line entirely just when it is most worth seeing.
-    function xAtTimeClamped(ms) {
-      if (!(ms > times[0])) return x(0);
-      if (!(ms < times[n - 1])) return x(n - 1);
-      return xAtTime(ms);
-    }
+    return {
+      ctx, c, cssW, cssH, padL, padR, padT, padB, plotW, plotH, maxKp,
+      y: (v) => padT + plotH - (Math.min(v, maxKp) / maxKp) * plotH
+    };
+  }
 
-    // Each G level gets its own dotted, severity-colored line so the chart
-    // reads as "here's where G2 starts" rather than flagging only G1. The
-    // lines sit at kpFloorForG, a third below the Kp each level is named
-    // after -- drawing them on the integers would have the chart grade a
-    // storm a level quieter than the banner above it.
-    const gScaleColor = [null, sev1, sev3, sev3, sev4, sev5];
+  /**
+   * Each G level gets its own dotted, severity-colored line so the chart
+   * reads as "here's where G2 starts" rather than flagging only G1. The
+   * lines sit at kpFloorForG, a third below the Kp each level is named
+   * after -- drawing them on the integers would have the chart grade a
+   * storm a level quieter than the banner above it.
+   */
+  function drawKpLadder({ ctx, c, cssW, padL, padR, y }) {
+    const gScaleColor = [null, c.sev1, c.sev3, c.sev3, c.sev4, c.sev5];
     // The gutter is as wide as the tile's padding, so the type fits itself to
     // the gutter rather than the plot being pushed in to make room for it.
     ctx.font = "10px 'Space Mono', monospace";
@@ -1606,64 +1950,168 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ctx.beginPath();
       ctx.moveTo(padL, y(v));
       ctx.lineTo(cssW - padR, y(v));
-      ctx.strokeStyle = color || gridColor;
+      ctx.strokeStyle = color || c.grid;
       ctx.globalAlpha = color ? 0.55 : 0.5;
       ctx.lineWidth = color ? 1.25 : 1;
       ctx.setLineDash(color ? [4, 3] : []);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.fillStyle = color || dimColor;
+      ctx.fillStyle = color || c.dim;
       ctx.font = axisFont;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'right';
       ctx.fillText(g ? `G${g}` : String(v), padL - 2, y(v));
     });
     ctx.textAlign = 'left';
+  }
 
-    if (n === 0) return;
+  /**
+   * The 27-day outlook, as one bar per UTC day at its true position on the
+   * time axis.
+   *
+   * Bars rather than a line because the outlook is a daily *maximum* -- one
+   * number summarising a whole day, not a sample of a continuous quantity. A
+   * line between two of them would assert a Kp at noon that NOAA never
+   * forecast; a bar claims the bucket and nothing else. That difference in
+   * mark is also what lets the 3-hourly line sit over the bars without the
+   * two reading as one series.
+   *
+   * Not a coloured strip per day, which was the other option: a typical
+   * outlook spends twenty of its twenty-seven days between Kp 2 and 4, all
+   * sub-G1, so a severity palette would flatten the great majority of the
+   * window into one grey and throw away its only variation.
+   *
+   * `reveal` is 0 in the near view and 1 at full rotation. At 72 hours a day
+   * is a third of the chart wide, and a slab that size behind the line is
+   * furniture rather than data -- so the bars fade in as the window opens,
+   * which is also what makes the expansion read as a reveal rather than a
+   * redraw.
+   */
+  function drawOutlookBars({ ctx, c, padL, padR, padT, plotH, cssW, y }, days, x, reveal, supersededBefore) {
+    if (reveal <= 0.01) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padL, padT, cssW - padL - padR, plotH);
+    ctx.clip();
+    for (const day of days) {
+      if (day.kp === null || day.kp === undefined) continue;
+      const t0 = Date.parse(day.time);
+      const x0 = x(t0), x1 = x(t0 + DAY_MS);
+      if (x1 < padL || x0 > cssW - padR) continue;
+      const w = Math.max(2, (x1 - x0) * 0.72);
+      const cx = (x0 + x1) / 2;
+      const top = y(day.kp);
+      // A day the 3-day forecast covers is drawn ghosted: the line over it
+      // says the same thing at eight times the resolution and far higher
+      // skill, so the bar there is context, not the answer.
+      const superseded = t0 < supersededBefore;
+      const color = superseded ? c.dim : day.kp >= kpFloorForG(4) ? c.sev5
+        : day.kp >= kpFloorForG(1) ? c.sev4 : c.amber;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = (superseded ? 0.16 : 0.34) * reveal;
+      ctx.fillRect(cx - w / 2, top, w, padT + plotH - top);
+      // The cap is the number NOAA gave; the soft body is the day it covers.
+      ctx.globalAlpha = (superseded ? 0.4 : 1) * reveal;
+      ctx.fillRect(cx - w / 2, top, w, 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
 
-    // UTC midnights, not "24 hours from now": NOAA's own bins and its 3-day
-    // forecast are UTC-day aligned, and so is the Storm Scales table beside
-    // this chart -- a boundary drawn anywhere else would disagree with both.
-    const MIDNIGHT_LABEL = { timeZone: 'UTC', day: '2-digit', month: 'short' };
-    for (let t = Date.UTC(
-      new Date(times[0]).getUTCFullYear(),
-      new Date(times[0]).getUTCMonth(),
-      new Date(times[0]).getUTCDate() + 1
-    ); t < times[n - 1]; t += 24 * 3600 * 1000) {
-      const px = xAtTime(t);
-      if (px === null) continue;
+  /**
+   * Date stamps in the gutter below the baseline.
+   *
+   * The step follows the span rather than the data: a stamp per day is right
+   * at 72 hours and unreadable at 27, and a stamp per week is the reverse. So
+   * the smallest of 1/2/7 days that leaves the labels a gap is used, which
+   * also means the labels thin out during the expansion instead of piling up
+   * and then jumping.
+   */
+  function drawKpDates({ ctx, c, cssW, padL, padR, padT, plotH }, t0, t1, x) {
+    const MONTH_DAY = { timeZone: 'UTC', day: '2-digit', month: 'short' };
+    ctx.font = "9px 'Space Mono', monospace";
+    ctx.fillStyle = c.dim;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    const stampY = padT + plotH + 4;
+    const labelW = ctx.measureText('00 SEPT').width + 14;
+    const first = Date.UTC(
+      new Date(t0).getUTCFullYear(),
+      new Date(t0).getUTCMonth(),
+      new Date(t0).getUTCDate()
+    );
+    const step = [1, 2, 7].find(
+      (d) => (d * DAY_MS / (t1 - t0)) * (cssW - padL - padR) >= labelW
+    ) ?? 7;
+    const text = (t) =>
+      new Date(t).toLocaleDateString('en-GB', MONTH_DAY).toUpperCase();
+    // The far end of the window is the one date a reader checks -- "how far
+    // does this go" -- so it is stamped whether or not the step lands on it,
+    // right-aligned against the plot's edge.
+    const endText = text(t1 - DAY_MS / 2);
+    const endX = cssW - padR - ctx.measureText(endText).width;
+    for (let t = first; t <= t1; t += step * DAY_MS) {
+      const px = x(t);
+      if (px < padL - 1 || px > cssW - padR) continue;
+      // UTC midnights, not "24 hours from now": NOAA's own bins and its 3-day
+      // forecast are UTC-day aligned, and so is the Storm Scales table beside
+      // this chart -- a boundary drawn anywhere else would disagree with both.
       ctx.beginPath();
       ctx.moveTo(px, padT);
       ctx.lineTo(px, padT + plotH);
-      ctx.strokeStyle = gridColor;
+      ctx.strokeStyle = c.grid;
       ctx.globalAlpha = 0.9;
       ctx.lineWidth = 1;
       ctx.setLineDash([2, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
-      ctx.font = "9px 'Space Mono', monospace";
-      ctx.fillStyle = dimColor;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(
-        new Date(t).toLocaleDateString('en-GB', MIDNIGHT_LABEL).toUpperCase(),
-        px + 3,
-        padT + plotH - 1
-      );
-      ctx.textBaseline = 'middle';
+      if (px + 3 + ctx.measureText(text(t)).width < endX - 8) {
+        ctx.fillText(text(t), px + 3, stampY);
+      }
     }
+    ctx.fillText(endText, endX, stampY);
+    ctx.textBaseline = 'middle';
+  }
+
+  /**
+   * The whole chart at one span.
+   *
+   * @param domain  `[t0, t1]` in epoch ms -- during the expansion this is a
+   *                frame between the two named spans, not either of them
+   * @param reveal  0 in the near view, 1 at full rotation; fades the bars in
+   */
+  function drawKpChart(canvas, series, days, domain, reveal) {
+    const plot = kpPlot(canvas);
+    const { ctx, c, cssW, padL, padR, padT, plotW, plotH, y } = plot;
+    const [t0, t1] = domain;
+    const span = t1 - t0 || 1;
+    const x = (ms) => padL + ((ms - t0) / span) * plotW;
+
+    drawKpLadder(plot);
+    const n = series.length;
+    if (n === 0) return;
+
+    const times = series.map((p) => Date.parse(p.time));
+    drawKpDates(plot, t0, t1, x);
+    if (days) drawOutlookBars(plot, days, x, reveal, times[n - 1]);
+
+    // Where measurement stops. NOAA's `observed` column lags the clock by one
+    // to two 3-hour bins, so this is not "now" -- the points between it and
+    // now are estimates, and colouring them as history would be the same lie
+    // `kp.observed` used to tell (see design-decisions.md).
+    const splitIndex = series.findIndex((p) => p.forecast);
+    const splitI = splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1);
 
     if (splitI < n - 1) {
       const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-      grad.addColorStop(0, amber + '55');
-      grad.addColorStop(1, amber + '00');
+      grad.addColorStop(0, amberAlpha(c.amber, reveal));
+      grad.addColorStop(1, c.amber + '00');
       ctx.beginPath();
-      ctx.moveTo(x(splitI), y(0));
-      for (let i = splitI; i < n; i++) ctx.lineTo(x(i), y(series[i].kp));
-      ctx.lineTo(x(n - 1), y(0));
+      ctx.moveTo(x(times[splitI]), y(0));
+      for (let i = splitI; i < n; i++) ctx.lineTo(x(times[i]), y(series[i].kp));
+      ctx.lineTo(x(times[n - 1]), y(0));
       ctx.closePath();
       ctx.fillStyle = grad;
       ctx.fill();
@@ -1671,21 +2119,23 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
     ctx.beginPath();
     for (let i = 0; i <= splitI; i++) {
-      const px = x(i), py = y(series[i].kp);
+      const px = x(times[i]), py = y(series[i].kp);
       i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     }
-    ctx.strokeStyle = dimColor;
-    ctx.lineWidth = 1.75;
+    ctx.strokeStyle = c.dim;
+    // Thinner as the window opens: at full rotation the line is a tenth of
+    // the width, and a 2.25px stroke there is a blot rather than a trace.
+    ctx.lineWidth = 1.75 - 0.5 * reveal;
     ctx.stroke();
 
     if (splitI < n - 1) {
       ctx.beginPath();
       for (let i = splitI; i < n; i++) {
-        const px = x(i), py = y(series[i].kp);
+        const px = x(times[i]), py = y(series[i].kp);
         i === splitI ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = amber;
-      ctx.lineWidth = 2.25;
+      ctx.strokeStyle = c.amber;
+      ctx.lineWidth = 2.25 - 0.75 * reveal;
       ctx.stroke();
     }
 
@@ -1694,21 +2144,24 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // split sits back in the morning while the boat is at the right-hand
     // end. Drawing the split as NOW pinned the label to the far left and
     // showed a day with no history in it.
-    // Dotted, and dashed the same way as the G-threshold lines, so it reads
-    // as an annotation rather than as another data series -- solid, it
-    // looked like part of the plot.
-    const nowX = xAtTimeClamped(Date.now());
+    //
+    // Clamped into the plot, because a stalled feed leaves the last point
+    // hours behind and dropping the line would lose it just when it is most
+    // worth seeing.
+    const nowX = Math.max(padL, Math.min(cssW - padR, x(Date.now())));
     ctx.beginPath();
     ctx.moveTo(nowX, padT);
     ctx.lineTo(nowX, padT + plotH);
-    ctx.strokeStyle = dimColor;
+    ctx.strokeStyle = c.dim;
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1;
+    // Dotted, and dashed the same way as the G-threshold lines, so it reads
+    // as an annotation rather than as another data series -- solid, it
+    // looked like part of the plot.
     ctx.setLineDash([3, 3]);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.font = "9px 'Space Mono', monospace";
-    ctx.fillStyle = dimColor;
     ctx.textBaseline = 'top';
     // Flip the label to the left of the line once it sits near the right
     // edge, so it never runs off the canvas.
@@ -1717,49 +2170,180 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const labelX = nowX + (labelRight ? -4 - labelW : 4);
     // The G-threshold lines run behind this; knock them out so the label
     // stays legible wherever NOW happens to fall.
-    ctx.fillStyle = styles.getPropertyValue('--panel').trim();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = c.panel;
     ctx.fillRect(labelX - 2, padT, labelW + 4, 10);
-    ctx.fillStyle = dimColor;
+    ctx.fillStyle = c.dim;
     ctx.textAlign = 'left';
     ctx.fillText('NOW', labelX, padT + 1);
-    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.globalAlpha = 1;
 
+    // The forecast's peak, and at full rotation the outlook's too -- one
+    // marker per horizon, never a third one for the pair, because the two are
+    // different claims and a shared marker would rank them against each other.
     let peakI = 0;
     for (let i = 1; i < n; i++) if (series[i].kp > series[peakI].kp) peakI = i;
     ctx.beginPath();
-    ctx.arc(x(peakI), y(series[peakI].kp), 4, 0, Math.PI * 2);
-    ctx.fillStyle = series[peakI].kp >= kpFloorForG(1) ? sev5 : amber;
+    ctx.arc(x(times[peakI]), y(series[peakI].kp), 4 - reveal, 0, Math.PI * 2);
+    ctx.fillStyle = series[peakI].kp >= kpFloorForG(1) ? c.sev5 : c.amber;
     ctx.fill();
+
+    const ahead = days ? outlookAhead(days, times[n - 1]) : null;
+    if (ahead && reveal > 0.5 && ahead.peak.kp >= kpFloorForG(1)) {
+      ctx.beginPath();
+      ctx.arc(x(Date.parse(ahead.peak.time) + DAY_MS / 2), y(ahead.peak.kp) - 5, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = c.sev5;
+      ctx.globalAlpha = (reveal - 0.5) * 2;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
-  function renderKp(kp) {
-    const body = document.getElementById('kpBody');
+  /** `--amber` at the gradient's top stop, weakened as the bars come up. */
+  const amberAlpha = (amber, reveal) => {
+    const hex = Math.round(0x55 * (1 - 0.45 * reveal)).toString(16).padStart(2, '0');
+    return amber + hex;
+  };
+
+  /**
+   * Expand or collapse the chart, animating the domain rather than swapping
+   * two pictures.
+   *
+   * The motion is the explanation: the outlook's bars are already at their
+   * true times behind the near view, so opening the window walks them into
+   * frame and shrinks the 3-day line into the first tenth of it, which is
+   * what says the two are one axis at two zooms. A cross-fade between two
+   * finished charts would say they are two pictures.
+   *
+   * The canvas carries its own state (`_kp`) so a repaint from the minute
+   * poll or a resize redraws the span the reader chose, not the default.
+   */
+  const KP_EXPAND_MS = 520;
+  function setKpSpan(canvas, span, animate) {
+    const st = canvas._kp;
+    if (!st) return;
+    st.span = span;
+    const to = kpDomain(span, st.series, st.days);
+    const target = span === SPAN_27D ? 1 : 0;
+    const from = st.domain || to;
+    const reveal0 = st.reveal ?? 0;
+    if (st.raf) cancelAnimationFrame(st.raf);
+
+    const still = !animate ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (still) {
+      st.domain = to; st.reveal = target;
+      drawKpChart(canvas, st.series, st.days, to, target);
+      return;
+    }
+    const t0 = performance.now();
+    const step = (now) => {
+      // Ease-out: the window opens fast and settles, so the far end of the
+      // outlook arrives rather than being flung in.
+      const k = Math.min(1, (now - t0) / KP_EXPAND_MS);
+      const e = 1 - Math.pow(1 - k, 3);
+      st.domain = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e];
+      st.reveal = reveal0 + (target - reveal0) * e;
+      drawKpChart(canvas, st.series, st.days, st.domain, st.reveal);
+      st.raf = k < 1 ? requestAnimationFrame(step) : null;
+    };
+    st.raf = requestAnimationFrame(step);
+  }
+
+  /** Redraw at whatever span the canvas is holding -- resize, or a new poll. */
+  function repaintKp(canvas) {
+    const st = canvas?._kp;
+    if (!st) return;
+    st.domain = kpDomain(st.span, st.series, st.days);
+    st.reveal = st.span === SPAN_27D ? 1 : 0;
+    drawKpChart(canvas, st.series, st.days, st.domain, st.reveal);
+  }
+
+  /**
+   * The outlook's days, or null: the 27-day product polls daily against a
+   * weekly issue, so a fresh install has the 3-day forecast for most of a day
+   * before it has this one, and the tile has to be complete without it --
+   * chart, legend, summary and the expand control all.
+   */
+  function outlook27Days(kp) {
+    const days = leafValue(kp?.['forecast.outlook27.series']);
+    return Array.isArray(days) && days.length > 0 ? days : null;
+  }
+
+  const outlookDate = (iso) =>
+    new Date(iso).toLocaleDateString('en-GB', {
+      timeZone: 'UTC', day: 'numeric', month: 'short'
+    });
+
+  /**
+   * What the outlook adds, in a sentence, under the chart.
+   *
+   * Only what is beyond the 3-day forecast: `outlookAhead` takes the peak and
+   * the first storm day over that stretch, deliberately not reading
+   * `...outlook27.maxKp` and `...nextStormTime`, which are published over all
+   * 27 rows and can therefore name a day already past.
+   */
+  function outlookSummary(ahead) {
+    if (!ahead) return '<span>Beyond 72h: this outlook&rsquo;s window has passed.</span>';
+    return `<span>Outlook peak <b>${ahead.peak.kp.toFixed(1)}</b> on <b>${outlookDate(ahead.peak.time)}</b></span>` +
+      (ahead.storm
+        ? `<span>First G1 day <b>${outlookDate(ahead.storm.time)}</b> at Kp <b>${ahead.storm.kp.toFixed(1)}</b></span>`
+        : '<span>No G1 day ahead in the outlook</span>');
+  }
+
+  function renderKp(body, kp) {
     const observed = leafValue(kp?.observed);
     const max24h = leafValue(kp?.['forecast.max24h']);
     const max72h = leafValue(kp?.['forecast.max72h']);
     const series = leafValue(kp?.['forecast.series']);
+    const outlookDays = outlook27Days(kp);
     if (observed === null && max24h === null && max72h === null) {
       body.innerHTML = '<div class="empty-state">No Kp forecast yet.</div>';
       return;
     }
     if (Array.isArray(series) && series.length > 0) {
+      // Where the 3-day forecast stops: what the outlook adds is everything
+      // after it, and everything before it the line already says better.
+      const until = Date.parse(series[series.length - 1].time);
+      const ahead = outlookDays ? outlookAhead(outlookDays, until) : null;
+      // The span the reader last chose, not the default: a repaint happens
+      // every minute, and one that collapsed the chart under them would make
+      // the control unusable.
+      const span = kpCanvas()?._kp?.span || SPAN_72H;
       body.innerHTML = `
+        ${outlookDays ? `<div class="kp-span">
+          <div class="seg" role="group" aria-label="Chart span">
+            <button type="button" data-span="${SPAN_72H}" aria-pressed="${span === SPAN_72H}">72 hours</button>
+            <button type="button" data-span="${SPAN_27D}" aria-pressed="${span === SPAN_27D}">27 days</button>
+          </div>
+        </div>` : ''}
         <div class="timeline-wrap"><canvas id="kpChart"></canvas></div>
         <div class="timeline-legend">
           <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
+          ${outlookDays ? '<span><span class="sw block" style="background:var(--amber)"></span>Outlook, daily max</span>' : ''}
           <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds</span>
         </div>
         <div class="kp-summary">
           <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
           <span>24h peak <b>${max24h !== null ? max24h.toFixed(1) : '–'}</b></span>
           <span>72h peak <b>${max72h !== null ? max72h.toFixed(1) : '–'}</b></span>
-        </div>`;
-      const canvas = document.getElementById('kpChart');
-      drawKpTimeline(canvas, series);
-      canvas._series = series;
+          ${outlookDays ? outlookSummary(ahead) : ''}
+        </div>
+        ${outlookDays ? `<p class="caveat">Expanding draws NOAA&rsquo;s 27-day outlook behind the
+          forecast, one bar per UTC day. It is a <em>recurrence</em> forecast &mdash; last
+          rotation repeated &mdash; so it says which weeks to watch, not what will happen.</p>` : ''}`;
+      const canvas = body.querySelector('#kpChart');
+      canvas._kp = { series, days: outlookDays, span };
+      setKpSpan(canvas, span, false);
+      for (const button of body.querySelectorAll('.kp-span button')) {
+        button.addEventListener('click', () => {
+          setKpSpan(canvas, button.dataset.span, true);
+          for (const other of body.querySelectorAll('.kp-span button')) {
+            other.setAttribute('aria-pressed', String(other === button));
+          }
+        });
+      }
     } else {
       // The series path may lag one cycle behind the summary fields on a
       // fresh install; fall back to the peak comparison rather than nothing.
@@ -1779,7 +2363,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           }).join('')}
         </div>`;
     }
-    setTimestamp(document.getElementById('tsKp'), leafTime(kp?.observed));
   }
 
   function shortDate(iso) {
@@ -1824,9 +2407,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     el.textContent = cutAt(text, lo) + CONTINUES;
   }
 
-  function renderAdvisory(advisory) {
-    const teaser = document.getElementById('advisoryTeaser');
-    const openBtn = document.getElementById('advisoryOpen');
+  function renderAdvisory(root, advisory) {
+    const teaser = root.querySelector('[data-part="teaser"]');
+    const openBtn = root.querySelector('[data-part="advisory-open"]');
     if (!advisory || !advisory.text) {
       teaser.textContent = 'Waiting for data…';
       openBtn.disabled = true;
@@ -1850,7 +2433,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function closeAdvisoryOverlay() {
     document.getElementById('advisoryOverlay').hidden = true;
   }
-  document.getElementById('advisoryOpen').addEventListener('click', openAdvisoryOverlay);
+  // Delegated: these buttons belong to a hero container, and there may be
+  // more than one of it.
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-part="advisory-open"]')) openAdvisoryOverlay();
+  });
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
 
@@ -1860,11 +2447,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // failure this whole branch is about, one surface further on.
   function renderMessages(alerts) {
     messageRows = messagesInForce(alerts, Date.now());
-    const link = document.getElementById('messagesOpen');
-    const summary = messagesSummary(messageRows);
-    link.hidden = !summary;
-    if (summary) link.textContent = summary;
-    if (!document.getElementById('messagesOverlay').hidden) drawMessages();
+  }
+
+  /** The tile's own heading, which counts what is in force. */
+  function renderMessagesTitle(root) {
+    const el = root.querySelector('[data-part="messages-title"]');
+    if (el) el.textContent = messagesTitle(messageRows);
   }
 
   // Which bodies the reader has unfolded, by message code. The list is
@@ -1872,9 +2460,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // fold itself back up under the reader once a minute.
   const expandedMessages = new Set();
 
-  function drawMessages() {
-    const list = document.getElementById('messagesList');
-    document.getElementById('messagesOverlayTitle').textContent = messagesTitle(messageRows);
+  function drawMessages(list) {
     const markup = messageRows.length === 0
       ? '<div class="empty-state">No NOAA messages in force.</div>'
       : messageRows.map(messageMarkup).join('');
@@ -1926,16 +2512,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       </div>`;
   }
 
-  function openMessagesOverlay() {
-    drawMessages();
-    document.getElementById('messagesOverlay').hidden = false;
-  }
-  function closeMessagesOverlay() {
-    document.getElementById('messagesOverlay').hidden = true;
-  }
-  document.getElementById('messagesOpen').addEventListener('click', openMessagesOverlay);
-  document.getElementById('messagesClose').addEventListener('click', closeMessagesOverlay);
-  document.getElementById('messagesBackdrop').addEventListener('click', closeMessagesOverlay);
 
   // --- Fetch diagnostics ----------------------------------------------------
   //
@@ -1949,7 +2525,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   let telemetryData = null;
   let telemetryReadAt = 0;
 
-  const diagnosticsOpen = () => !document.getElementById('diagnosticsOverlay').hidden;
+  // Folded or not, by the reader's own click. The verdict is one line and is
+  // always drawn; the table behind it is long, and rebuilding it is a full
+  // markup regeneration on a 60-second poll, so it is only built when it is
+  // actually on screen.
+  let diagnosticsExpanded = false;
 
   async function readTelemetry(force) {
     if (!force && Date.now() - telemetryReadAt < TELEMETRY_MS) return;
@@ -1970,43 +2550,38 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function renderDiagnostics() {
+    for (const el of visibleSlots('diagnostics')) drawDiagnostics(el);
+  }
+
+  /**
+   * The teaser and, once asked for, the table. The teaser is the same sentence
+   * that used to be a grey aside in the footstrip -- whether what this plugin
+   * actually fetched matches what the configuration screen priced. That is the
+   * figure a reader on a metered connection came for, so it is a card on the
+   * dashboard now rather than a word at the bottom of it.
+   */
+  function drawDiagnostics(body) {
     const view = diagnosticsView(telemetryData, Date.now());
     const note = footstripNote(view);
-    const noteEl = document.getElementById('diagnosticsNote');
-    noteEl.textContent = note ? `\u00b7 ${note.text}` : '';
-    noteEl.hidden = !note;
-    // Only when it is on screen: the markup is a full table rebuild, and this
-    // runs on the page's own poll.
-    if (diagnosticsOpen()) {
-      document.getElementById('diagnosticsBody').innerHTML = diagnosticsMarkup(view);
-    }
+    const verdict = note ? note.text : 'Traffic is tracking what the configuration screen predicted.';
+    body.innerHTML = `<div class="diag-teaser">
+        <span class="diag-verdict${note ? ' warn' : ''}">${escapeHtml(verdict)}</span>
+        <button type="button" class="btn-outline" data-part="diag-toggle"
+          aria-expanded="${diagnosticsExpanded}">${diagnosticsExpanded ? 'Hide the detail' : 'Show the detail'}</button>
+      </div>
+      ${diagnosticsExpanded ? `<div class="diag-detail">${diagnosticsMarkup(view)}</div>` : ''}`;
+    body.querySelector('[data-part="diag-toggle"]').addEventListener('click', () => {
+      diagnosticsExpanded = !diagnosticsExpanded;
+      // Unfolding is the one moment the reader is actually looking, so it is
+      // also the moment worth spending a fresh read on.
+      if (diagnosticsExpanded) readTelemetry(true).catch(() => {});
+      renderDiagnostics();
+    });
   }
-
-  function openDiagnosticsOverlay() {
-    document.getElementById('diagnosticsOverlay').hidden = false;
-    // Draw whatever is already held first, so the panel opens with content
-    // rather than blank while the request is in flight.
-    renderDiagnostics();
-    readTelemetry(true).catch(() => {});
-  }
-  function closeDiagnosticsOverlay() {
-    document.getElementById('diagnosticsOverlay').hidden = true;
-  }
-  document.getElementById('diagnosticsOpen').addEventListener('click', openDiagnosticsOverlay);
-  document.getElementById('diagnosticsClose').addEventListener('click', closeDiagnosticsOverlay);
-  document.getElementById('diagnosticsBackdrop').addEventListener('click', closeDiagnosticsOverlay);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('messagesOverlay').hidden) {
-      closeMessagesOverlay();
-      return;
-    }
     if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
       closeAdvisoryOverlay();
-      return;
-    }
-    if (e.key === 'Escape' && diagnosticsOpen()) {
-      closeDiagnosticsOverlay();
       return;
     }
     handleMapKey(e);
@@ -2059,11 +2634,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // unrelated Escape or arrow key reaching across the page and moving a path
   // nobody was looking at.
   function handleMapKey(e) {
-    const canvas = document.getElementById('spaceMapCanvas');
+    const canvas = mapCanvas();
     if (!canvas) return;
     if (!document.getElementById('advisoryOverlay').hidden) return;
-    if (!document.getElementById('messagesOverlay').hidden) return;
-    if (diagnosticsOpen()) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -2071,8 +2644,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       if (!drapProbe) return;
       drapProbe = null;
       drawMapCanvas();
-      const probe = document.getElementById('mapProbe');
-      if (probe) probe.innerHTML = drapProbeHtml();
+      drawProbeReadout();
       return;
     }
     const nudge = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
@@ -2090,8 +2662,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (!nextTarget) return;
     drapProbe = pathAbsorption(mapEntries.drap.grid, lastPosition, nextTarget);
     drawMapCanvas();
-    const probe = document.getElementById('mapProbe');
-    if (probe) probe.innerHTML = drapProbeHtml();
+    drawProbeReadout();
   }
 
   // --- The map ------------------------------------------------------------
@@ -2119,10 +2690,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     layers: new Set(LAYER_IDS),
     projection: DEFAULT_PROJECTION,
     radiusDeg: DEFAULT_RADIUS_DEG,
-    // Shrunk by default -- Expand does nothing at a narrow viewport and
-    // wants a style pass of its own before it's the default (Mark's round-3
-    // review; carded).
-    expanded: false,
     // NOAA's colorbar says how much is absorbed; these say which of the
     // reader's own bands has gone under. Drawn over NOAA's colours, never
     // instead of them.
@@ -2176,6 +2743,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   const layerOn = (id) => mapControls.layers.has(id)
+
+  // The map is one canvas wherever it is shown, so everything reaches it
+  // through the visible container rather than through an id: a second place
+  // the map appears is a second container, not a second map.
+  const mapRoot = () => visibleSlots('map')[0] || null
+  const mapCanvas = () => mapRoot()?.querySelector('#spaceMapCanvas') || null
+  function drawProbeReadout() {
+    const probe = mapRoot()?.querySelector('#mapProbe')
+    if (probe) probe.innerHTML = drapProbeHtml()
+  }
 
   // --- the D-RAP absorption probe -----------------------------------------
   //
@@ -2243,14 +2820,21 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // checkbox's to switch off.
     const shown = legendMhzTicks()
     const chrome =
+      // A mark at every one of NOAA's 5 MHz steps, but not a number at every
+      // mark: eight labels need about 300px of bar to stay apart, and this
+      // legend now lives in a gutter narrower than that -- where "30" and
+      // "35 MHz" ran into each other and the axis read as one wrong number.
+      // Every 20 MHz, plus the top of the scale carrying the unit.
       tickMarksHtml(shown) +
       scaleTicksHtml(
-        // Unit on the last only -- it reads as the axis's unit rather than
-        // needing to repeat it at every tick.
-        shown.map((tick, i) => ({
-          fraction: tick.fraction,
-          label: i === shown.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
-        }))
+        shown
+          .filter((tick, i) => tick.mhz % 20 === 0 || i === shown.length - 1)
+          .map((tick, i, kept) => ({
+            fraction: tick.fraction,
+            // Unit on the last only -- it reads as the axis's unit rather than
+            // needing to repeat it at every tick.
+            label: i === kept.length - 1 ? `${tick.mhz} MHz` : String(tick.mhz)
+          }))
       )
     return `<div class="map-legend drap-legend"><span class="bar"><span class="ink"
       style="background:linear-gradient(90deg, ${gradient})"></span></span>${chrome}</div>`
@@ -2296,112 +2880,29 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   // --- the viewport --------------------------------------------------------
-
-  // The tile's width with the expansion taken off, and the viewport width it
-  // was measured at. Cached because measuring it means removing the
-  // expansion, and removing the expansion is the thing that bounces.
-  let naturalTileWidth = null
-  let naturalTileWidthAt = null
-
-  // Back after round 3 tried dropping it: with the width growing on *every*
-  // redraw (every checkbox, every clicked path) rather than only while
-  // expanded, the tile's width visibly flipped between its natural and grown
-  // size on each interaction -- restoring the flag restores the early return
-  // below, and toggling stops touching width at all in the (now default)
-  // shrunk state (Mark's round-3 review). The toggle itself still does
-  // nothing at narrow viewports -- width*0.62 (or /2) sits under the
-  // collapsed ceiling at almost every width narrower than about 840px -- so
-  // it's staying shrunk by default until that's worth a design pass of its
-  // own, carded separately. The lever this tile has is the page's own side
-  // margins: `.shell` caps out at 1180px, so on any wider window there is
-  // real width outside it to borrow, taken back the moment it collapses.
-  // Nothing changes on a window with no room to give, which is honest rather
-  // than a fake toggle.
   //
-  // Measuring the natural width by clearing the inline styles and reading the
-  // box back is what made this oscillate, and the transition is why -- though
-  // not the way the previous attempt had it. `width` cannot animate here at
-  // all: it runs between `auto` and a length, which is not interpolable. The
-  // *margins* can, and do, since they run 0 to -grow. So a plain
-  // clear-then-measure reads the box while the margins are still most of the
-  // way out at -grow, and reports the expanded width as the natural one: grow
-  // comes out 0, the styles stay cleared, the tile animates back in, and the
-  // next redraw expands it again. That is the bounce, and whatever redraw
-  // comes next fires it -- a canvas click, a checkbox, the periodic refresh.
+  // The canvas is whatever its row leaves it: the view is a flex column, the
+  // row that holds the canvas is the only thing in it that grows, and the
+  // canvas is stretched over that row absolutely so it can never feed its own
+  // size back into the box it is measured from. Nothing here computes a
+  // height, and nothing borrows the page's margins -- what used to do both
+  // (`sizeMapCanvas`'s ceilings, and `applyExpandedWidth`, which measured the
+  // tile by un-expanding it and so bounced against its own transition) is
+  // gone with the tile it sized.
   //
-  // Suspending the transition for the measuring reflow gets the right number,
-  // but still clears and re-sets the styles on every redraw, so whether
-  // anything shows comes down to whether that engine's transition machinery
-  // notices the intermediate state. Two engines here say no; that is not a
-  // property to ship on. So: measure once per viewport width, and write
-  // nothing when the styles already say what they should. A steady-state
-  // redraw now touches no style at all, which no engine can animate.
-  function applyExpandedWidth() {
-    const tile = document.querySelector('.space-map-tile')
-    if (!tile) return
-    const viewport = document.documentElement.clientWidth
-    if (!mapControls.expanded) {
-      naturalTileWidth = null
-      if (tile.style.width) {
-        tile.style.width = ''
-        tile.style.marginLeft = ''
-        tile.style.marginRight = ''
-      }
-      return
-    }
-    const remeasuring = naturalTileWidth === null || naturalTileWidthAt !== viewport
-    // Already expanded and re-measuring means the window changed size, not
-    // that anything was clicked: the transition stays suspended across the
-    // re-apply below, so the tile tracks the window instead of chasing it.
-    const wasExpanded = !!tile.style.width
-    if (remeasuring) {
-      tile.style.transition = 'none'
-      tile.style.width = ''
-      tile.style.marginLeft = ''
-      tile.style.marginRight = ''
-      naturalTileWidth = tile.getBoundingClientRect().width
-      naturalTileWidthAt = viewport
-      // A genuine Expand click starts from the natural width anyway, so hand
-      // the transition back before the target is applied and the animation
-      // stays visible.
-      if (!wasExpanded) tile.style.transition = ''
-    }
-    const targetWidth = Math.min(viewport - 24, 1600)
-    const grow = (targetWidth - naturalTileWidth) / 2
-    const width = grow > 0 ? `${targetWidth}px` : ''
-    const margin = grow > 0 ? `${-grow}px` : ''
-    if (tile.style.width !== width) {
-      tile.style.width = width
-      tile.style.marginLeft = margin
-      tile.style.marginRight = margin
-    }
-    if (tile.style.transition) {
-      tile.getBoundingClientRect()
-      tile.style.transition = ''
-    }
-  }
-
-  // The canvas is sized here rather than in CSS because the shape that suits
-  // the picture depends on the projection: a disc wants to be nearly square,
-  // a whole-world rectangle wants to be 2:1. Expanding trades page real
-  // estate for a bigger viewport rather than for a bigger crop of the same
-  // one -- the reader is asking to see more, not to zoom.
-  function sizeMapCanvas(canvas) {
-    const width = canvas.clientWidth || canvas.parentElement.clientWidth || 800
-    const ceiling = mapControls.expanded ? 820 : 520
-    // A flat whole-world map is 2:1 and wants to stay that way, so its
-    // ceiling is high enough to let the tile's own width set the shape.
-    const height = mapControls.projection === 'cylindrical'
-      ? Math.max(220, Math.min(mapControls.expanded ? 820 : 580, Math.round(width / 2)))
-      : Math.max(280, Math.min(ceiling, Math.round(width * 0.62)))
-    canvas.style.height = `${height}px`
-  }
+  // A ResizeObserver is the only thing that decides when to redraw for size,
+  // which means a window resize, a wrapping toolbar and a switch into this
+  // view all arrive by the same path. A hidden view has no box at all, so the
+  // observer reports zero and the guard in drawMapCanvas draws nothing --
+  // that is how "only the visible view renders" holds for the canvas.
+  const mapResize = new ResizeObserver(() => drawMapCanvas())
 
   function drawMapCanvas() {
-    const canvas = document.getElementById('spaceMapCanvas')
-    if (!canvas) return
-    applyExpandedWidth()
-    sizeMapCanvas(canvas)
+    const canvas = mapCanvas()
+    // No box means a hidden view (or a row that has not been laid out yet):
+    // drawing into it would size the backing store to nothing and throw the
+    // picture away.
+    if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return
     drawSpaceMap(canvas, {
       grids: {
         aurora: layerOn('aurora') ? mapEntries.aurora?.grid : null,
@@ -2456,17 +2957,18 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
           type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
           ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>
-        <button type="button" id="mapExpand" class="btn-outline" style="padding:4px 10px;font-size:0.62rem;">${mapControls.expanded ? 'Shrink' : 'Expand'}</button>
       </div>
+      ${mapHelpHtml()}
     </div>`
   }
 
-  // Above the canvas, not buried in the probe result: the reader needs to
-  // know a click does something before they've clicked, not after. Present
-  // once the grid has loaded once, regardless of the layer's own on/off --
-  // otherwise this line popped in and out with the checkbox (Mark's
-  // punch-list follow-up), and toggling a layer is supposed to change the
-  // map, not the text around it.
+  // In the toolbar, not floating on its own over the picture: the reader needs
+  // to know a click does something before they've clicked, not after, and a
+  // third floating box would have to be placed against the height of one of
+  // the other two. Present once the grid has loaded once, regardless of the
+  // layer's own on/off -- otherwise this line popped in and out with the
+  // checkbox (Mark's punch-list follow-up), and toggling a layer is supposed
+  // to change the map, not the text around it.
   function mapHelpHtml() {
     if (!mapEntries.drap) return ''
     return `<div class="map-help${layerOn('drap') ? '' : ' off'}">Click any point to score a path.</div>`
@@ -2491,7 +2993,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <span class="sec-label">${meta.label}</span>${button}${status}${scale}
       </div>`
     }).join('')
-    return `<div class="map-footer">${sections}</div>`
+    // The aurora reading at the vessel sits with the layer it comes out of,
+    // rather than in a tile on a dashboard that draws no map. It is a value
+    // sampled from this grid at this position; the grid is right here.
+    return `<div class="map-footer"><div id="mapProbe"></div>${sections}
+      <div class="map-section aurora-rail">
+        <span class="sec-label">Aurora at your position</span>
+        <div data-slot="aurora"><div class="empty-state">Waiting for data&hellip;</div></div>
+      </div>
+    </div>`
   }
 
   // Rebuilt whole rather than patched: it is a few hundred bytes of DOM, and
@@ -2499,21 +3009,31 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // for a half-updated toolbar to hide. The zoom slider is the one exception
   // -- dragging it redraws only the canvas, so the thumb keeps the pointer.
   function renderMap() {
-    const body = document.getElementById('mapBody')
+    const body = mapRoot()
+    if (!body) return
     // No special case for zero layers: an empty map (ground, coastline,
     // graticule, the vessel) is still a map, and hiding the canvas here used
     // to make "untick everything" read as "the map is gone".
-    body.innerHTML = `${toolbarHtml()}
-      ${mapHelpHtml()}
-      <canvas id="spaceMapCanvas" tabindex="0"></canvas>
-      <div id="mapProbe"></div>
-      ${footerHtml()}`
-    wireToolbar()
-    drawMapCanvas()
-    const probe = document.getElementById('mapProbe')
-    if (probe) probe.innerHTML = drapProbeHtml()
+    // One gutter, not two. The controls and the per-layer readout are the same
+    // kind of thing -- chrome about the picture -- and splitting them across
+    // opposite edges spent two margins to say so. Wrapped together here so the
+    // wide layout can be a plain flex row (rail, then canvas) with nothing
+    // measuring anything: the rail is `display: contents` at narrow widths, and
+    // the two fall back to being separate strips over the picture.
+    body.innerHTML = `<div class="map-rail">${toolbarHtml()}${footerHtml()}</div>
+      <div class="map-canvas-row"><canvas id="spaceMapCanvas" tabindex="0"></canvas></div>`
+    wireToolbar(body)
+    // The observer draws it: observing a row is what asks for the first
+    // callback, so there is no separate first paint to keep in step with it.
+    mapResize.disconnect()
+    mapResize.observe(body.querySelector('.map-canvas-row'))
+    drawProbeReadout()
+    // The rail is rebuilt whole, which throws away the slots paint() last drew
+    // into. Repainting is what fills them back in -- and paint draws no map, so
+    // this cannot come back round.
+    paint()
 
-    const canvas = document.getElementById('spaceMapCanvas')
+    const canvas = mapCanvas()
     canvas.addEventListener('click', (event) => {
       if (!lastPosition || !layerOn('drap') || !mapEntries.drap) return
       const rect = canvas.getBoundingClientRect()
@@ -2522,7 +3042,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       if (!target) return
       drapProbe = pathAbsorption(mapEntries.drap.grid, lastPosition, target)
       drawMapCanvas()
-      document.getElementById('mapProbe').innerHTML = drapProbeHtml()
+      drawProbeReadout()
       // Arm the arrow keys on the point that was just clicked. Some browsers
       // (Safari in particular) don't focus a clicked canvas on their own even
       // with tabindex set.
@@ -2548,8 +3068,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     labelAuroraButtons()
   }
 
-  function wireToolbar() {
-    const body = document.getElementById('mapBody')
+  function wireToolbar(body) {
     for (const box of body.querySelectorAll('input[data-layer]')) {
       box.addEventListener('change', () => {
         const id = box.dataset.layer
@@ -2588,14 +3107,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       bandEdges.addEventListener('change', () => {
         mapControls.bandEdges = bandEdges.checked
         renderMap()
-      })
-    }
-    const expand = document.getElementById('mapExpand')
-    if (expand) {
-      expand.addEventListener('click', () => {
-        mapControls.expanded = !mapControls.expanded
-        expand.textContent = mapControls.expanded ? 'Shrink' : 'Expand'
-        drawMapCanvas()
       })
     }
   }
@@ -2668,12 +3179,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // layer that fails is reported in the footer beside the ones that worked,
   // rather than replacing the whole map with one error.
   async function loadMap() {
-    const body = document.getElementById('mapBody')
+    const body = mapRoot()
     const loadId = ++mapLoadId
     const wanted = LAYER_IDS.filter(layerOn).filter((id) => !mapEntries[id])
     if (wanted.length) {
       mapState = 'loading'
-      if (!document.getElementById('spaceMapCanvas')) {
+      if (body && !mapCanvas()) {
         body.innerHTML = `<div class="empty-state">Loading the cached grids&hellip;</div>`
       }
       await Promise.all(wanted.map((id) => loadLayer(id, loadId)))
@@ -2729,7 +3240,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // disclosure. (`mapRefresh` was one button when the map was one product;
   // it is now one per layer.)
   function labelAuroraButtons() {
-    labelAuroraButton(document.getElementById('auroraRefresh'))
     for (const id of LAYER_IDS) {
       const button = document.getElementById(`mapRefresh-${id}`)
       // With no entry yet, renderMap has it saying "Fetch now" -- a different
@@ -2775,17 +3285,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     relabel(button)
   }
 
-  function handleAuroraRefreshClick(button) {
-    return handleRefreshClick(button, 'aurora', async () => {
-      await refresh() // re-polls everything, so the ring tile picks up the fresh value right away
-      await refetchLayer('aurora')
-    }, labelAuroraButton)
-  }
-
-  document.getElementById('auroraRefresh').addEventListener('click', () =>
-    handleAuroraRefreshClick(document.getElementById('auroraRefresh'))
-  )
-
   document.getElementById('hfRefresh').addEventListener('click', () => {
     const button = document.getElementById('hfRefresh')
     // Same as the aurora tile's button: a fresh grid reaches an open map
@@ -2796,13 +3295,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }, labelDrapButton)
   })
 
-  window.addEventListener('resize', () => {
-    const canvas = document.getElementById('kpChart');
-    if (canvas && canvas._series) drawKpTimeline(canvas, canvas._series);
-    // The map's viewport is derived from the tile's width, so a resize is a
-    // new projection window rather than the same picture stretched.
-    if (mapState === 'ready') drawMapCanvas()
-  })
+  // The map is not here: its own ResizeObserver already sees every resize
+  // that changes the box it draws into, including the ones a window resize
+  // does not cause.
+  window.addEventListener('resize', () => repaintKp(kpCanvas()))
 
 
   async function refresh() {
@@ -2832,7 +3328,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       'forecast.maxNoaaScale': kpRaw.forecast?.maxNoaaScale,
       'forecast.nextStormTime': kpRaw.forecast?.nextStormTime,
       'forecast.nextStormKp': kpRaw.forecast?.nextStormKp,
-      'forecast.series': kpRaw.forecast?.series
+      'forecast.series': kpRaw.forecast?.series,
+      // The 27-day outlook is a named subtree of the same product, and the
+      // same request already carries it -- drawing it costs no second read.
+      // The series only: the outlook's scalar leaves are computed over all 27
+      // rows, and the tile needs them over the stretch it draws -- see
+      // outlookAhead.
+      'forecast.outlook27.series': kpRaw.forecast?.outlook27?.series
     } : null;
 
     // `settings` is what the plugin resolved, not what was saved, so a config
@@ -2846,23 +3348,19 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // map) and the map's extent caption need it.
     const pos = leafValue(data.position);
 
-    // The hero keeps both observed readings: telling a storm in progress from
-    // one that has passed needs the pair. The card takes only the 24-hour
-    // maximum, and picks that path itself -- see scales.js.
-    renderHero(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
+    // Everything the page draws comes out of this one object, and paint()
+    // decides which of it is on screen. The hero keeps both observed
+    // readings: telling a storm in progress from one that has passed needs
+    // the pair. The card takes only the 24-hour maximum, and picks that path
+    // itself -- see scales.js.
     renderMessages(data.alerts);
-    renderScales(scalesCard(data));
-    renderAurora(data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
-    labelAuroraButtons();
-    renderSolar(solarCard(data));
-    renderHf(hfCard(data));
-    renderKp(kp);
-    renderAdvisory(data.advisory);
+    latest = { data, kp, status, pos };
+    paint();
     // Not awaited: a slow or missing telemetry route must not hold up the
     // readings on the page. Forced while the panel is open, so what a reader
     // is looking at keeps up with the poll; on its own ten-minute cadence
     // otherwise, which is plenty for a figure measured over 24 hours.
-    readTelemetry(diagnosticsOpen()).catch(() => {});
+    readTelemetry(diagnosticsExpanded).catch(() => {});
 
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
@@ -2882,19 +3380,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           const end = drapProbe.points[drapProbe.points.length - 1];
           drapProbe = pathAbsorption(mapEntries.drap.grid, pos, end);
         }
+        // Both no-op while the map view is hidden, and the observer redraws
+        // it the moment it is shown again.
         drawMapCanvas();
-        const probe = document.getElementById('mapProbe');
-        if (probe) probe.innerHTML = drapProbeHtml();
+        drawProbeReadout();
       }
     }
   }
 
+  showView(viewFromHash());
   refresh();
   setInterval(refresh, REFRESH_MS);
-  // The map has no "Show map" toggle any more (Mark: "retire it, it's bad")
-  // -- it is always on the page, so it loads its own cached grids up front
-  // rather than waiting for a click that no longer exists.
-  loadMap();
   // Fire-and-forget: the map already drew with nmi by the time this
   // resolves, so redraw once it lands rather than block the first paint on
   // a request most servers will 404 anyway.

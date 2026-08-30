@@ -206,6 +206,19 @@ don't move the comparison into the route, don't drop the window gate, and don't
 compare an estimated size to a declared one. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#predicted-vs-measured-has-two-thresholds-and-one-window-gate).
 
+**The Kp chart is one time axis at two spans** — 72 hours, expanding to the
+27-day outlook — not two charts and not two series spliced onto one static
+axis. What makes the single axis honest is the mark: the outlook draws as
+daily bars and the 3-hourly forecast as a line over the first three days of
+them, so a daily *maximum* is never read as a continuation of a 3-hourly
+*sample*. Hence x is time, not index; `padT` and the plot height are fixed so
+the G ladder stays put while the data moves under it; and the expansion is
+animated because the motion is what says the two are one axis at two zooms.
+The summary under the chart comes from `outlookAhead` over the stretch beyond
+the forecast — never from `…outlook27.maxKp` / `…nextStormTime`, which are
+published over all 27 rows and can name a day already past. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-kp-chart-is-one-time-axis-at-two-spans-not-two-charts).
+
 **The map's data goes through `public/mapRaster.js`; everything with a
 measurable edge is drawn vectorially over it.** One canvas — the products are
 layers, the projection and the extent are controls — and the rasteriser walks
@@ -218,6 +231,29 @@ was sampled against a black globe
 both D-RAP surfaces draw that colorbar, with the marine SSB band edges as
 contours over it rather than as a palette
 ([colorbar](docs/design-decisions.md#both-d-rap-surfaces-draw-noaas-colorbar-the-bands-are-contours-over-it)).
+
+**The page is three views over one state object, and the map is the only one
+that is not a column of tiles.** Dashboard (the verdict, what NOAA has said is
+in force, and what this plugin costs), Conditions (Kp, the solar wind behind
+it, HF), Map. A view is a tabpanel that is either in the document or `hidden`
+— never a second page, never a second poll, never a second copy of the map.
+Views are **not** a partition of the data: a reading belongs in every view that
+answers with it, so every renderer takes the container it draws into rather
+than looking one up by id, and `paint()` walks the containers that are on
+screen. An id would let a datum's second appearance drift from its first.
+
+**On the map, `radiusDeg` is honoured on the shorter axis and the clip is at
+the antipode.** Scaling an azimuthal disc off the longer axis and then cutting
+it at the requested radius agree only on a square viewport; full-bleed they
+fight, and the picture becomes a letterbox slice of a circle with most of the
+requested radius thrown away vertically. Don't reintroduce either — the
+docstring's "arc from the centre to the *nearer* edge" is the contract, and
+[#177](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/177)'s
+empty margins only come back above `180 * short / long`, where a globe is round
+and saying so is not waste. The map's chrome is **one** gutter holding the
+controls and the per-layer readout together, falling back to strips over the
+picture below 1100px via `display: contents` on the rail — so the wide layout
+is a plain flex row and nothing measures anything.
 
 **The webapp's map takes its geography from `public/geo.js`; `tiles.ts` draws
 none.** A grid of numbers without geography is not a map, and no chart

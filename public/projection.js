@@ -62,11 +62,17 @@ function createAzimuthal(lat0, lon0) {
     separable: false,
     center: { latitude: lat0, longitude: lon0 },
     radiusWorld: (deg) => Math.min(180, Math.max(1, deg)) * D2R,
-    // Cover, not fit: the disc reaches every edge and its far fringe -- the
-    // most distorted and least useful part of the picture -- overflows,
-    // rather than leaving the tile's sides empty. Wasted space on both sides
-    // of the map is the specific complaint issue #177 was filed about.
-    scaleFor: (radius, width, height) => Math.max(width, height) / 2 / radius,
+    // The radius is honoured on the SHORTER axis, which is what `radiusDeg`
+    // says it means -- arc from the centre to the *nearer* edge. Scaling from
+    // the longer axis instead (what #177 asked for, in a squat tile where the
+    // disc fitted inside with waste either side) does not waste anything at
+    // full-bleed: it crops. On a 2.5:1 viewport it threw away three fifths of
+    // the requested radius vertically, and made the zoom control's own top
+    // end -- 180, "everywhere" -- unable to show the whole globe at all.
+    // Scaling from the shorter axis leaves the long axis over-covered with
+    // real world rather than empty, at every radius under
+    // 180 * short / long, which is every radius the reader actually uses.
+    scaleFor: (radius, width, height) => Math.min(width, height) / 2 / radius,
     // A disc is centred wherever it is asked to be; there is no edge of the
     // world for it to overhang.
     clampCenter: (lat) => lat,

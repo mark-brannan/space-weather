@@ -175,18 +175,30 @@ describe('mapView', () => {
     })
   }
 
-  it('scales an azimuthal disc to cover the viewport, not to fit in it', () => {
-    // Wasted space either side of the map is the complaint issue #177 was
-    // filed about: at the chosen radius the picture reaches the long edge.
+  it('honours the azimuthal radius on the shorter axis, and over-covers the longer', () => {
+    // Issue #177 asked for the opposite -- scale off the longer axis, so a
+    // squat tile had no empty margins. That reads as cover in a tile and as a
+    // crop at full-bleed: on a viewport more than twice as wide as it is tall
+    // it threw away most of the radius the reader had asked for, vertically,
+    // and made the zoom control's own top end unable to show a whole globe.
+    // Scaling off the shorter axis is what `radiusDeg` says it means -- arc to
+    // the *nearer* edge -- and the longer axis still fills, with real world
+    // rather than empty page, at every radius under 180 * short / long.
     const view = mapView({
       projection: 'azimuthal',
       center: { latitude: 0, longitude: 0 },
-      radiusDeg: 90,
-      width: 900,
-      height: 420
+      radiusDeg: 60,
+      width: 1900,
+      height: 760
     })
-    const east = view.toPixel(90, 0)!
-    expect(east[0]).toBeCloseTo(900, 6)
+    // 60 degrees reaches exactly the top and bottom edges...
+    const north = view.toPixel(0, 60)!
+    expect(north[1]).toBeCloseTo(0, 6)
+    // ...and the east edge is somewhere real and further away than that, so
+    // the extra width is filled with world rather than left blank.
+    const edge = view.toLatLon(1900, 380)!
+    expect(edge).not.toBeNull()
+    expect(Math.abs(edge.longitude)).toBeGreaterThan(60)
   })
 
   it('keeps a flat window inside the planet, sliding the centre if it must', () => {

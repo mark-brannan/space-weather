@@ -160,7 +160,7 @@ function dayLabel(day, i) {
 }
 
 /** The Storm Scales card body, as HTML. `renderScales` in index.html only
- * assigns this to `scalesBody.innerHTML` and drives the two DOM-only reads
+ * assigns this to the scales container's innerHTML and drives the two DOM-only reads
  * (`setLetter`, `setTimestamp`) that a fixture cannot exercise. */
 export function scalesMarkup(card) {
   const { G: gLevel, S: sLevel, R: rLevel } = card.observed

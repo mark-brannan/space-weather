@@ -62,7 +62,11 @@ export const MAP_PROBE_LINE = '#ffb238'
 
 export const MIN_RADIUS_DEG = 15
 export const MAX_RADIUS_DEG = 180
-export const DEFAULT_RADIUS_DEG = 60
+// The whole planet, not a regional close-up. The first thing a global product
+// has to establish is that it is global: opening at 60 degrees showed a piece
+// of the aurora oval with no way to tell whether the rest of it was elsewhere
+// or absent. Zooming in is a question the reader asks second.
+export const DEFAULT_RADIUS_DEG = MAX_RADIUS_DEG
 
 /**
  * The two products, as layers.
@@ -222,13 +226,23 @@ function paintRaster(ctx, view, layers) {
   ctx.drawImage(offscreen, 0, 0, view.width, view.height)
 }
 
-/** The boundary circle of an azimuthal view, as a path. */
+/**
+ * The boundary circle of an azimuthal view, as a path.
+ *
+ * The antipode, not the zoom radius. The radius says how much arc the shorter
+ * axis is asked to hold; it is not a frame to cut the picture out with. Cutting
+ * there drew a circle floating in black on any viewport that was not square,
+ * and the wider the screen the more of it was black -- the reader is looking at
+ * a map, not at a token of one. Beyond 180 degrees there is genuinely nothing
+ * to draw, so that is where the clip belongs, and at every zoom short of
+ * "everywhere" it falls outside the viewport and costs the picture nothing.
+ */
 function discPath(view) {
   const path = new Path2D()
   path.arc(
     view.width / 2,
     view.height / 2,
-    view.proj.radiusWorld(view.radiusDeg) * view.scale,
+    Math.PI * view.scale,
     0,
     Math.PI * 2
   )
