@@ -1,6 +1,6 @@
 {
   "name": "signalk-noaa-space-weather",
-  "version": "0.30.6",
+  "version": "0.30.7",
   "description": "Solar storm alerts, HF radio conditions, and aurora maps from NOAA's Space Weather Prediction Center. Includes a map webapp.",
   "type": "module",
   "displayName": "NOAA Space Weather",
