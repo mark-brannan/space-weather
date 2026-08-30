@@ -11,10 +11,11 @@
 /** Kp at which NOAA calls it a G1 storm; mirrors KP_FOR_G1 in src/parse.ts. */
 const KP_FOR_G1 = 5
 /**
- * The level at which this plugin interrupts the user; mirrors ALERT_FLOOR in
- * src/parse.ts. It decides precedence and nothing else here. Whether a
- * storm is worth *saying* is a lower bar than whether it is worth a
- * notification -- see IN_FORCE.
+ * The level this page treats as worth naming in the banner. It decides
+ * precedence and nothing else here -- it is not the notification floor,
+ * which is `listLevel` and is a user setting. Whether a storm is worth
+ * *saying* uses a separate fixed bar from notification settings -- see
+ * IN_FORCE.
  */
 const NOTABLE = 3
 /**
@@ -208,7 +209,8 @@ export function heroState(input, now = Date.now()) {
     const startMs = Date.parse(startedAt ?? '')
     const running = Number.isFinite(startMs) ? now - startMs : null
     return {
-      kind: running !== null && running > STARTUP_GRACE_MS ? 'silent' : 'starting',
+      kind:
+        running !== null && running > STARTUP_GRACE_MS ? 'silent' : 'starting',
       startedAt: startedAt ?? null,
       timer: { kind: 'since-start', at: startedAt ?? null }
     }
@@ -276,7 +278,8 @@ export function heroState(input, now = Date.now()) {
   // maximum instead. Both used to say nothing was in force, which is false
   // whenever the lead is a level of its own: an R2 now under an R3 earlier
   // read as "conditions have since eased" while the R2 was still on.
-  const inForce = lead.level >= IN_FORCE ? { letter: lead.letter, level: lead.level } : null
+  const inForce =
+    lead.level >= IN_FORCE ? { letter: lead.letter, level: lead.level } : null
 
   const peak = worstOf(peak24h)
   if (peak && peak.level >= NOTABLE) {

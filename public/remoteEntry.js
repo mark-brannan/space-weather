@@ -69,7 +69,8 @@ const AURORA_URL =
   'https://www.spaceweather.gov/communities/aurora-dashboard-experimental'
 // NOAA's own page for the D-RAP model, for the same reason: the checkbox can
 // show what it is offering rather than only naming a four-letter product.
-const DRAP_URL = 'https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap'
+const DRAP_URL =
+  'https://www.swpc.noaa.gov/products/d-region-absorption-predictions-d-rap'
 // NOAA's own page for the GOES X-ray flux, likewise: the checkbox governing
 // the most expensive product on the poll can show what it is buying.
 const GOES_FLUX_URL = 'https://www.swpc.noaa.gov/products/goes-x-ray-flux'
@@ -222,10 +223,25 @@ function createPanel(React) {
     nominal: 'table-success'
   }
 
-  /** The colours the two lines and their grips are drawn in. */
+  /** The colours the three lines and their grips are drawn in. */
   const EDGE = {
     sound: 'var(--bs-danger)',
-    popup: 'var(--bs-warning-text-emphasis)'
+    popup: 'var(--bs-warning-text-emphasis)',
+    list: 'var(--bs-secondary-color)'
+  }
+
+  /** `aria-label` prefixes for a grip, by what it controls. */
+  const GRIP_ARIA_LABEL = {
+    sound: 'Sound an alarm at',
+    popup: 'Show a popup at',
+    list: 'List, even silently, at'
+  }
+
+  /** A lane per kind, so grips landing on one row sit side by side. */
+  const GRIP_LANE = {
+    sound: '0.25rem',
+    popup: '5.25rem',
+    list: '10.25rem'
   }
 
   /**
@@ -242,7 +258,7 @@ function createPanel(React) {
       {
         role: 'slider',
         tabIndex: 0,
-        'aria-label': kind === 'sound' ? 'Sound an alarm at' : 'Show a popup at',
+        'aria-label': GRIP_ARIA_LABEL[kind],
         'aria-valuemin': MINOR,
         'aria-valuemax': ALARM_NEVER,
         'aria-valuenow': level,
@@ -264,10 +280,10 @@ function createPanel(React) {
           // Otherwise a vertical drag on a touchscreen scrolls the page, and
           // the browser cancels the pointer sequence out from under the drag.
           touchAction: 'none',
-          // A lane per kind, so two lines landing on one row sit side by side
-          // instead of on top of each other, and neither grip moves sideways
-          // as it moves up and down.
-          left: kind === 'sound' ? '0.25rem' : '5.25rem',
+          // A lane per kind, so lines landing on one row sit side by side
+          // instead of on top of each other, and no grip moves sideways as it
+          // moves up and down.
+          left: GRIP_LANE[kind],
           // Centred on the line, which is the row edge it is drawn against.
           ...(above
             ? { top: 0, transform: 'translateY(-50%)' }
@@ -287,8 +303,9 @@ function createPanel(React) {
     )
 
   /**
-   * The ladder, and the control. Every row is a consequence of the two lines
-   * drawn across it, so the table that showed the setting now *is* the setting:
+   * The ladder, and the control. Every row is a consequence of the three
+   * lines drawn across it, so the table that showed the setting now *is* the
+   * setting:
    * there is nothing on screen that is not either a decision or its result.
    *
    * A line rests on the bottom edge of the row its band opens at, drawn as that
@@ -322,7 +339,8 @@ function createPanel(React) {
           edges[level] = box.bottom
           if (level === 5) edges[ALARM_NEVER] = box.top
         }
-        const move = (moved) => onChange(key, nearestLevel(edges, moved.clientY))
+        const move = (moved) =>
+          onChange(key, nearestLevel(edges, moved.clientY))
         const done = () => {
           window.removeEventListener('pointermove', move)
           window.removeEventListener('pointerup', done)
@@ -335,7 +353,7 @@ function createPanel(React) {
       [onChange]
     )
 
-    const { alarmLevel, popupLevel } = settings
+    const { alarmLevel, popupLevel, listLevel } = settings
     return h(
       'table',
       { className: 'table table-sm align-middle small mb-2' },
@@ -359,7 +377,8 @@ function createPanel(React) {
           // what the column is for.
           h(
             'th',
-            { scope: 'col', style: { width: '11rem' } },
+            // Wide enough for three lanes of pill; see GRIP_LANE.
+            { scope: 'col', style: { width: '16rem' } },
             h('span', { className: 'visually-hidden' }, 'Thresholds')
           ),
           h('th', { scope: 'col' }, 'Level'),
@@ -371,7 +390,7 @@ function createPanel(React) {
       h(
         'tbody',
         { ref: body },
-        ladderFor(alarmLevel, popupLevel).map((row) => {
+        ladderFor(alarmLevel, popupLevel, listLevel).map((row) => {
           // A line rests under the row its band opens at. ALARM_NEVER has no
           // row, so it rests above the top one, where the band is empty.
           const under = BOUNDARIES.filter(
@@ -434,7 +453,7 @@ function createPanel(React) {
    * quiet: the card header immediately above this carries the plugin's status
    * and last error, which is the better place to learn that it is not working.
    */
-  const RightNow = ({ conditions, alarmLevel, popupLevel }) => {
+  const RightNow = ({ conditions, alarmLevel, popupLevel, listLevel }) => {
     if (!conditions) return null
     const { levels, worst, observedKp, forecast } = conditions
     const observed = Object.keys(levels)
@@ -444,7 +463,8 @@ function createPanel(React) {
     // nothing whatever the alarm level, so quoting it says nothing about the
     // setting. On a quiet day the forecast below is the part worth reading.
     const inForce = worst && worst.level > 0
-    const verdict = inForce && verdictFor(worst.level, alarmLevel, popupLevel)
+    const verdict =
+      inForce && verdictFor(worst.level, alarmLevel, popupLevel, listLevel)
     return h(
       'div',
       { className: 'small mb-3' },
@@ -654,11 +674,15 @@ function createPanel(React) {
           help: h(
             'span',
             null,
-            quietRule(settings.alarmLevel, settings.popupLevel),
-            ' Strong (3) and above is listed whatever the two lines are set' +
-              ' to — a storm that size should leave a trace even with the' +
-              ' plugin turned all the way down. The states and methods apply' +
-              ' to the G, S and R scales and to Kp. How often is geomagnetic,' +
+            quietRule(
+              settings.alarmLevel,
+              settings.popupLevel,
+              settings.listLevel
+            ),
+            ' The third line decides what is listed at all — below it, a' +
+              ' level is not recorded anywhere this screen shows. The states' +
+              ' and methods apply to the G, S and R scales and to Kp. How' +
+              ' often is geomagnetic,' +
               ' counted from the Kp archive over 1932–2025; the other two' +
               ' scales differ, sharply at 4 and 5, and every rate roughly' +
               ' doubles during the active stretch of a solar cycle. ',
@@ -675,7 +699,8 @@ function createPanel(React) {
           h(RightNow, {
             conditions,
             alarmLevel: settings.alarmLevel,
-            popupLevel: settings.popupLevel
+            popupLevel: settings.popupLevel,
+            listLevel: settings.listLevel
           })
         )
       ),

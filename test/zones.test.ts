@@ -43,14 +43,14 @@ describe('stateForScaleValue', () => {
     ])
   })
 
-  it('sounds nothing at ALARM_NEVER, and still shows the top levels', () => {
-    // The one alarm setting that deliberately cannot sound. G5 still pops up
-    // and G4 and G3 are still listed, so the loudest events remain visible --
-    // the bug the test below guards against was a choice that looked loud and
-    // was silent.
+  it('sounds nothing at ALARM_NEVER, and still shows the top level', () => {
+    // The one alarm setting that deliberately cannot sound. G5 still pops up,
+    // so the loudest event remains visible -- the bug the test below guards
+    // against was a choice that looked loud and was silent. With no popup or
+    // list level given, both derive one below the level above them, so G5
+    // reaches the popup band and G4 the list band.
     expect(stateForScaleValue(5, ALARM_NEVER)).toBe('warn')
     expect(stateForScaleValue(4, ALARM_NEVER)).toBe('alert')
-    expect(stateForScaleValue(3, ALARM_NEVER)).toBe('alert')
     expect(
       [1, 2, 3, 4, 5].map((v) => stateForScaleValue(v, ALARM_NEVER))
     ).not.toContain('alarm')
@@ -71,37 +71,39 @@ describe('stateForScaleValue', () => {
     ])
   })
 
-  it('lists Strong and above however quiet the two thresholds are', () => {
-    // A G3 is several a year, not several a day. There is no setting at which
-    // one should leave no trace: `alert` carries an empty method array, so
-    // this costs the user nothing but a line in the notification list.
-    for (const value of [3, 4, 5]) {
+  it('takes a list level independent of the other two', () => {
+    // The third threshold: `listLevel` used to be a fixed floor (ALERT_FLOOR)
+    // that nothing could turn off. It is now an ordinary slider, so even with
+    // the alarm and popup both silenced, whether anything is listed at all is
+    // still the user's call.
+    for (const value of [1, 2, 3, 4, 5]) {
       expect(
-        stateForScaleValue(value, ALARM_NEVER, ALARM_NEVER),
+        stateForScaleValue(value, ALARM_NEVER, ALARM_NEVER, 1),
         `value ${value}`
       ).toBe('alert')
     }
-    expect(stateForScaleValue(2, ALARM_NEVER, ALARM_NEVER)).toBe('normal')
-    expect(stateForScaleValue(1, ALARM_NEVER, ALARM_NEVER)).toBe('normal')
   })
 
-  it('keeps the quiet rung against the popup band below the floor', () => {
-    // Below ALERT_FLOOR the listed rung follows the popup down instead of
-    // leaving a gap of `normal` between two adjacent bands.
+  it('can silence the list band entirely, same as the other two', () => {
+    // `ALARM_NEVER` is exempt from the same clamp on `listLevel` as it is on
+    // `popupLevel` -- see `listBand` in src/config.ts.
+    expect(
+      [1, 2, 3, 4, 5].map((v) =>
+        stateForScaleValue(v, ALARM_NEVER, ALARM_NEVER, ALARM_NEVER)
+      )
+    ).toEqual(['normal', 'normal', 'normal', 'normal', 'normal'])
+  })
+
+  it('keeps the list rung against the popup band when only two levels are given', () => {
+    // With no explicit `listLevel`, it derives one below whichever of the
+    // other two is lower -- the ladder this had when there was no third
+    // setting, so a call site that has not been told about it keeps the old
+    // shape without a gap of `normal` between adjacent bands.
     expect([1, 2, 3].map((v) => stateForScaleValue(v, 5, 2))).toEqual([
       'alert',
       'warn',
       'warn'
     ])
-  })
-
-  it('leaves the quiet rung at the floor when there is no popup band', () => {
-    // The rung follows the popup band down so the two are never separated by a
-    // gap of `normal`. A popup of ALARM_NEVER opens no band for it to stay
-    // against, so it stays where ALERT_FLOOR puts it -- which is why the two
-    // are not interchangeable once the alarm is low enough to notice.
-    expect(stateForScaleValue(2, 3, ALARM_NEVER)).toBe('normal')
-    expect(stateForScaleValue(2, 3, 3)).toBe('alert')
   })
 
   it('is monotonically louder as the popup level comes down', () => {

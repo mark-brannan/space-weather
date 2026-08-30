@@ -119,6 +119,70 @@ describe('popupLevel', () => {
   })
 })
 
+describe('listLevel', () => {
+  const property: any = (schema.properties as any).listLevel
+
+  it('defaults to 3, one below the popup level', () => {
+    expect(settingsFrom({}).listLevel).toBe(3)
+    expect(property.default).toBe(3)
+  })
+
+  it('offers the same choices as the other two thresholds', () => {
+    expect(property.oneOf).toEqual((schema.properties as any).alarmLevel.oneOf)
+  })
+
+  it('uses listLevel when present', () => {
+    expect(
+      settingsFrom({ alarmLevel: 5, popupLevel: 4, listLevel: 2 }).listLevel
+    ).toBe(2)
+  })
+
+  it('is never louder than the popup level', () => {
+    // Above it, it would name a band the popup already claimed, so it would
+    // be inert while still reading as a choice -- the same reason the popup
+    // level cannot outrank the alarm.
+    expect(
+      settingsFrom({ alarmLevel: 5, popupLevel: 3, listLevel: 5 }).listLevel
+    ).toBe(3)
+    expect(
+      settingsFrom({ alarmLevel: 5, popupLevel: 1, listLevel: 4 }).listLevel
+    ).toBe(1)
+  })
+
+  it('follows a saved popup level down when absent', () => {
+    // There is no old key to migrate here -- this is the setting's own
+    // default ladder, mirroring what popupLevel does against the alarm.
+    expect(settingsFrom({ alarmLevel: 5, popupLevel: 3 }).listLevel).toBe(2)
+    expect(settingsFrom({ alarmLevel: 5, popupLevel: 1 }).listLevel).toBe(1)
+  })
+
+  it('keeps an explicit Never whatever the popup level is', () => {
+    // The one value above the popup level that is not a mistake: it asks for
+    // no list band at all, rather than naming a band already taken.
+    for (const popupLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      expect(
+        settingsFrom({ alarmLevel: 5, popupLevel, listLevel: ALARM_NEVER })
+          .listLevel
+      ).toBe(ALARM_NEVER)
+  })
+
+  it('reads its own output back unchanged, for every triple', () => {
+    for (const alarmLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+      for (const popupLevel of [1, 2, 3, 4, 5, ALARM_NEVER])
+        for (const listLevel of [1, 2, 3, 4, 5, ALARM_NEVER]) {
+          const settings = settingsFrom({ alarmLevel, popupLevel, listLevel })
+          expect(settingsFrom(settings)).toEqual(settings)
+        }
+  })
+
+  it('resolves an out-of-range saved value against the popup level', () => {
+    for (const bad of [0, 7, 3.5, -1, 'loud', null])
+      expect(
+        settingsFrom({ alarmLevel: 5, popupLevel: 4, listLevel: bad }).listLevel
+      ).toBe(3)
+  })
+})
+
 describe('the schema survives the round trip the server puts it through', () => {
   // The server stores the schema as JSON, and the Signal K plugin CI walks it
   // rejecting anything JSON.stringify would drop or choke on. Its reachability

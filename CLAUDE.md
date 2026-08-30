@@ -94,18 +94,19 @@ argument in
 [docs/design-decisions.md](docs/design-decisions.md#alerts-are-keyed-by-message-code-not-serial-number)).
 
 **Every notification goes through `methodForState`, and loudness is
-controlled only by two ordered thresholds — `alarmLevel` (sounds) and
-`popupLevel` (visible, silent).** State is the only input; don't add a
-per-method override. `ALERT_FLOOR` (level 3) never turns off; `ALARM_NEVER` is
-the one value above the alarm that isn't a mistake. Default mapping: 0
-`nominal`, 1–2 `normal`, 3 `alert` (empty method array), 4 `warn` (visual), 5
-`alarm` (visual + sound) — don't make it louder without a frequency argument,
-and don't derive one threshold from the other
+controlled only by three ordered thresholds — `alarmLevel` (sounds),
+`popupLevel` (visible, silent) and `listLevel` (listed, silent).** State is
+the only input; don't add a per-method override. `ALARM_NEVER` is the one
+value above a threshold that isn't a mistake. Default mapping: 0 `nominal`,
+1–2 `normal`, 3 `alert` (empty method array), 4 `warn` (visual), 5 `alarm`
+(visual + sound) — don't make it louder without a frequency argument. Keep
+explicit thresholds independent; derive an absent threshold from the level
+above
 ([#71](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/71),
 [#120](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/120),
 [#126](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/126)
 — argument in
-[docs/design-decisions.md](docs/design-decisions.md#loudness-is-two-ordered-thresholds-not-one)).
+[docs/design-decisions.md](docs/design-decisions.md#loudness-is-three-ordered-thresholds-not-one)).
 
 **Zone metadata generates notifications.** signalk-server's `src/zones.ts`
 watches any path with `meta.zones` and raises `notifications.<path>` on zone
@@ -116,10 +117,10 @@ at all. The metadata's `alertMethod` / `warnMethod` / `alarmMethod` set the
 notification's `method` array independently of its `state`, which is how a
 level is visible in the UI without interrupting the user.
 
-**In the panel, the two thresholds are lines drawn across the ladder, not
+**In the panel, the three thresholds are lines drawn across the ladder, not
 dropdowns**, and the table showing the consequence of the setting *is* the
 setting. `withLevel` is the panel's clamp; `config-panel.test.ts` pins that
-nothing it can produce is a pair `settingsFrom` would rewrite. Argument in
+nothing it can produce is a triple `settingsFrom` would rewrite. Argument in
 [docs/design-decisions.md](docs/design-decisions.md#thresholds-are-lines-on-the-ladder-not-dropdowns).
 
 **Signal K wants SI units.** Solar wind speed in m/s (NOAA gives km/s), Bt and

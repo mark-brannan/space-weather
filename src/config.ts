@@ -8,7 +8,7 @@ import {
   formatBytes,
   predictedBytesPerDay
 } from './endpoints.js'
-import { ALARM_NEVER, NoaaScaleValues } from './parse.js'
+import { ALARM_NEVER, DEFAULT_LIST_LEVEL, NoaaScaleValues } from './parse.js'
 
 export interface Settings {
   sendAdvisoryOutlook: boolean
@@ -20,6 +20,7 @@ export interface Settings {
   goesFluxInterval: number
   alarmLevel: number
   popupLevel: number
+  listLevel: number
   updateInterval: number
 }
 
@@ -107,11 +108,19 @@ export const schema = {
       description:
         'Visible but silent, from this level up to the alarm level. Cannot be' +
         ' louder than the alarm: a popup level above it would name a band the' +
-        ' alarm has already taken, so it is pulled back down. Strong (3) and' +
-        ' above is listed without a popup whatever these two are set to — a' +
-        ' storm that size should leave a trace even when the plugin is turned' +
-        ' all the way down.',
+        ' alarm has already taken, so it is pulled back down.',
       default: NoaaScaleValues.SEVERE,
+      oneOf: levelOptions()
+    },
+    listLevel: {
+      type: 'number',
+      title: 'List, even silently, at…',
+      description:
+        'Appears in the notification list with no popup and no sound, from' +
+        ' this level up to the popup level. Below it, a level is not listed at' +
+        ' all -- same as no storm. Cannot be louder than the popup level, for' +
+        ' the same reason the popup level cannot outrank the alarm.',
+      default: DEFAULT_LIST_LEVEL,
       oneOf: levelOptions()
     },
     auroraEnabled: {
@@ -268,6 +277,7 @@ export function settingsFrom(props: any): Settings {
       smaller(p.observationsInterval, p.notificationsInterval),
     60
   )
+  const popupLevel = popupBand(p.popupLevel, alarmLevel)
   return {
     sendAdvisoryOutlook: p.sendAdvisoryOutlook !== false,
     auroraEnabled: p.auroraEnabled === true,
@@ -307,7 +317,8 @@ export function settingsFrom(props: any): Settings {
         ? updateInterval
         : minutes(p.goesFluxInterval, 60),
     alarmLevel,
-    popupLevel: popupBand(p.popupLevel, alarmLevel),
+    popupLevel,
+    listLevel: listBand(p.listLevel, popupLevel),
     updateInterval
   }
 }
@@ -323,9 +334,8 @@ export function settingsFrom(props: any): Settings {
  * alarm happened to be on the next load -- a control that does not read as what
  * was chosen, which is the bug the two thresholds exist to fix.
  *
- * Nor is it only the label. Below `ALERT_FLOOR` the quiet rung follows the
- * popup band down, so a clamped "Never" would also start listing a level the
- * user had asked nothing of.
+ * Nor is it only the label. Below `listLevel` a clamped "Never" would also
+ * start listing a level the user had asked nothing of.
  */
 function popupBand(raw: any, alarmLevel: number): number {
   const level = scaleValue(
@@ -337,6 +347,28 @@ function popupBand(raw: any, alarmLevel: number): number {
     Math.max(NoaaScaleValues.MINOR, alarmLevel - 1)
   )
   return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
+}
+
+/**
+ * The list threshold, which is never louder than the popup level. Above it,
+ * it would name levels the popup band has already claimed, so it is pulled
+ * back down -- same shape as `popupBand` clamping against the alarm.
+ *
+ * `ALARM_NEVER` is exempt for the same reason it is on `popupLevel`: it is
+ * the one value above the popup level that is not a mistake, and clamping it
+ * would relabel a deliberate "never list anything silently" as whatever the
+ * popup level happened to be on the next load.
+ */
+function listBand(raw: any, popupLevel: number): number {
+  const level = scaleValue(
+    raw,
+    // One below the popup is this setting's own default ladder, mirroring
+    // popupBand's fallback -- a config saved before this threshold existed
+    // (there is no old key to migrate) lands one below whatever popup was
+    // already computed to.
+    Math.max(NoaaScaleValues.MINOR, popupLevel - 1)
+  )
+  return level === ALARM_NEVER ? level : Math.min(level, popupLevel)
 }
 
 /** An old attention-threshold as the equivalent alarm level. */

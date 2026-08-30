@@ -258,28 +258,31 @@ describe('panelSettings', () => {
 })
 
 describe('moving a boundary line', () => {
-  const pairs = THRESHOLDS.flatMap((alarmLevel) =>
-    THRESHOLDS.map((popupLevel) => ({ alarmLevel, popupLevel }))
+  const KEYS = ['alarmLevel', 'popupLevel', 'listLevel']
+  const triples = THRESHOLDS.flatMap((alarmLevel) =>
+    THRESHOLDS.flatMap((popupLevel) =>
+      THRESHOLDS.map((listLevel) => ({ alarmLevel, popupLevel, listLevel }))
+    )
   )
 
-  it('never produces a pair the plugin would rewrite', () => {
+  it('never produces a triple the plugin would rewrite', () => {
     // The strong property, and the reason this is worth its own function: a
     // grip that could put the panel in a state `settingsFrom` pulls back would
     // show the user a ladder the plugin is not running.
-    for (const pair of pairs)
-      for (const key of ['alarmLevel', 'popupLevel'])
+    for (const triple of triples)
+      for (const key of KEYS)
         for (const value of THRESHOLDS) {
-          const moved = withLevel(pair, key, value)
+          const moved = withLevel(triple, key, value)
           expect(settingsFrom(moved)).toMatchObject(moved)
         }
   })
 
   it('puts the moved threshold exactly where it was asked to go', () => {
-    // The other one may follow; the one under the pointer never argues back.
-    for (const pair of pairs)
-      for (const key of ['alarmLevel', 'popupLevel'])
+    // The other two may follow; the one under the pointer never argues back.
+    for (const triple of triples)
+      for (const key of KEYS)
         for (const value of THRESHOLDS)
-          expect(withLevel(pair, key, value)[key]).toBe(value)
+          expect(withLevel(triple, key, value)[key]).toBe(value)
   })
 
   it('lets a Never popup keep the alarm where it is', () => {
@@ -287,20 +290,50 @@ describe('moving a boundary line', () => {
     // the alarm up to meet it would silence a plugin the user had only asked
     // to stop popping up.
     expect(
-      withLevel({ alarmLevel: 5, popupLevel: 4 }, 'popupLevel', ALARM_NEVER)
-    ).toEqual({ alarmLevel: 5, popupLevel: ALARM_NEVER })
+      withLevel(
+        { alarmLevel: 5, popupLevel: 4, listLevel: 3 },
+        'popupLevel',
+        ALARM_NEVER
+      )
+    ).toEqual({ alarmLevel: 5, popupLevel: ALARM_NEVER, listLevel: 3 })
     expect(
-      withLevel({ alarmLevel: 5, popupLevel: ALARM_NEVER }, 'alarmLevel', 3)
-    ).toEqual({ alarmLevel: 3, popupLevel: ALARM_NEVER })
+      withLevel(
+        { alarmLevel: 5, popupLevel: ALARM_NEVER, listLevel: 3 },
+        'alarmLevel',
+        3
+      )
+    ).toEqual({ alarmLevel: 3, popupLevel: ALARM_NEVER, listLevel: 3 })
   })
 
-  it('takes the other line along rather than refusing the move', () => {
+  it('lets a Never list level keep the popup where it is', () => {
+    // Same shape one rung down: choosing Never for the list level, and moving
+    // the popup afterwards, neither drags the other along.
     expect(
-      withLevel({ alarmLevel: 5, popupLevel: 4 }, 'alarmLevel', 2)
-    ).toEqual({ alarmLevel: 2, popupLevel: 2 })
+      withLevel(
+        { alarmLevel: 5, popupLevel: 4, listLevel: 3 },
+        'listLevel',
+        ALARM_NEVER
+      )
+    ).toEqual({ alarmLevel: 5, popupLevel: 4, listLevel: ALARM_NEVER })
     expect(
-      withLevel({ alarmLevel: 3, popupLevel: 2 }, 'popupLevel', 5)
-    ).toEqual({ alarmLevel: 5, popupLevel: 5 })
+      withLevel(
+        { alarmLevel: 5, popupLevel: 4, listLevel: ALARM_NEVER },
+        'popupLevel',
+        2
+      )
+    ).toEqual({ alarmLevel: 5, popupLevel: 2, listLevel: ALARM_NEVER })
+  })
+
+  it('takes the neighboring line along rather than refusing the move', () => {
+    expect(
+      withLevel({ alarmLevel: 5, popupLevel: 4, listLevel: 3 }, 'alarmLevel', 2)
+    ).toEqual({ alarmLevel: 2, popupLevel: 2, listLevel: 2 })
+    expect(
+      withLevel({ alarmLevel: 3, popupLevel: 2, listLevel: 1 }, 'popupLevel', 5)
+    ).toEqual({ alarmLevel: 5, popupLevel: 5, listLevel: 1 })
+    expect(
+      withLevel({ alarmLevel: 5, popupLevel: 2, listLevel: 1 }, 'listLevel', 4)
+    ).toEqual({ alarmLevel: 5, popupLevel: 4, listLevel: 4 })
   })
 
   it('leaves the rest of the settings alone', () => {

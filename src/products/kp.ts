@@ -24,7 +24,11 @@ export const kp: Product = {
 
   metadata(settings: Settings): Meta[] {
     const methods = zoneMethods()
-    const zones = zonesForKp(settings.alarmLevel, settings.popupLevel)
+    const zones = zonesForKp(
+      settings.alarmLevel,
+      settings.popupLevel,
+      settings.listLevel
+    )
     // Kp is a dimensionless index, so no `units`.
     const common = {
       timeout: 60 * 60 * 6,
@@ -80,7 +84,12 @@ export const kp: Product = {
             upper: NoaaScaleValues.EXTREME,
             type: 'linear'
           },
-          zones: zonesForScale('G', settings.alarmLevel, settings.popupLevel)
+          zones: zonesForScale(
+            'G',
+            settings.alarmLevel,
+            settings.popupLevel,
+            settings.listLevel
+          )
         }
       },
       {

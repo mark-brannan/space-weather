@@ -150,13 +150,16 @@ enable it the same way.
 
 ## Configuration
 
-Ten settings, all optional, all with working defaults:
+Eleven settings, all optional, all with working defaults:
 
 - `alarmLevel` (default 5, "Extreme") — the NOAA level that becomes visible
   **and audible**. "Never" removes the sound without hiding the storm.
 - `popupLevel` (default 4, "Severe") — the level that becomes visible and
-  stays silent. Never louder than `alarmLevel`. Both apply to the G, S and
-  R scales and to Kp — see [Alarm zones](#alarm-zones).
+  stays silent. Never louder than `alarmLevel`.
+- `listLevel` (default 3, "Strong") — the level that appears in the
+  notification list with no popup and no sound. Never louder than
+  `popupLevel`. All three apply to the G, S and R scales and to Kp — see
+  [Alarm zones](#alarm-zones).
 - `sendAdvisoryOutlook` (default on) — NOAA's weekly outlook bulletin as a
   single quiet notification.
 - `drapEnabled` (default on) — fetch the D-RAP absorption grid, about 2 KB
@@ -202,12 +205,12 @@ and what each level does at the defaults:
 | 4 (Severe)   | 60 days  | 8 days   | 3 events  | popup |
 | 5 (Extreme)  | 4 days   | 1 day    | 1 event   | popup + sound |
 
-`alarmLevel` and `popupLevel` move that last column.
+`alarmLevel`, `popupLevel` and `listLevel` move that last column.
 Set the alarm to 3 and Strong, Severe and Extreme all sound; set it
-to "Never" and nothing sounds but higher storms can still pop up. Strong (3) and
-above is always at least listed, whatever you set — a G3 is a real storm,
-and there is no setting at which one should leave no trace. A listed
-notification interrupts nobody; it just appears in the list.
+to "Never" and nothing sounds but higher storms can still pop up. At the
+defaults, Strong (3) and above is at least listed — lower `listLevel` to
+list Moderate or Minor too, or raise it if you'd rather not see even a
+listed Strong storm.
 
 When NOAA writes "G3 or greater" it is interpreted here as just G3,
 since they leave it ambiguous, but in reality it could end up as a G4 or G5.

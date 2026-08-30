@@ -23,6 +23,7 @@ export const DEFAULTS = Object.freeze({
   sendAdvisoryOutlook: true,
   alarmLevel: 5,
   popupLevel: 4,
+  listLevel: 3,
   auroraEnabled: false,
   auroraInterval: 120,
   drapEnabled: true,
@@ -217,22 +218,20 @@ export function formatKb(kb) {
   return `${Math.round(kb)} KB`
 }
 
-/** Mirrors `ALERT_FLOOR` in src/parse.ts. */
-export const ALERT_FLOOR = 3
-
 /**
  * Mirrors `stateForScaleValue` in src/parse.ts, which carries the argument for
- * why there are two thresholds rather than one anchor with derived rungs.
+ * why there are three thresholds rather than one anchor with derived rungs.
  */
 export function stateForScaleValue(
   value,
   alarmLevel,
-  popupLevel = alarmLevel - 1
+  popupLevel = alarmLevel - 1,
+  listLevel = popupLevel - 1
 ) {
   if (value <= 0) return 'nominal'
   if (value >= alarmLevel) return 'alarm'
   if (value >= popupLevel) return 'warn'
-  if (value >= Math.min(popupLevel - 1, ALERT_FLOOR)) return 'alert'
+  if (value >= listLevel) return 'alert'
   return 'normal'
 }
 
@@ -294,14 +293,14 @@ const EFFECT = Object.freeze({
 })
 
 /**
- * One row per NOAA level, loudest first, for the two chosen thresholds. Loudest
- * first because the loudest threshold is the first thing set and the rest of
- * the ladder hangs below it.
+ * One row per NOAA level, loudest first, for the three chosen thresholds.
+ * Loudest first because the loudest threshold is the first thing set and the
+ * rest of the ladder hangs below it.
  */
-export function ladderFor(alarmLevel, popupLevel) {
+export function ladderFor(alarmLevel, popupLevel, listLevel) {
   const rows = []
   for (let level = 5; level >= 1; level--) {
-    const state = stateForScaleValue(level, alarmLevel, popupLevel)
+    const state = stateForScaleValue(level, alarmLevel, popupLevel, listLevel)
     rows.push({
       level,
       name: SCALE_NAMES[level],
@@ -330,7 +329,8 @@ export function ladderFor(alarmLevel, popupLevel) {
  */
 export const BOUNDARIES = Object.freeze([
   Object.freeze({ key: 'alarmLevel', kind: 'sound' }),
-  Object.freeze({ key: 'popupLevel', kind: 'popup' })
+  Object.freeze({ key: 'popupLevel', kind: 'popup' }),
+  Object.freeze({ key: 'listLevel', kind: 'list' })
 ])
 
 /**
@@ -346,26 +346,60 @@ export function lineUnder(level) {
  * other's words -- so a screen reader hears the same thing the ladder shows.
  */
 export function gripLabel(kind, level) {
-  if (level === ALARM_NEVER)
-    return kind === 'sound' ? 'never sounds' : 'never pops up'
-  const verb = kind === 'sound' ? 'sounds' : 'pops up'
+  if (level === ALARM_NEVER) {
+    if (kind === 'sound') return 'never sounds'
+    if (kind === 'popup') return 'never pops up'
+    return 'never lists'
+  }
+  const verb =
+    kind === 'sound' ? 'sounds' : kind === 'popup' ? 'pops up' : 'is listed'
   return `${verb} from ${SCALE_NAMES[level]} (${level})`
 }
 
 /**
- * One threshold moved, with the other taken along if it has to be.
+ * One threshold moved, with either neighbor taken along if it has to be.
  *
- * Mirrors the clamp in `settingsFrom`, including its exemption: a popup of
- * `ALARM_NEVER` is quieter than every level rather than louder than the alarm,
- * so it neither drags the alarm up nor gets dragged down by it. Taking the
- * alarm along would silence a plugin the user had only asked to stop popping
- * up.
+ * Mirrors the clamp cascade in `settingsFrom` (`popupBand`, `listBand`), plus
+ * the asymmetry a live drag needs that a read-time clamp does not: the
+ * threshold under the pointer always lands exactly where it was put, so a
+ * neighbor in its way moves rather than the drag being refused or silently
+ * reverted on the next load.
+ *
+ * `ALARM_NEVER` is off the ladder in both directions, on any of the three: it
+ * is quieter than every real level rather than louder than the threshold
+ * above it, so it never drags a neighbor along and a neighbor already there
+ * never drags it. Taking the louder one along would silence a plugin the
+ * user had only asked to make quieter one rung; dragging a deliberate
+ * "Never" back onto the ladder would relabel it as whatever the neighbor
+ * happened to be on the next load.
  */
+const LEVEL_ORDER = ['listLevel', 'popupLevel', 'alarmLevel']
+
 export function withLevel(settings, key, value) {
   const next = { ...settings, [key]: value }
-  if (next.popupLevel === ALARM_NEVER) return next
-  if (key === 'alarmLevel') next.popupLevel = Math.min(next.popupLevel, value)
-  else next.alarmLevel = Math.max(next.alarmLevel, value)
+  const real = (level) => level !== ALARM_NEVER
+  const movedIndex = LEVEL_ORDER.indexOf(key)
+
+  // Push outward from the moved threshold, pair by pair, so every adjacent
+  // pair ends up honouring list <= popup <= alarm -- not just the one
+  // directly touching the moved threshold. Two arbitrary saved values can
+  // already disagree with each other before either is dragged, and a move
+  // that never looks past its own neighbor would leave that disagreement in
+  // place instead of resolving it the way `settingsFrom` would on load.
+  for (let i = movedIndex; i < LEVEL_ORDER.length - 1; i++) {
+    const lower = LEVEL_ORDER[i]
+    const upper = LEVEL_ORDER[i + 1]
+    if (real(next[lower]) && real(next[upper]) && next[lower] > next[upper]) {
+      next[upper] = next[lower]
+    }
+  }
+  for (let i = movedIndex; i > 0; i--) {
+    const lower = LEVEL_ORDER[i - 1]
+    const upper = LEVEL_ORDER[i]
+    if (real(next[lower]) && real(next[upper]) && next[lower] > next[upper]) {
+      next[lower] = next[upper]
+    }
+  }
   return next
 }
 
@@ -412,11 +446,11 @@ export function nearestLevel(edges, y) {
 /**
  * The quiet rung in words, read back off the ladder rather than derived a
  * second time -- so the sentence cannot claim something the table under it
- * contradicts. `ALERT_FLOOR` puts levels here that neither threshold names,
- * which is exactly why it is worth saying out loud.
+ * contradicts. `listLevel` puts levels here that neither of the other two
+ * thresholds names, which is exactly why it is worth saying out loud.
  */
-export function quietRule(alarmLevel, popupLevel) {
-  const listed = ladderFor(alarmLevel, popupLevel)
+export function quietRule(alarmLevel, popupLevel, listLevel) {
+  const listed = ladderFor(alarmLevel, popupLevel, listLevel)
     .filter((row) => row.state === 'alert')
     .map((row) => `${SCALE_NAMES[row.level]} (${row.level})`)
     .reverse()
@@ -463,6 +497,12 @@ function popupBand(raw, alarmLevel) {
   return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
 }
 
+/** Mirrors `listBand` in src/config.ts. */
+function listBand(raw, popupLevel) {
+  const level = scaleValue(raw, Math.max(1, popupLevel - 1))
+  return level === ALARM_NEVER ? level : Math.min(level, popupLevel)
+}
+
 /** The lower of two possibly-absent minute values. Mirrors `smaller` in src/config.ts. */
 function smaller(a, b) {
   const values = [a, b].map(Number).filter((n) => Number.isFinite(n) && n > 0)
@@ -482,15 +522,19 @@ export function panelSettings(configuration) {
       smaller(c.observationsInterval, c.notificationsInterval),
     DEFAULTS.updateInterval
   )
+  // The same clamp `settingsFrom` applies, so the panel cannot show a popup
+  // level the plugin would pull back down the moment it read it -- including
+  // its exemption for ALARM_NEVER, which is the one value above the alarm
+  // that the user meant. Clamping that one would redraw a chosen "Never" as
+  // a level on reload.
+  const popupLevel = popupBand(c.popupLevel, alarmLevel)
   return {
     sendAdvisoryOutlook: c.sendAdvisoryOutlook !== false,
     alarmLevel,
-    // The same clamp `settingsFrom` applies, so the panel cannot show a popup
-    // level the plugin would pull back down the moment it read it -- including
-    // its exemption for ALARM_NEVER, which is the one value above the alarm
-    // that the user meant. Clamping that one would redraw a chosen "Never" as
-    // a level on reload.
-    popupLevel: popupBand(c.popupLevel, alarmLevel),
+    popupLevel,
+    // Same clamp, one rung down: `listLevel` cannot outrank the popup level,
+    // for the same reason and with the same `ALARM_NEVER` exemption.
+    listLevel: listBand(c.listLevel, popupLevel),
     auroraEnabled: c.auroraEnabled === true,
     auroraInterval: minutes(c.auroraInterval, DEFAULTS.auroraInterval),
     drapEnabled: c.drapEnabled !== false,
@@ -607,7 +651,7 @@ export function currentConditions(scales, kp) {
  * ladder shows, for one level rather than all five, so the row a boat is
  * actually sitting on can be named.
  */
-export function verdictFor(level, alarmLevel, popupLevel) {
-  const state = stateForScaleValue(level, alarmLevel, popupLevel)
+export function verdictFor(level, alarmLevel, popupLevel, listLevel) {
+  const state = stateForScaleValue(level, alarmLevel, popupLevel, listLevel)
   return { state, method: methodForState(state), effect: EFFECT[state] }
 }

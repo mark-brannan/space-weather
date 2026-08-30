@@ -12,7 +12,7 @@
 // designed in-force tile is still its own card on the board; the thing this
 // has to beat is the page not showing the data at all.
 
-/** Mirrors ALERT_FLOOR / the states methodForState can produce. */
+/** The two states `stateForScaleValue` produces below the list threshold. */
 const STOOD_DOWN = new Set(['normal', 'nominal'])
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -137,7 +137,8 @@ function levelOf(value) {
   // A watch with no scale line still names its worst day.
   if (Array.isArray(value.predictedByDay)) {
     const worst = value.predictedByDay.reduce(
-      (max, day) => (Number.isFinite(day?.level) ? Math.max(max, day.level) : max),
+      (max, day) =>
+        Number.isFinite(day?.level) ? Math.max(max, day.level) : max,
       0
     )
     if (worst > 0) return worst

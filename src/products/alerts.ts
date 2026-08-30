@@ -54,7 +54,8 @@ export const alerts: Product = {
     const { inForce, unparseable, dropped } = currentAlertNotifications(json, {
       now,
       alarmLevel: settings.alarmLevel,
-      popupLevel: settings.popupLevel
+      popupLevel: settings.popupLevel,
+      listLevel: settings.listLevel
     })
 
     let raised = 0

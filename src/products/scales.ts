@@ -55,7 +55,8 @@ export const scales: Product = {
               zones: zonesForScale(
                 letter,
                 settings.alarmLevel,
-                settings.popupLevel
+                settings.popupLevel,
+                settings.listLevel
               )
             }
           })
