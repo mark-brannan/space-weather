@@ -1,8 +1,8 @@
 # NOAA Space Weather for Signal K
 
-[![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
+**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** using data from a saved NOAA snapshot, or **[run it on live NOAA data](https://mark-brannan.github.io/signalk-noaa-space-weather/?live)**.
 
-**[Try it in your browser](https://mark-brannan.github.io/signalk-noaa-space-weather/)** — the plugin's map on a saved NOAA snapshot. No boat, no server, nothing to install. Or **[run it on live NOAA data](https://mark-brannan.github.io/signalk-noaa-space-weather/?live)**, where the same page is the plugin itself, fetching the space weather happening right now.
+[![The browser demo: NOAA's radio-blackout model and the aurora oval on a globe](docs/screenshots/demo.png)](https://mark-brannan.github.io/signalk-noaa-space-weather/)
 
 ## Why a sailor should care
 
@@ -10,19 +10,24 @@
 storms that follow them — and what it does to radio and navigation here on
 Earth.
 
-- **HF (SSB) radio is the main casualty.** A strong flare can black out HF
+- **HF (SSB) radio is the first casualty.** A strong flare can black out HF
   on the daylight side of Earth for an hour or more. A geomagnetic storm can
   leave the bands noisy and unreliable for days.
 - **GPS suffers in storms too.** While the ionosphere is disturbed, positions
-  can wander or drop out.
+  can wander or drop out. Small glitches might be noticed at G3, and at G4
+  navigation can be disrupted for several hours with widespread positioning errors.
+- Low earth orbit satellite services such as Starlink also begin to degrade at
+  levels noticeable to individual users around G3.
 - **VHF and AIS are mostly safe, but not untouchable.** Marine VHF is
   line-of-sight, so the absorption that silences HF never reaches 156 MHz.
   The strongest flares, though, can raise the daytime noise floor across VHF
   for minutes to an hour — the sun briefly becomes a transmitter — and a
   storm can degrade the GPS positions that AIS depends on. A coastal boat
   with no SSB still has a stake in this.
-- In the most severe storms, induced currents can damage electronics and
-  power systems, ashore and afloat.
+- In the most severe storms, induced currents might damage electronics or power systems.
+  Severe storms do affect power grids but it is unclear how likely this is for the shorter wire runs on boats.
+- Note that long-range over-the-horizon radar is affected even at G1 levels (and severely disrupted at G3),
+  but line-of-sight marine radar would not be expected to suffer, even in severe storms.
 
 Activity follows the sun's roughly 11-year cycle, so busy years are somewhat
 predictable. It isn't all bad news either: a storm at high latitudes can mean
@@ -35,12 +40,11 @@ and the [Carrington Event](https://en.wikipedia.org/wiki/Carrington_Event).
 
 ## What you get
 
-The plugin polls NOAA's [Space Weather Prediction Center](https://www.swpc.noaa.gov/)
-and publishes to Signal K paths under `environment.noaa.swpc` and
-`notifications.noaa.swpc`. Grouped by what they answer:
+The plugin *judiciously* polls NOAA's [Space Weather Prediction Center](https://www.swpc.noaa.gov/)
+endpoints and publishes to Signal K paths under `environment.noaa.swpc` and
+`notifications.noaa.swpc`.
 
-**Is anything happening right now?**
-
+- NOAA's weekly [advisory outlook](https://www.spaceweather.gov/products/space-weather-advisory-outlook)
 - NOAA's G/S/R storm scales — current level, the last 24 hours' maximums,
   and a 3-day forecast. NOAA explains the scales in its
   [scale explanation](https://www.spaceweather.gov/noaa-scales-explanation).
@@ -48,25 +52,17 @@ and publishes to Signal K paths under `environment.noaa.swpc` and
   message code (for example `notifications.noaa.swpc.alerts.WARK05`),
   carrying only the conditions currently in force. A reissued warning
   updates its path in place; a cancelled one clears it.
-- The GOES X-ray flare class of the most recent event (for example `M2.1`)
-  — the same measurement the R scale buckets into 0–5, at finer grain.
-- The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, and the
-  interplanetary magnetic field strength (Bt) and direction (Bz).
-
-**What's coming?**
-
 - The [Kp index](https://en.wikipedia.org/wiki/K-index): the latest observed
   value, the peak expected in the next 24 and 72 hours, and the full
   3-hourly forecast series for plotting a timeline. The G scale is defined
-  in terms of Kp (G1 = Kp5 up to G5 = Kp9), and the Kp forecast is the feed
-  that says *when* — the part you can plan a passage around.
+  in terms of Kp (G1 = Kp5 up to G5 = Kp9), so the Kp forecast is a feed
+  that you could use for near-term planning.
 - The [27-day outlook](https://www.swpc.noaa.gov/products/27-day-outlook-107-cm-radio-flux-and-geomagnetic-indices),
-  one row per day for a full solar rotation. It reaches further than
-  anything else here, but it's a recurrence forecast — largely last
-  rotation repeated — so it has much less skill than the 3-day products. It
-  never raises a notification; read it, and let the Kp forecast wake you.
-- NOAA's weekly [advisory outlook](https://www.spaceweather.gov/products/space-weather-advisory-outlook)
-  bulletin, as a notification and as plain data.
+  one row per day for a full solar rotation.  This is much less accurate than the 72 hour data, but provides the longest forecast in the entire data set.
+- The [solar wind](https://en.wikipedia.org/wiki/Solar_wind) speed, and the
+  interplanetary magnetic field strength (Bt) and direction (Bz).
+- The GOES X-ray flare class of the most recent event (for example `M2.1`)
+  — the same measurement the R scale buckets into 0–5, at finer grain.
 
 **What does it mean for my radio, right where I am?**
 
@@ -81,17 +77,18 @@ and publishes to Signal K paths under `environment.noaa.swpc` and
   and means nothing on 22.
 - Aurora probability at your position, from NOAA's OVATION model.
 
+**What does it mean for my data consumption?**
+
 Every path, with units and metadata, is visible in the Signal K Data
-Browser once the plugin runs. The NOAA endpoints behind them — wire sizes,
-cadences, quirks — are measured in [docs/noaa-products.md](docs/noaa-products.md).
+Browser once the plugin runs. The NOAA endpoints backing these
+are measured in [docs/noaa-products.md](docs/noaa-products.md).
+This details the payload sizes over the wire along with cadences and quirks.
 
 ## The webapp
 
-The plugin ships a companion webapp. No configuration — it reads whatever
-the plugin has published. Open it from the Signal K admin **Webapps** menu,
-or at `/signalk-noaa-space-weather/` on your server.
+The plugin ships a companion webapp to present the underlying data in a useful format, with some informational links on some of the items. No configuration is needed.
 
-![The companion webapp](docs/screenshots/webapp.png)
+![Companion Webapp](docs/screenshots/webapp.png)
 
 The banner answers one question — is anything happening right now? — and a
 quiet page has to mean a quiet sky, not a plugin that stopped fetching. The
@@ -122,8 +119,8 @@ a metered link can leave the recurring aurora fetch off and ask for one
 reading on the night it matters. Nothing else on the page reaches NOAA.
 
 The world coastline under the map is an 8 KB asset the webapp ships itself,
-which is why it needs no chart server. There's a
-[demo of that trade-off](https://mark-brannan.github.io/portolani/) too.
+which is why it needs no chart server. This is a
+[small demo](https://mark-brannan.github.io/portolani/) of the storage trade-off.
 
 ## Aurora and HF absorption on your chart plotter
 
@@ -143,9 +140,6 @@ webapp reads, so enabling this costs no extra NOAA traffic. Zoom stops at 8
 because the source grids are coarse; beyond that there is nothing more to
 show. Each tile carries `Last-Modified` from the fetch behind it, so a
 client can tell how old the picture is.
-
-Planned: registering the overlay as a Signal K `charts` resource, so it
-needs no chart-source configuration at all.
 
 ## Installation
 
@@ -192,12 +186,12 @@ only the current ones.
 
 ## Alarm zones
 
-Every scale and Kp path (except the 27-day outlook) carries Signal K
+The storm scales and short-term Kp paths carry Signal K
 [`zones`](https://signalk.org/specification/) metadata, so a gauge in KIP or
 Freeboard colours itself with no extra setup.
 
-Zones also make the server raise notifications, so the defaults are
-deliberately quiet. NOAA's published event counts per 11-year solar cycle,
+Similarly, notification thresholds on the storm scales are set by defaults at
+deliberately quiet levels. NOAA's published event counts per 11-year solar cycle,
 and what each level does at the defaults:
 
 | Level | Geomagnetic (G) | Radio blackout (R) | Radiation storm (S) | At the default |
@@ -208,21 +202,15 @@ and what each level does at the defaults:
 | 4 (Severe)   | 60 days  | 8 days   | 3 events  | popup |
 | 5 (Extreme)  | 4 days   | 1 day    | 1 event   | popup + sound |
 
-`alarmLevel` and `popupLevel` move that last column. Lower is always
-louder. Set the alarm to 3 and Strong, Severe and Extreme all sound; set it
-to "Never" and nothing sounds while Extreme still pops up. Strong (3) and
+`alarmLevel` and `popupLevel` move that last column.
+Set the alarm to 3 and Strong, Severe and Extreme all sound; set it
+to "Never" and nothing sounds but higher storms can still pop up. Strong (3) and
 above is always at least listed, whatever you set — a G3 is a real storm,
 and there is no setting at which one should leave no trace. A listed
 notification interrupts nobody; it just appears in the list.
 
-When NOAA writes "G3 or greater" — their way of not saying how bad it will
-get — it counts as G3 here, not G5. An uncertain forecast shouldn't be
-louder than a confirmed one.
-
-There is deliberately no separate mute switch: how bad the event is decides
-how loud it gets, and the two thresholds are the only settings that change
-it. The reasoning, and the scars behind it, are in
-[docs/design-decisions.md](docs/design-decisions.md).
+When NOAA writes "G3 or greater" it is interpreted here as just G3,
+since they leave it ambiguous, but in reality it could end up as a G4 or G5.
 
 ## Reading conditions like an HF operator
 
@@ -255,12 +243,9 @@ Reports from people actually sailing with this are the most useful thing
 here.
 
 - **Something is wrong** — [open an issue](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/new/choose).
-  The bug form asks for the versions, the hardware and the log; those are
-  what make a report actionable.
 - **Something is missing** — the [feature form](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/new?template=feature_request.yml).
-  A new NOAA data source is cheap here by design; a new setting is not.
 - **You found a security problem** — report it privately, per
-  [SECURITY.md](SECURITY.md). Not as an issue.
+  [SECURITY.md](SECURITY.md), not as a public GitHub issue.
 - **You want to send a patch** — [CONTRIBUTING.md](CONTRIBUTING.md) has the
   setup; [AGENTS.md](AGENTS.md) has the full rules and [CLAUDE.md](CLAUDE.md)
   the constraints that will bite you.
