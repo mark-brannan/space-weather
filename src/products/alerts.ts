@@ -4,6 +4,7 @@ import { ALERTS_BASE, NOTIFICATIONS_BASE } from '../paths.js'
 import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
+  NOAA_MESSAGE_CODE_REGEX,
   NotificationStates,
   currentAlertNotifications,
   isRaised
@@ -104,6 +105,12 @@ export const alerts: Product = {
  * a new one for every extension, continuation and cancellation.
  */
 function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
+  // `code` becomes part of the path below. Check its shape before writing it.
+  if (!NOAA_MESSAGE_CODE_REGEX.test(alert.code)) {
+    publisher.error('Refusing to publish malformed alert code %j', alert.code)
+    return false
+  }
+
   const path = `${ALERTS_BASE}.${alert.code}`
   const existing = publisher.selfPath(`${path}.value`)
   if (
@@ -167,6 +174,8 @@ function clearWithdrawn(
     const value = entry?.value
     // Skips the `meta` sibling as well as anything not ours.
     if (!value?.id || live.has(code)) continue
+    // Skip if it does not match the well-defined format for NOAA message codes.
+    if (!NOAA_MESSAGE_CODE_REGEX.test(code)) continue
     if (!isRaised(value)) continue
     standDown(publisher, `${ALERTS_BASE}.${code}`, value, now)
     cleared++

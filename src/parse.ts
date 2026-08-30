@@ -338,6 +338,9 @@ export function parseAdvisoryOutlook(text: string): AdvisoryOutlook | null {
   return { idLine: match[1], shortId: match[2].trim(), issued, outlookTeaser }
 }
 
+/** Shape of a real NOAA message code (6 chars; verified against examples/). */
+export const NOAA_MESSAGE_CODE_REGEX = /^(ALT|WAR|WAT|SUM)[A-Z0-9]{3}$/
+
 /** Message codes are documented at http://www.spaceweather.org/ISES/code/fmt/exam.html */
 export function getAlertLevel(messageCode: string): string {
   if (messageCode.match(/ALT/)) return 'ALERT'

@@ -514,6 +514,23 @@ describe('alerts product', () => {
     expect(h.at(stale).method).toEqual([])
   })
 
+  it('leaves a non-code leaf under the alerts base alone', async () => {
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    atCaptureTime(payload)
+    const derived = `${ALERTS_BASE}.storm`
+    const h = harness(payload, {
+      [derived]: {
+        id: 'noaa_swpc_storm',
+        state: 'alarm',
+        method: ['visual', 'sound']
+      }
+    })
+    await alerts.refresh(h.ctx as any)
+
+    expect(h.at(derived).state).toBe('alarm')
+    expect(h.at(derived).method).toEqual(['visual', 'sound'])
+  })
+
   it('clears the per-serial paths left behind by earlier versions', async () => {
     // Upgrading cannot delete a Signal K path, so the ~200 notifications the
     // old code raised stay up, still asking for a sound, until something

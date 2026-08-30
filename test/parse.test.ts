@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  NOAA_MESSAGE_CODE_REGEX,
   NoaaScaleValues,
   drapFrequencyAt,
   firstJsonValue,
@@ -113,6 +114,25 @@ describe('getAlertLevel', () => {
     ['ZZZ999', 'ALERT']
   ])('%s -> %s', (code, expected) => {
     expect(getAlertLevel(code)).toBe(expected)
+  })
+})
+
+describe('NOAA_MESSAGE_CODE_REGEX', () => {
+  it.each(['ALTEF3', 'WARK04', 'WATA20', 'SUMXM5', 'ALTPC0', 'ALTXMF'])(
+    'accepts a real code shape: %s',
+    (code) => {
+      expect(NOAA_MESSAGE_CODE_REGEX.test(code)).toBe(true)
+    }
+  )
+
+  it.each([
+    ['FOOK04', 'not one of the ALT/WAR/WAT/SUM prefixes'],
+    ['ALTEF', '5 characters, one short'],
+    ['ALTEF33', '7 characters, one long'],
+    ['altef3', 'lowercase'],
+    ['storm', 'not code-shaped at all -- the derived notification case']
+  ])('rejects %s (%s)', (code) => {
+    expect(NOAA_MESSAGE_CODE_REGEX.test(code)).toBe(false)
   })
 })
 
