@@ -35,7 +35,8 @@
     "demo:build": "node scripts/build-demo.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs"
+    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
+    "app:build": "node scripts/build-app.mjs"
   },
   "repository": {
     "type": "git",

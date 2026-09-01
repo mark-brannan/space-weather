@@ -16,6 +16,7 @@
  * context, publish metadata once, run the first pass, and keep each product on
  * its own interval.
  */
+import type { CacheStore } from '../cache/entryCache.js'
 import { readAdvisoryCache } from '../cache/advisoryCache.js'
 import { readAuroraCache } from '../cache/auroraCache.js'
 import { readDrapCache } from '../cache/drapCache.js'
@@ -91,12 +92,35 @@ export interface LivePlugin {
    */
   ready: Promise<void>
   stop(): void
+  /**
+   * Move the viewpoint, and redraw the two grid products at it.
+   *
+   * Costs no NOAA traffic by construction: both grids are global and already
+   * bought, so this is the same `publishFromCache` the server reaches for
+   * when a fix finally arrives. A device fix that jitters by metres therefore
+   * cannot turn into polling.
+   */
+  setPosition(position: { latitude: number; longitude: number }): void
   readonly publisher: BrowserPublisher
 }
 
 export interface LiveOptions {
-  position?: { latitude: number; longitude: number }
+  /**
+   * Where the reader is. Omitted means the demo's stated viewpoint; `null`
+   * means "nobody knows yet" -- what a standalone app opens with while the
+   * device is still deciding, and what `setPosition` later answers. The two
+   * are deliberately different: a demo that silently fell back to Bergen
+   * because a phone was slow would draw a confident map of the wrong place.
+   */
+  position?: { latitude: number; longitude: number } | null
   props?: Record<string, unknown>
+  /**
+   * Where the cached grids live between runs. A `Map` by default, which dies
+   * with the tab; an installed app passes a persistent one so a cold start
+   * draws immediately and re-buys nothing -- the aurora grid alone is a
+   * ~900 KB fetch, and `docs/noaa-products.md` prices the rest.
+   */
+  store?: CacheStore
   log?: (
     level: 'error' | 'debug' | 'status',
     message: string,
@@ -132,8 +156,17 @@ export function startLivePlugin(options: LiveOptions = {}): LivePlugin {
   // Published as data as well as answered through `selfPath`: the map draws
   // the vessel from `navigation.position`, and the aurora tile says which
   // position its reading is for. The saved capture carries it the same way.
-  const position = options.position ?? DEMO_POSITION
-  const publisher = createBrowserPublisher({ position, log: options.log })
+  // One owner, one way to change it. `undefined` in the options means the
+  // demo's viewpoint; `null` means there is genuinely no fix yet, which the
+  // products already know how to sit out -- they answer `awaiting-position`
+  // and publish from the cache instead of fetching again.
+  let position =
+    options.position === undefined ? DEMO_POSITION : options.position
+  const publisher = createBrowserPublisher({
+    position: () => position ?? undefined,
+    store: options.store,
+    log: options.log
+  })
   let stopped = false
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
   const inFlight = new Map<string, Promise<number | null>>()
@@ -214,7 +247,7 @@ export function startLivePlugin(options: LiveOptions = {}): LivePlugin {
   // Sequential, not Promise.all: twelve concurrent fetches with a ~900 KB grid
   // among them is a worse first paint than letting the small products land
   // first, and it is gentler on a service this page does not pay for.
-  publisher.value('navigation.position', position, startedAt)
+  if (position) publisher.value('navigation.position', position, startedAt)
 
   const firstPass = (async () => {
     for (const product of PRODUCTS) {
@@ -234,12 +267,32 @@ export function startLivePlugin(options: LiveOptions = {}): LivePlugin {
   return {
     publisher,
     ready,
+    /**
+     * The fix moved (or arrived). Republish it, then redraw the two grid
+     * products at it straight out of the cache -- `publishFromCache` is the
+     * same call the server's retry timer makes while it waits for GPS, and
+     * like that one it buys nothing from NOAA.
+     */
+    setPosition(next: { latitude: number; longitude: number }) {
+      if (stopped) return
+      position = next
+      publisher.value('navigation.position', next, new Date().toISOString())
+      for (const { product } of Object.values(GRID_PRODUCT)) {
+        if (enabled(product)) product.publishFromCache?.(ctx)
+      }
+    },
     document: () => ({
       values: publisher.published,
       tree: publisher.tree,
+      // Getters: `readAll` calls `document()` once per path, and only
+      // `fetchGridCache` reads these -- each one a ~900 KB `JSON.parse`.
       grids: {
-        aurora: readAuroraCache(publisher),
-        drap: readDrapCache(publisher)
+        get aurora() {
+          return readAuroraCache(publisher)
+        },
+        get drap() {
+          return readDrapCache(publisher)
+        }
       },
       routes: {
         advisory: readAdvisoryCache(publisher),

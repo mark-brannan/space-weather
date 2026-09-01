@@ -19,6 +19,17 @@ src/
   parse.ts        pure parsing and transformation; no I/O, no `app`
   tiles.ts        pure rendering: the aurora grid to PNG map tiles
   products/       one module per NOAA product
+  browser/        the page's data layer with no server under it:
+                  live.ts runs the products in a tab, seam.ts serves
+                  the page out of the document they publish
+```
+
+The same page ships three ways, and none of them is a fork of it:
+
+```
+public/index.html   + public/signalk.js   -> the Signal K webapp
+                    + demo/signalk.js     -> the GitHub Pages demo   (npm run demo:build)
+                    + app/signalk.js      -> the standalone PWA      (npm run app:build)
 ```
 
 The webapp's map stack:
@@ -308,6 +319,29 @@ capture onwards
 [docs/design-decisions.md](docs/design-decisions.md#the-demo-is-the-shipping-page-not-a-copy-of-it)
 and
 [the demo owns the clock](docs/design-decisions.md#the-demo-owns-the-clock)).
+
+**The standalone app is the same page again, with the device's own position.**
+`app/` plus `scripts/build-app.mjs` (`npm run app:build` -> `app-dist/`) is the
+demo's `?live` layer made a product: `public/index.html` verbatim, one
+substitution (`app/signalk.js` as `signalk.js`), its framing appended as one
+script tag. Four things make it an app and none is a fork. **Position is the
+device's** -- `BrowserPublisher` takes a value *or* a function, `startLivePlugin`
+owns the cell and `setPosition` is the only way to move it; the `undefined` a
+function may answer is the same "no fix yet" a server with no GPS gives, so a
+refused permission prompt takes the `awaiting-position` branch that already
+exists, and `setPosition` redraws **out of the cache and never reaches NOAA**.
+**The store outlives the tab** -- `app/store.js` is localStorage behind the
+`CacheStore` parameter #272 introduced, and a write that will not fit is
+*dropped, never raised*, because the products read a miss as "fetch it again".
+**The clock is real**, unlike the demo's. **It installs** -- and the service
+worker precaches the shell *only*: NOAA responses never go in the Cache API, or
+a ~900 KB grid is held twice with neither copy the authority on its age.
+`scripts/site.mjs` is the one assembler both sites use, and the worker's
+precache list is derived from the same closure as the file copy -- don't
+hand-list either. The shared document-backed reads are `src/browser/seam.ts`,
+which is why `vitest.config.ts` carries one alias: a built site is flat and the
+repo is not. Argument in
+[docs/design-decisions.md](docs/design-decisions.md#the-standalone-app-is-the-fourth-thing-behind-the-same-seam).
 
 **Tile rendering must not block the event loop.** Render tiles async, one at a
 time — `Promise.all` over tiles is worse than a blocking loop, since it runs

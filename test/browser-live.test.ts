@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { settingsFrom } from '../src/config'
 import { DEMO_POSITION, DEMO_PROPS } from '../src/browser/live'
 import { createBrowserPublisher } from '../src/browser/publisher'
+import { createDocumentSeam } from '../src/browser/seam'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
 import { PLUGIN_MODULES, SITE_FILES, sourceOf } from '../scripts/build-demo.mjs'
 
@@ -116,5 +117,55 @@ describe('the assembled site carries the compiled plugin', () => {
     expect(sourceOf('plugin/browser/live.js')).toBe(
       join(ROOT, 'dist', 'browser', 'live.js')
     )
+  })
+})
+
+describe('a poll does not re-read the grids', () => {
+  // `readAll` calls document() once per path; live.ts answers `grids` with
+  // getters so those 18 calls cost no ~900 KB JSON.parse each.
+  const countingDocument = () => {
+    let reads = 0
+    const document = async () => ({
+      values: {},
+      tree: {},
+      grids: {
+        get aurora() {
+          reads += 1
+          return { fetchedAt: 'now', grid: [] }
+        },
+        get drap() {
+          reads += 1
+          return { fetchedAt: 'now', grid: [] }
+        }
+      },
+      routes: {}
+    })
+    return { document, reads: () => reads }
+  }
+
+  it('reads no grid at all over a whole readAll pass', async () => {
+    const { document, reads } = countingDocument()
+    const seam = createDocumentSeam({
+      document,
+      forceRefresh: async () => undefined
+    })
+    await seam.readAll()
+    expect(reads()).toBe(0)
+  })
+
+  it('reads one grid when the map asks for one', async () => {
+    const { document, reads } = countingDocument()
+    const seam = createDocumentSeam({
+      document,
+      forceRefresh: async () => undefined
+    })
+    await seam.fetchGridCache('aurora')
+    expect(reads()).toBe(1)
+  })
+
+  it('answers grids as getters, not as eager reads', () => {
+    const source = readFileSync(join(ROOT, 'src', 'browser', 'live.ts'), 'utf8')
+    expect(source).toMatch(/get aurora\(\) \{\s*\n\s*return readAuroraCache/)
+    expect(source).toMatch(/get drap\(\) \{\s*\n\s*return readDrapCache/)
   })
 })

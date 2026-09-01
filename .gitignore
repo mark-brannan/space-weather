@@ -137,3 +137,4 @@ dist
 # public/'s map modules with demo/signalk.js swapped in. Same reasoning as
 # dist/.
 /demo-dist/
+/app-dist/

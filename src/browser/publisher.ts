@@ -11,6 +11,7 @@
  * #272 they take their storage through it too, which is the whole reason this
  * file can exist without a filesystem.
  */
+import type { CacheStore } from '../cache/entryCache.js'
 import type { Meta, Publisher } from '../publisher.js'
 import type { ValueUpdate } from '../parse.js'
 
@@ -38,14 +39,37 @@ export interface BrowserPublisher extends Publisher {
   lastStatus(): { message: string; failed: boolean } | null
 }
 
+/**
+ * Where the reader is, as the publisher asks for it rather than as it was at
+ * construction.
+ *
+ * A stated viewpoint is a value and never changes; a device fix arrives after
+ * the page does and then moves. Both are the same thing to a product -- one
+ * `selfPath` read per refresh -- so this is a value *or* a function, and the
+ * `undefined` a function may answer is not an error case: it is the same
+ * "no fix yet" a server with no GPS gives, which is already the branch that
+ * sends the grid products down `awaiting-position` to `publishFromCache`.
+ */
+export type PositionSource =
+  | { latitude: number; longitude: number }
+  | (() => { latitude: number; longitude: number } | undefined)
+
 export interface BrowserPublisherOptions {
   /**
-   * Where the vessel is. A browser has no GPS and no Signal K server to ask,
-   * so the demo states a position rather than implying one -- the same
-   * viewpoint the saved capture uses. Products read it through `selfPath`
-   * exactly as they read a real fix.
+   * Where the vessel is. A browser has no Signal K server to ask, so the
+   * caller supplies it: the demo states a position, the standalone app hands
+   * over a function reading the device's own fix. Products read it through
+   * `selfPath` exactly as they read a real one.
    */
-  position: { latitude: number; longitude: number }
+  position: PositionSource
+  /**
+   * Where the cached grids and the advisory bulletin live.
+   *
+   * A `Map` by default, which is right for a page that is thrown away with
+   * the tab. An installed app hands over a persistent one instead, so a cold
+   * start paints from the last grid rather than re-buying it.
+   */
+  store?: CacheStore
   /**
    * Where the plugin's log lines go. Defaults to the console.
    *
@@ -74,7 +98,12 @@ function nodeFor(root: Record<string, any>, dotted: string) {
 export function createBrowserPublisher(
   options: BrowserPublisherOptions
 ): BrowserPublisher {
-  const { position } = options
+  // Normalised once, so `selfPath` has one shape to read and the value case
+  // costs no more than it did when a value was all this took.
+  const positionNow =
+    typeof options.position === 'function'
+      ? options.position
+      : () => options.position as { latitude: number; longitude: number }
   const log =
     options.log ??
     ((level, message, ...args) => {
@@ -90,7 +119,7 @@ export function createBrowserPublisher(
   // through it, and one of them (alerts) reads a whole subtree.
   const values: Record<string, Leaf> = {}
   const tree: Record<string, any> = {}
-  const store = new Map<string, string>()
+  const memory = new Map<string, string>()
   let lastStatus: { message: string; failed: boolean } | null = null
 
   const put = (dotted: string, leaf: Leaf) => {
@@ -124,9 +153,12 @@ export function createBrowserPublisher(
      */
     selfPath(path: string) {
       if (path === 'navigation.position') {
-        return { value: position, timestamp: new Date().toISOString() }
+        const position = positionNow()
+        return position
+          ? { value: position, timestamp: new Date().toISOString() }
+          : undefined
       }
-      if (path === 'navigation.position.value') return position
+      if (path === 'navigation.position.value') return positionNow()
       let node: any = tree
       for (const key of path.split('.')) {
         node = node?.[key]
@@ -151,14 +183,19 @@ export function createBrowserPublisher(
     },
 
     // The CacheStore half. The products cache the two global grids and the
-    // advisory bulletin through it; a Map is the whole implementation, and the
+    // advisory bulletin through it; a Map is the whole default, and the
     // write-then-rename the file store needs has no analogue here -- a
-    // synchronous Map write is already indivisible to every reader.
+    // synchronous Map write is already indivisible to every reader. A caller
+    // that wants the grids to outlive the tab supplies its own store instead,
+    // which is the same parameter #272 made the products take.
     readCache(filename: string) {
-      return store.get(filename) ?? null
+      return options.store
+        ? options.store.readCache(filename)
+        : (memory.get(filename) ?? null)
     },
     writeCache(filename: string, text: string) {
-      store.set(filename, text)
+      if (options.store) options.store.writeCache(filename, text)
+      else memory.set(filename, text)
     }
   }
   return publisher

@@ -1,6 +1,23 @@
+import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // A built site is one flat directory: demo/signalk.js lands as signalk.js
+  // next to the compiled plugin under plugin/, so it names its shared modules
+  // './plugin/...'. The tests import that same file out of the repo, where
+  // demo/ and dist/ are siblings and that specifier resolves nowhere. This is
+  // the one rule that makes the two layouts agree, and it points at exactly
+  // what the build copies -- scripts/site.mjs writes dist/ into the site under
+  // the same prefix. The suite already needs `npm run build` to have run:
+  // SITE_FILES reads dist/ through the build's own reader.
+  resolve: {
+    alias: [
+      {
+        find: /^\.\/plugin\//,
+        replacement: fileURLToPath(new URL('./dist/', import.meta.url))
+      }
+    ]
+  },
   test: {
     // Git worktrees live under .claude/ and each holds a full copy of this
     // repo, so the default globs collect their test files too: `npm test`
