@@ -30,6 +30,8 @@
     "watch": "npm run build -- -w",
     "test": "vitest run",
     "dev:webapp": "node scripts/mock-webapp.mjs",
+    "dev:webapp:stop": "node scripts/webapp-ctl.mjs stop",
+    "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
     "demo:build": "node scripts/build-demo.mjs",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
