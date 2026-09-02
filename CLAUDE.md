@@ -73,6 +73,14 @@ scores this package by cloning the default branch and running `npm ci`,
 cap**. `test/offline.test.ts` asserts the no-network property, so a stray
 request fails locally instead of only in the registry.
 
+**Main requires signed commits, and some paths skip signing.** Cloud
+sessions have no key, and `git commit-tree` or `-c commit.gpgsign=false`
+ignore the config, so a PR can arrive with a greyed-out merge button. Do not
+improvise: from a machine with the key, run `resign-branch.sh <branch>`
+(in dotfiles, procedure in its RUNBOOK under "Re-sign a branch"). It
+re-signs, rebases onto main and force-pushes with lease; on a cloud VM,
+say in the PR body that it needs running.
+
 **NOAA changes payload shapes without notice.** Capture a dated fixture into
 `examples/` before writing a parser, and make the parser accept the old shape
 as well as the new one — `parseSolarWind` and `kpRows` in `parse.ts` are the
