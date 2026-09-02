@@ -1,0 +1,33 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2026 Aug 31 0220 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #26-34
+2026 August 30 at 8:15 p.m. MDT (2026 August 31 0215 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For August 24-30
+
+No G1 or greater geomagnetic storms were observed during the period.
+
+Activity reached R1 (Minor) levels on 24 and 26 Aug, and peaked at R2 (Moderate) levels on 25 Aug. Region 4513 was responsible for all seven of the M-class (R1/R2-Minor/Moderate) flares
+throughout the period. The largest event was an M6.9/1b (R2) flare that peaked at 25/1002 UTC.
+
+No events exceeding the S1 (Minor) alert threshold were observed at geosynchronous
+orbit. However, flux levels were elevated to near 7 nT and remained elevated from 24-26 Aug,
+after which they returned to near background conditions.
+
+Outlook For August 31-September 6
+
+No G1 or greater geomagnetic storms are expected during the outlook period.
+
+No S1 or greater solar radiation storms are expected during the outlook period.
+
+There is a chance for R1/R2 (Minor/Mmoderate) radio blackouts, and a slight chance for an R3 (Strong) event during the outlook period.
+

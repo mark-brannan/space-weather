@@ -1,0 +1,15 @@
+:Product: Geophysical Alert Message wwv.txt
+:Issued: 2026 Aug 25 1805 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+#
+#          Geophysical Alert Message
+#
+Solar-terrestrial indices for 24 August follow.
+Solar flux 143 and estimated planetary A-index 6.
+The estimated planetary K-index at 1800 UTC on 25 August was 1.00.
+
+Space weather for the past 24 hours has been moderate.
+Radio blackouts reaching the R2 level occurred.
+
+Space weather for the next 24 hours is predicted to be moderate.
+Radio blackouts reaching the R2 level are likely.
