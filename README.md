@@ -250,8 +250,8 @@ here.
 - **You found a security problem** — report it privately, per
   [SECURITY.md](SECURITY.md), not as a public GitHub issue.
 - **You want to send a patch** — [CONTRIBUTING.md](CONTRIBUTING.md) has the
-  setup; [AGENTS.md](AGENTS.md) has the full rules and [CLAUDE.md](CLAUDE.md)
-  the constraints that will bite you.
+  setup, and [CLAUDE.md](CLAUDE.md) has the rules and the constraints that
+  will bite you.
 
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 

@@ -10,7 +10,7 @@
  * plugin registry scores this package with `npm test` under --net=none.
  *
  * Prints a markdown table. Paste it into the doc with today's date; do not
- * paraphrase the numbers into a source comment. See AGENTS.md.
+ * paraphrase the numbers into a source comment. See CLAUDE.md.
  */
 import { createHash } from 'crypto'
 import { gunzipSync } from 'zlib'

@@ -7,19 +7,16 @@ welcome.
 
 ## Where the documentation lives
 
-Three files, and they do not overlap:
+Two files, and they do not overlap:
 
 - **[README.md](README.md)** — what the plugin does, for the boat owner
   installing it.
-- **[CLAUDE.md](CLAUDE.md)** — what the codebase *is*: the architecture, and
-  the non-obvious constraints that will bite you (offline tests, NOAA changing
-  payload shapes, notification loudness, the icon living in two places). Read
-  it before changing anything; most of the surprises in this repo are written
-  down there.
-- **[AGENTS.md](AGENTS.md)** — how to work here: scope, comments, type safety,
-  tests, performance, the bar a new config setting has to clear, commit format,
-  and pull request rules. **This is the contribution guide.** What follows is
-  the short version and the setup steps.
+- **[CLAUDE.md](CLAUDE.md)** — what the codebase *is* and how to work here:
+  the architecture, the non-obvious constraints that will bite you (offline
+  tests, NOAA changing payload shapes, notification loudness, the icon living
+  in two places), and the conventions and pull request rules. **This is the
+  contribution guide.** Read it before changing anything; what follows is the
+  short version and the setup steps.
 
 `docs/noaa-products.md` holds dated measurements of how NOAA's endpoints
 actually behave. It is the source of truth for those numbers — re-run
@@ -45,7 +42,7 @@ Use the feature form. Two things carry more weight than anything else in it:
   endpoint and what it would mean to a skipper.
 - **A new setting is expensive.** The bar is a decision only the boat owner can
   make, where a sensible default would be wrong for someone and they can tell
-  the difference. AGENTS.md's *Configuration* section explains what to measure
+  the difference. CLAUDE.md's *Configuration* section explains what to measure
   before proposing one.
 
 ## Setting up
@@ -102,7 +99,11 @@ number, the CHANGELOG and the tag: don't edit `package.json`'s version,
 `.release-please-manifest.json` or `CHANGELOG.md`, and don't create a tag
 locally. Your commit subject is the whole input — `fix` and `feat` earn a
 release, `chore`/`docs`/`test`/`refactor` ride along in the next one, and a
-`!` or a `BREAKING CHANGE:` footer is what escalates it.
+`!` or a `BREAKING CHANGE:` footer is what escalates it. The one exception is
+`CHANGELOG.md` on the standing `chore: release` pull request itself —
+release-please's own PR, not yours — which may be hand-edited before merging
+when a release deserves notes written rather than assembled (see CLAUDE.md's
+*Releasing* section).
 
 ## Code of Conduct
 

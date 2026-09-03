@@ -47,7 +47,7 @@ body:
       description: >
         The bar is a decision only the boat owner can make — one where a
         sensible default would be wrong for someone, and where they can tell the
-        difference. See the *Configuration* section of AGENTS.md. Leave blank if
+        difference. See the *Configuration* section of CLAUDE.md. Leave blank if
         this isn't a setting.
     validations:
       required: false

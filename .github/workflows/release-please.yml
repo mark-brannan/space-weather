@@ -24,7 +24,7 @@ name: Release
 #
 # Version policy lives in release-please-config.json, not here:
 # bump-patch-for-minor-pre-major and bump-minor-pre-major keep `feat` a patch
-# and a breaking change a minor while this is pre-1.0. See AGENTS.md.
+# and a breaking change a minor while this is pre-1.0. See CLAUDE.md, "Never touch version numbers".
 
 on:
   push:

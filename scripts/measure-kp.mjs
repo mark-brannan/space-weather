@@ -8,7 +8,7 @@
  * registry scores this package with `npm test` under --net=none.
  *
  * Prints a markdown table. Paste it into docs/noaa-products.md; do not
- * paraphrase the numbers into a source comment. See AGENTS.md.
+ * paraphrase the numbers into a source comment. See CLAUDE.md.
  *
  * Rows are cumulative: a day counts at every level it reached, so a Kp 9 day is
  * in G1+ through G5+ alike. That is what the "and above" in each dropdown label

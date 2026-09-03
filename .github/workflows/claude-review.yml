@@ -47,7 +47,7 @@ jobs:
         tests that reach the network, anything that could publish NaN,
         non-SI units or a `units` key on a dimensionless value, a
         weakened gate (a deleted or loosened test, a skipped fixture),
-        version-bump handling per AGENTS.md "Versions", and `main`
+        version-bump handling per CLAUDE.md "Never touch version numbers", and `main`
         staying in package.json. Run `npm ci`, `npm run build`,
         `npm test` and `npm run format:check` yourself.
 

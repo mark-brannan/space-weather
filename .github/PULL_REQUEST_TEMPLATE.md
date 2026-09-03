@@ -12,7 +12,7 @@ One line, as it would read in CHANGELOG.md, and say whether it is a patch or a
 minor. Minor is what a boat owner can observe: a new path, a new product, a
 change in what gets published or how loudly, or a change in what the webapp
 tells its reader. A fix, or plumbing only this plugin's own webapp consumes, is
-a patch. See AGENTS.md → Versions.
+a patch. See CLAUDE.md → "Never touch version numbers".
 -->
 
 - [ ] patch
