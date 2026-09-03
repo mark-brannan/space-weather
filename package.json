@@ -1,20 +1,35 @@
 {
-  "name": "signalk-noaa-space-weather",
-  "version": "0.30.10",
-  "description": "Solar storm alerts, HF radio conditions, and aurora maps from NOAA's Space Weather Prediction Center. Includes a map webapp.",
+  "name": "space-weather",
+  "version": "0.1.0",
+  "description": "NOAA Space Weather Prediction Center products, fetched, parsed and published: geomagnetic storms, radio blackouts, aurora and HF absorption grids, and the map webapp that draws them.",
   "type": "module",
-  "displayName": "NOAA Space Weather",
-  "appIcon": "/signalk-noaa-space-weather/icon.svg",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
+    "./parse": "./dist/parse.js",
+    "./paths": "./dist/paths.js",
+    "./config": "./dist/config.js",
+    "./endpoints": "./dist/endpoints.js",
+    "./publisher": "./dist/publisher.js",
+    "./meter": "./dist/meter.js",
+    "./refreshPolicy": "./dist/refreshPolicy.js",
+    "./telemetry": "./dist/telemetry.js",
+    "./noaa/client": "./dist/noaa/client.js",
+    "./cache/*": "./dist/cache/*.js",
+    "./products/*": "./dist/products/*.js",
+    "./browser/*": "./dist/browser/*.js",
+    "./projection": "./public/projection.js",
+    "./mapRaster": "./public/mapRaster.js",
+    "./spaceMap": "./public/spaceMap.js",
+    "./geo": "./public/geo.js",
+    "./public/*": "./public/*",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "public",
-    "docs",
-    "icon.svg",
+    "docs/noaa-products.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -24,7 +39,8 @@
   },
   "scripts": {
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "prebuild": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prebuild": "node scripts/sync-coastline.mjs",
     "build": "tsc",
     "typecheck": "tsc -p tsconfig.test.json",
     "watch": "npm run build -- -w",
@@ -32,39 +48,33 @@
     "dev:webapp": "node scripts/mock-webapp.mjs",
     "dev:webapp:stop": "node scripts/webapp-ctl.mjs stop",
     "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
-    "demo:build": "node scripts/build-demo.mjs",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "prepublishOnly": "npm run build && npm test",
-    "prepare": "node scripts/sync-icon.mjs && node scripts/sync-coastline.mjs",
-    "app:build": "node scripts/build-app.mjs"
+    "prepare": "node scripts/sync-coastline.mjs"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mark-brannan/signalk-noaa-space-weather.git"
+    "url": "git+https://github.com/mark-brannan/space-weather.git"
   },
   "keywords": [
-    "signalk-node-server-plugin",
-    "signalk-category-weather",
-    "signalk-webapp",
-    "signalk-plugin-configurator"
+    "noaa",
+    "swpc",
+    "space-weather",
+    "aurora",
+    "kp-index",
+    "geomagnetic-storm",
+    "solar-flare",
+    "hf-radio",
+    "d-rap",
+    "signalk"
   ],
-  "signalk": {
-    "displayName": "NOAA Space Weather",
-    "appIcon": "./icon.svg",
-    "screenshots": [
-      "./docs/screenshots/webapp.png",
-      "./docs/screenshots/space-map.png",
-      "./docs/screenshots/plugin-configuration.png",
-      "./docs/screenshots/data-browser.png",
-      "./docs/screenshots/notifications.png"
-    ]
-  },
   "author": "mark-brannan",
   "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "coast-wright": "^0.0.1-alpha.0",
+    "coastlines": "^0.0.1-alpha.0"
+  },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "coast-wright": "^0.0.1-alpha.0",
-    "coastlines": "^0.0.1-alpha.0",
     "prettier": "^3.4.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

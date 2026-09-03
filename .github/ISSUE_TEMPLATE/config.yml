@@ -1,14 +1,17 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/mark-brannan/signalk-noaa-space-weather/security/advisories/new
+    url: https://github.com/mark-brannan/space-weather/security/advisories/new
     about: Report privately, not as a public issue. See SECURITY.md.
+  - name: The Signal K plugin
+    url: https://github.com/mark-brannan/signalk-noaa-space-weather/issues
+    about: Installation, startup, the plugin configuration screen, the chart-plotter tiles and the plugin's routes live in the plugin's repository.
   - name: Signal K server itself
     url: https://github.com/SignalK/signalk-server/issues
     about: Problems with the server, its admin UI, authentication or data model belong upstream.
   - name: Signal K community
     url: https://signalk.org/
-    about: Questions about setting up Signal K on a boat, rather than a bug in this plugin — the site links the current chat and forum.
+    about: Questions about setting up Signal K on a boat, rather than a bug in this code — the site links the current chat and forum.
   - name: Is NOAA's own data wrong or missing?
     url: https://www.swpc.noaa.gov/content/contact-us
-    about: This plugin republishes what SWPC serves; accuracy questions go to them.
+    about: This code republishes what SWPC serves; accuracy questions go to them.

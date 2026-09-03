@@ -5,7 +5,6 @@ import {
   drapNoaaCss,
   drapNoaaLegend
 } from '../public/drap-colors.js'
-import { NOAA_DRAP_STOPS as TILE_STOPS, drapLattice } from '../src/tiles.js'
 
 const TOP_MHZ = 35
 
@@ -81,39 +80,6 @@ describe('the legend strip', () => {
     for (const { mhz, color } of drapNoaaLegend(12)) {
       const [r, g, b, a] = drapNoaaColor(mhz)
       expect(color).toBe(`rgba(${r},${g},${b},${a.toFixed(3)})`)
-    }
-  })
-})
-
-describe('the chart-plotter tile draws the same colorbar', () => {
-  // Two pictures of one number -- the webapp's map and the tile overlaid on a
-  // chart. A browser cannot import the TypeScript, so the table is copied;
-  // this is what makes the copy safe.
-  const lattice = drapLattice({
-    validTime: '2026-08-26T12:00:00Z',
-    latitudes: [2, 0],
-    longitudes: [-178, -174],
-    frequenciesMHz: [
-      [0, 0],
-      [0, 0]
-    ]
-  })!
-
-  it('copies NOAA_DRAP_STOPS exactly', () => {
-    expect(NOAA_DRAP_STOPS).toEqual(TILE_STOPS.map((stop) => [...stop]))
-  })
-
-  it('renders every cutoff in the webapp colour, alpha included', () => {
-    const { lut, lutScale } = lattice
-    for (let mhz = 0; mhz <= 40; mhz += 0.25) {
-      const index = Math.round(mhz * lutScale) * 4
-      const [r, g, b, a] = drapNoaaColor(mhz)
-      expect([
-        lut[index],
-        lut[index + 1],
-        lut[index + 2],
-        lut[index + 3]
-      ]).toEqual([r, g, b, Math.round(255 * a)])
     }
   })
 })

@@ -14,9 +14,9 @@
  * newline and the rest of the line is fed to the command as stdin, which is
  * how a capture line can silently produce nothing for weeks:
  *
- *   *\/15 * * * * cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast --only-if-active >> /tmp/noaa-capture.log 2>&1
- *   0 *\/3 * * *  cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs fast >> /tmp/noaa-capture.log 2>&1
- *   17 6 * * *    cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/capture.mjs slow --commit >> /tmp/noaa-capture.log 2>&1
+ *   *\/15 * * * * cd ~/space-weather && /usr/bin/node scripts/capture.mjs fast --only-if-active >> /tmp/noaa-capture.log 2>&1
+ *   0 *\/3 * * *  cd ~/space-weather && /usr/bin/node scripts/capture.mjs fast >> /tmp/noaa-capture.log 2>&1
+ *   17 6 * * *    cd ~/space-weather && /usr/bin/node scripts/capture.mjs slow --commit >> /tmp/noaa-capture.log 2>&1
  *
  * The three are not redundant. A storm is short and a 3-hourly capture lands on
  * its peak by luck, so the 15-minute run exists to catch the peak -- gated on

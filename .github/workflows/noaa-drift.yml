@@ -1,6 +1,6 @@
 name: NOAA drift
 
-# Measures the live service against docs/noaa-products.md, through the plugin's
+# Measures the live service against docs/noaa-products.md, through the package's
 # own client -- so a run is also the only thing that exercises noaa/client.ts
 # against real NOAA. Everything else in CI is offline by design.
 #

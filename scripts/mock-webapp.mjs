@@ -36,10 +36,9 @@
 // branch's build too. The mock states and --upstream are mutually exclusive:
 // there is nothing to switch when the numbers are real.
 //
-// No dependencies, and nothing here is imported by src/ or test/ -- the
-// registry clones this repo and runs `npm ci && npm run build && npm test`
-// under `firejail --net=none` with a 60 second cap, and this file must stay
-// invisible to all three.
+// No dependencies, and nothing here is imported by src/ or test/ -- `npm ci
+// && npm run build && npm test` runs under `firejail --net=none` with a 60
+// second cap, and this file must stay invisible to all three.
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import fssync from 'node:fs'

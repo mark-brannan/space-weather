@@ -7,7 +7,6 @@ import {
   refreshFailure
 } from '../public/aurora.js'
 import { retryAfterSeconds } from '../public/signalk.js'
-import { NOAA_RAMP } from '../src/tiles'
 
 describe('auroraCardState', () => {
   it('shows the value whenever there is one', () => {
@@ -104,15 +103,6 @@ describe('retryAfterSeconds', () => {
 })
 
 describe('the aurora ramp', () => {
-  it('is the same table the chart overlay draws', () => {
-    // Two pictures of one forecast. The webapp map and the chart-plotter
-    // overlay are looked at by the same person, sometimes side by side, and a
-    // reader who saw two different colours for one probability would be right
-    // to distrust both. The table used to live inline in index.html, where
-    // nothing could reach it to check this.
-    expect(NOAA_AURORA_RAMP).toEqual(NOAA_RAMP.map((stop) => [...stop]))
-  })
-
   it('interpolates between stops rather than banding', () => {
     // A quiet day is 1-3% over most of the globe, which is inside the first
     // segment: quantising it would draw hard contours across the whole ocean.

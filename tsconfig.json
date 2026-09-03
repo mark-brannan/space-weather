@@ -11,6 +11,9 @@
     "types": ["node"],
     "rootDir": "./src",
     "outDir": "dist",
+    // The plugin and the app import this package by subpath; the .d.ts next
+    // to each module is what types those imports.
+    "declaration": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

@@ -64,7 +64,7 @@
  * Cron, hourly, in the style of capture.mjs's own lines (no date(1), nothing
  * for crontab's `%` handling to mangle):
  *
- *   41 * * * * cd ~/signalk-noaa-space-weather && /usr/bin/node scripts/watch-drap.mjs >> /tmp/drap-watch.log 2>&1
+ *   41 * * * * cd ~/space-weather && /usr/bin/node scripts/watch-drap.mjs >> /tmp/drap-watch.log 2>&1
  */
 import fs from 'node:fs/promises'
 import fssync from 'node:fs'

@@ -13,7 +13,7 @@ import {
   bytesPerPoll,
   predictedBytesPerDay
 } from '../src/endpoints'
-import { PRODUCTS } from '../src/index'
+import { PRODUCTS } from '../src/products/registry'
 import { createClient } from '../src/noaa/client'
 
 /**

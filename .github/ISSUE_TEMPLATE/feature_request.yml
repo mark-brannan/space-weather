@@ -34,7 +34,7 @@ body:
     attributes:
       label: NOAA endpoint
       description: >
-        If this needs data the plugin does not already fetch, link the SWPC
+        If this needs data a product does not already fetch, link the SWPC
         endpoint. `docs/noaa-products.md` lists the ones already measured.
       placeholder: https://services.swpc.noaa.gov/products/...
     validations:

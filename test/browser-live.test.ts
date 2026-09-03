@@ -3,26 +3,20 @@
  * running in a browser tab against NOAA with no server under them.
  *
  * What is pinned here is everything about that layer a test can hold offline
- * -- the publisher's two views of what it published, and the fact that the two
- * demos state the same viewpoint. The layer actually reaching NOAA cannot be
- * pinned here at all: the plugin registry runs `npm test` under
- * `firejail --net=none` with a 60 second cap. That half is checked in a
- * browser by hand; see docs/development.md.
+ * -- the publisher's two views of what it published, and what a poll costs.
+ * The layer actually reaching NOAA cannot be pinned here at all: `npm test`
+ * runs under `firejail --net=none` with a 60 second cap. That half is checked
+ * in a browser by hand; see docs/development.md.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { settingsFrom } from '../src/config'
-import { DEMO_POSITION, DEMO_PROPS } from '../src/browser/live'
+import { DEMO_POSITION } from '../src/browser/live'
 import { createBrowserPublisher } from '../src/browser/publisher'
 import { createDocumentSeam } from '../src/browser/seam'
 import { readAuroraCache, writeAuroraCache } from '../src/cache/auroraCache'
-import { PLUGIN_MODULES, SITE_FILES, sourceOf } from '../scripts/build-demo.mjs'
 
 const ROOT = join(__dirname, '..')
-const snapshot = JSON.parse(
-  readFileSync(join(ROOT, 'demo', 'snapshot.json'), 'utf8')
-)
 
 const publisher = () => createBrowserPublisher({ position: DEMO_POSITION })
 
@@ -80,43 +74,6 @@ describe('the browser publisher', () => {
     expect(readAuroraCache(p)).toBeNull()
     writeAuroraCache(p, { coordinates: [] })
     expect(readAuroraCache(p)?.grid).toEqual({ coordinates: [] })
-  })
-})
-
-describe('the two demos agree about what they are showing', () => {
-  // The saved capture imports both of these from the live layer. If they ever
-  // stop matching what is in the committed snapshot, the page's two modes are
-  // claiming different viewpoints -- and every number on it is worked out from
-  // that position.
-  it('captures at the position the live layer states', () => {
-    expect(snapshot.values['navigation.position'].value).toEqual(DEMO_POSITION)
-  })
-
-  it('captures with the settings the live layer runs', () => {
-    expect(snapshot.routes.status.settings).toEqual(settingsFrom(DEMO_PROPS))
-  })
-})
-
-describe('the assembled site carries the compiled plugin', () => {
-  it('copies the live layer and its closure out of dist/', () => {
-    expect(PLUGIN_MODULES).toContain('plugin/browser/live.js')
-    expect(PLUGIN_MODULES).toContain('plugin/products/registry.js')
-    expect(PLUGIN_MODULES.length).toBeGreaterThan(10)
-  })
-
-  // The whole point of the registry split: index.ts owns the plugin
-  // lifecycle, the HTTP routes and the tile renderer, and reaches the
-  // filesystem through every one of them.
-  it('leaves the server-only modules behind', () => {
-    expect(SITE_FILES).not.toContain('plugin/index.js')
-    expect(SITE_FILES).not.toContain('plugin/tiles.js')
-    expect(SITE_FILES).not.toContain('plugin/publisher.js')
-  })
-
-  it('reads a plugin module out of dist/, not public/', () => {
-    expect(sourceOf('plugin/browser/live.js')).toBe(
-      join(ROOT, 'dist', 'browser', 'live.js')
-    )
   })
 })
 
