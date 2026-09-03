@@ -55,7 +55,7 @@ jobs:
       # (below) rather than relied on for the tag this token now unlocks --
       # the manual dispatch stays the one path to publish, so an App-token
       # tag can't race it.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.RELEASE_PLEASE_APP_ID }}
