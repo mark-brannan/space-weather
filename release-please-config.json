@@ -5,7 +5,7 @@
       "release-type": "node",
       "package-name": "space-weather",
       "changelog-path": "CHANGELOG.md",
-      "bump-minor-pre-major": true,
+      "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": true,
       "include-v-in-tag": true,
       "include-component-in-tag": false,
