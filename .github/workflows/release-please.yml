@@ -1,30 +1,11 @@
 name: Release
 
-# The whole release mechanism. A merge to main updates a standing "chore:
-# release" pull request -- version bump, CHANGELOG entry -- and merging THAT
-# pull request is the release. Nothing else decides when to ship, and no
-# feature pull request carries a version.
-#
-# Batching is the default and needs no timer: work piles into the open release
-# pull request until you merge it. Ship now by merging it now; hold by leaving
-# it open. Edit its CHANGELOG diff before merging when a release deserves
-# notes written by a human rather than assembled from commit subjects.
-#
-# SQUASH-MERGE THE RELEASE PULL REQUEST. main requires signed commits and
-# release-please's commits are unsigned; squashing replaces them with one
-# commit signed by GitHub's own key, which the ruleset accepts. A merge commit
-# carries the unsigned originals through and is rejected.
-#
-# `include-component-in-tag: false` in the config is load-bearing. With a
-# package-name set, release-please's default tag format is
-# `<name>-vX.Y.Z`; no such tag exists here, so it finds no previous release,
-# sweeps the entire history for conventional commits, and proposes a version
-# off an ancient breaking change. It would also tag a ref publish.yml cannot
-# read, since that strips a leading `v`. Tags here are plain `vX.Y.Z`.
-#
-# Version policy lives in release-please-config.json, not here:
-# bump-patch-for-minor-pre-major and bump-minor-pre-major keep `feat` a patch
-# and a breaking change a minor while this is pre-1.0. See CLAUDE.md, "Never touch version numbers".
+# The whole release mechanism, shared across every repository that
+# publishes. A merge to main updates a standing "chore: release" pull
+# request; merging THAT pull request is the release. See
+# mark-brannan/.github/.github/workflows/release-please.yml for the full
+# rationale (batching, squash-merge requirement, tag format, version
+# policy).
 
 on:
   push:
@@ -32,77 +13,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # create the tag and the GitHub Release
-  pull-requests: write # open and update the release pull request
-  actions: write # dispatch publish.yml below
-
-concurrency:
-  group: release-main
-  cancel-in-progress: false
+  contents: write
+  pull-requests: write
+  actions: write
 
 jobs:
-  release-please:
-    runs-on: ubuntu-latest
-    steps:
-      # release-please's own commits, PR and tag are all authored through
-      # whatever token we hand it. The default GITHUB_TOKEN doesn't fire
-      # other workflows for anything it creates -- GitHub's own loop
-      # prevention -- so a release PR opened with it never gets its
-      # required CI checks and sits permanently unmergeable (#243). Minting
-      # an installation token for a repo-scoped GitHub App gives it a real
-      # actor identity instead, so the PR's `pull_request` event fires CI
-      # normally. publish.yml's `push: tags` trigger is deliberately gone
-      # (below) rather than relied on for the tag this token now unlocks --
-      # the manual dispatch stays the one path to publish, so an App-token
-      # tag can't race it.
-      - uses: actions/create-github-app-token@v3
-        id: app-token
-        with:
-          client-id: ${{ secrets.RELEASE_PLEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
-
-      - uses: googleapis/release-please-action@v5
-        id: release
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-      # release-please's tag is now pushed as the App, which DOES fire
-      # workflows -- but publish.yml's `push: tags` trigger has been
-      # removed so that doesn't start a second, racing publish. This
-      # dispatch stays the one path to it. It's also the one npm's OIDC
-      # trusted publisher is configured for: workflow_call was tried and
-      # rejected (E404, wrong token shape), so workflow_dispatch is what
-      # both a human and this job use.
-      # This step's first real run (#243/v0.29.11) failed before it could
-      # dispatch anything: `gh` shells out to `git` to find the repo unless
-      # told otherwise, and this job never checks the repo out, so every
-      # `gh` call died with "not a git repository". GH_REPO is the fix --
-      # the same thing a checkout step would have given it, without paying
-      # for one. Every run before this had release_created == 'false' and
-      # skipped the step entirely, which is why the gap went unnoticed since
-      # the release-please migration.
-      - name: Trigger the npm publish, and wait for it to actually succeed
-        if: steps.release.outputs.release_created == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ steps.release.outputs.tag_name }}
-        run: |
-          BEFORE=$(gh run list --workflow=publish.yml --json databaseId --jq '.[0].databaseId // 0')
-          gh workflow run publish.yml --ref "$TAG"
-
-          RUN_ID=""
-          for i in $(seq 1 20); do
-            sleep 5
-            RUN_ID=$(gh run list --workflow=publish.yml --json databaseId,event,headBranch \
-              --jq "[.[] | select(.event == \"workflow_dispatch\" and .headBranch == \"$TAG\" and .databaseId > $BEFORE)][0].databaseId // empty")
-            if [ -n "$RUN_ID" ]; then break; fi
-          done
-          if [ -z "$RUN_ID" ]; then
-            echo "Could not find the triggered publish run for $TAG" >&2
-            exit 1
-          fi
-          echo "Watching publish run $RUN_ID for $TAG"
-          gh run watch "$RUN_ID" --exit-status
+  release:
+    uses: mark-brannan/.github/.github/workflows/release-please.yml@main
+    secrets:
+      RELEASE_PLEASE_APP_CLIENT_ID: ${{ secrets.RELEASE_PLEASE_APP_CLIENT_ID }}
+      RELEASE_PLEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
