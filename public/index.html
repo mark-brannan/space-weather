@@ -1218,7 +1218,7 @@
 </div>
 
 <script type="module">
-import { heroState, kpFloorForG, outlookAhead, uncapitalise, watchAhead } from './hero.js';
+import { heroInputFrom, heroState, kpFloorForG, outlookAhead, uncapitalise, watchAhead } from './hero.js';
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
@@ -1309,7 +1309,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (!latest) return;
     const { data, kp, status, pos } = latest;
     const card = scalesCard(data);
-    const said = verdict(data.scalesNow, data.scalesObserved, kp, status, data.alerts);
+    const said = verdict(data, kp, status, data.alerts);
     // Chrome: the chip, the countdown and the footstrip are on screen for
     // views that draw none of the readings behind them, so neither can be a
     // side effect of drawing one.
@@ -1473,22 +1473,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // including the map, which has no hero tile), and the headline and its
   // subtext belong to whichever hero tile is on screen. So this returns what
   // to say rather than saying it -- one state, however many containers.
-  function verdict(scales, peak24h, kp, status, alerts) {
+  function verdict(data, kp, status, alerts) {
     const state = heroState({
-      observed: {
-        G: leafValue(scales?.G),
-        S: leafValue(scales?.S),
-        R: leafValue(scales?.R)
-      },
-      peak24h: {
-        G: leafValue(peak24h?.G),
-        S: leafValue(peak24h?.S),
-        R: leafValue(peak24h?.R)
-      },
-      series: leafValue(kp?.['forecast.series']),
-      watch: watchAhead(alerts, Date.now()),
-      observedAt: leafTime(scales?.G) || leafTime(scales?.time),
-      startedAt: status?.startedAt,
+      ...heroInputFrom(data, kp, status, alerts, Date.now()),
       staleAfterMs: STALE_MS
     });
 

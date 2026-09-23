@@ -7,6 +7,55 @@
 // time -- and the wrong choice is a page that reads "space weather is quiet"
 // hours after a storm (issue #34). Deciding that here keeps the copy in
 // index.html and lets the decision be tested without a browser.
+import { leafTime, leafValue } from './signalk.js'
+
+/**
+ * Which endpoint fills which half of the hero's read of "what's happening
+ * now" -- the same split scales.js's `SCALES_CARD_SOURCES` makes for the
+ * badges, and resolved here for the same reason: `index.html` used to build
+ * this pairing inline, with nothing checking which of the two ever fed
+ * `observed` versus `peak24h`. Swapping them is issue #120's mistake one
+ * tile over -- `scalesNow`'s instantaneous sample reads 0 in every quiet-
+ * looking payload, so it must never fill `peak24h`, and `scalesObserved`'s
+ * 24-hour maximum must never answer "is a storm running right now".
+ */
+export const HERO_SOURCES = {
+  observed: 'scalesNow',
+  peak24h: 'scalesObserved'
+}
+
+/**
+ * The hero's raw input, resolved from the fetched `data` tree (keyed by
+ * `ENDPOINTS` id, see signalk.js) plus the kp forecast, plugin status and
+ * alerts subtrees -- the object literal `verdict()` in index.html used to
+ * build inline.
+ *
+ * @param data   the fetched tree, keyed by ENDPOINTS id
+ * @param kp     the kp forecast subtree
+ * @param status the plugin's status subtree
+ * @param alerts the notifications.noaa.swpc.alerts subtree
+ * @param now    epoch ms, for watchAhead's "still ahead" cutoff
+ */
+export function heroInputFrom(data, kp, status, alerts, now) {
+  const scales = data?.[HERO_SOURCES.observed]
+  const peak24h = data?.[HERO_SOURCES.peak24h]
+  return {
+    observed: {
+      G: leafValue(scales?.G),
+      S: leafValue(scales?.S),
+      R: leafValue(scales?.R)
+    },
+    peak24h: {
+      G: leafValue(peak24h?.G),
+      S: leafValue(peak24h?.S),
+      R: leafValue(peak24h?.R)
+    },
+    series: leafValue(kp?.['forecast.series']),
+    watch: watchAhead(alerts, now),
+    observedAt: leafTime(scales?.G) || leafTime(scales?.time),
+    startedAt: status?.startedAt
+  }
+}
 
 /** Kp at which NOAA calls it a G1 storm; mirrors KP_FOR_G1 in src/parse.ts. */
 const KP_FOR_G1 = 5
