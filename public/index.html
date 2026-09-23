@@ -52,6 +52,10 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
+    /* The two flux overlays on the Kp chart. Cyan and violet because every
+       other hue in this palette already means a severity level, and a series
+       that borrowed one would read as a reading of it. */
+    --xray: #5fc6da; --proton: #b58bdf;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     /* Canonical desktop tile padding. .tile normally overrides this itself,
@@ -69,6 +73,7 @@
       --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
       --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
       --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
+      --xray: #11707f; --proton: #6b3fa0;
       --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
       --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
       color-scheme: light;
@@ -78,6 +83,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
+    --xray: #5fc6da; --proton: #b58bdf;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     color-scheme: dark;
@@ -86,6 +92,7 @@
     --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
     --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
     --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
+    --xray: #11707f; --proton: #6b3fa0;
     --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
     --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
     color-scheme: light;
@@ -1222,6 +1229,7 @@ import { heroState, kpFloorForG, outlookAhead, uncapitalise, watchAhead } from '
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
+import { fluxOverlay } from './flux.js';
 import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
 import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
@@ -1331,7 +1339,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
     for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
     for (const el of visibleSlots('hf')) renderHf(el, hfCard(data));
-    for (const el of visibleSlots('kp')) renderKp(el, kp);
+    for (const el of visibleSlots('kp')) renderKp(el, kp, fluxOverlay(data));
     labelAuroraButtons();
   }
 
@@ -1907,7 +1915,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       sev5: styles.getPropertyValue('--sev-5').trim(),
       sev4: styles.getPropertyValue('--sev-4').trim(),
       sev3: styles.getPropertyValue('--sev-3').trim(),
-      sev1: styles.getPropertyValue('--sev-1').trim()
+      sev1: styles.getPropertyValue('--sev-1').trim(),
+      xray: styles.getPropertyValue('--xray').trim(),
+      proton: styles.getPropertyValue('--proton').trim()
     };
 
     // The canvas is pulled out into the tile's horizontal padding, so the
@@ -2020,6 +2030,47 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   /**
+   * One flux trace over the Kp plot, on the ladder both already share.
+   *
+   * Drawn under the Kp line rather than over it, and thinner: Kp is what the
+   * tile is called and what the summary underneath reports, so a flux trace
+   * that hid it would have changed which chart this is. `flux.js` has already
+   * put every point on the Kp scale, so this reuses `y()` and cannot end up
+   * drawing a threshold at a different height than the ladder does.
+   *
+   * A null point is a break, not a zero: the channels drop records, and a line
+   * ruled through a gap down to the floor would draw a blackout clearing that
+   * never happened.
+   *
+   * `fade` is 1 in the near view and 0 at full rotation. Twenty-four hours of
+   * flux is a quarter of the 96-hour window and three per cent of the solar
+   * rotation -- at that width the trace is a smudge against the left edge
+   * making a claim nobody can read, so it leaves as the window opens.
+   */
+  function drawFluxTrace({ ctx, padL, padR, padT, plotH, cssW, y }, points, x, color, fade) {
+    if (!points || fade <= 0.01) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padL, padT, cssW - padL - padR, plotH);
+    ctx.clip();
+    ctx.beginPath();
+    let pen = false;
+    for (const point of points) {
+      if (point.kp === null) { pen = false; continue; }
+      const px = x(point.time), py = y(point.kp);
+      pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      pen = true;
+    }
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.9 * fade;
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  /**
    * Date stamps in the gutter below the baseline.
    *
    * The step follows the span rather than the data: a stamp per day is right
@@ -2096,6 +2147,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const times = series.map((p) => Date.parse(p.time));
     drawKpDates(plot, t0, t1, x);
     if (days) drawOutlookBars(plot, days, x, reveal, times[n - 1]);
+
+    // The flux overlays, before the Kp line so they sit under it. Read off the
+    // canvas rather than passed down: they arrive on a different poll from the
+    // Kp series and every caller of this already holds the canvas.
+    const flux = canvas._kp?.flux;
+    drawFluxTrace(plot, flux?.xray, x, c.xray, 1 - reveal);
+    drawFluxTrace(plot, flux?.proton, x, c.proton, 1 - reveal);
 
     // Where measurement stops. NOAA's `observed` column lags the clock by one
     // to two 3-hour bins, so this is not "now" -- the points between it and
@@ -2291,7 +2349,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         : '<span>No G1 day ahead in the outlook</span>');
   }
 
-  function renderKp(body, kp) {
+  function renderKp(body, kp, flux) {
     const observed = leafValue(kp?.observed);
     const max24h = leafValue(kp?.['forecast.max24h']);
     const max72h = leafValue(kp?.['forecast.max72h']);
@@ -2322,6 +2380,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
           ${outlookDays ? '<span><span class="sw block" style="background:var(--amber)"></span>Outlook, daily max</span>' : ''}
+          ${flux?.xray ? '<span><span class="sw" style="background:var(--xray)"></span>X-ray flux (R)</span>' : ''}
+          ${flux?.proton ? '<span><span class="sw" style="background:var(--proton)"></span>Proton flux (S)</span>' : ''}
           <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds</span>
         </div>
         <div class="kp-summary">
@@ -2332,9 +2392,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         </div>
         ${outlookDays ? `<p class="caveat">Expanding draws NOAA&rsquo;s 27-day outlook behind the
           forecast, one bar per UTC day. It is a <em>recurrence</em> forecast &mdash; last
-          rotation repeated &mdash; so it says which weeks to watch, not what will happen.</p>` : ''}`;
+          rotation repeated &mdash; so it says which weeks to watch, not what will happen.</p>` : ''}
+        ${flux?.xray || flux?.proton ? `<p class="caveat">The dotted rows are NOAA&rsquo;s 0&ndash;5
+          severity levels, and all three series are graded on them &mdash; G on Kp, R on X-ray flux,
+          S on proton flux &mdash; so one ladder reads for all of them. Each flux trace keeps its own
+          logarithmic axis, pinned to that ladder at the levels. Observed only, and only as far back
+          as this run of the plugin has been polling.</p>` : ''}`;
       const canvas = body.querySelector('#kpChart');
-      canvas._kp = { series, days: outlookDays, span };
+      canvas._kp = { series, days: outlookDays, span, flux };
       setKpSpan(canvas, span, false);
       for (const button of body.querySelectorAll('.kp-span button')) {
         button.addEventListener('click', () => {
