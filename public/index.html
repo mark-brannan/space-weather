@@ -956,6 +956,15 @@
   .diag-verdict.warn { color: var(--amber); }
   .diag-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 14px; }
   .advisory-tile .advisory-teaser { margin-top: 8px; max-width: 78ch; }
+
+  /* signalk-noaa-space-weather#113: the inline button was too small a
+     target on a touchscreen. The whole tile is the hit area now; hover and
+     press on the tile are the only cue, since nothing else about it looks
+     interactive before the outlook has loaded. */
+  .advisory-tile.is-ready { cursor: pointer; transition: border-color 0.2s, background-color 0.15s; }
+  .advisory-tile.is-ready:hover { border-color: var(--amber); }
+  .advisory-tile.is-ready:active { background: var(--panel-2); }
+  .advisory-tile.is-ready:focus-within { outline: 2px solid var(--amber); outline-offset: 2px; }
   .map-rail .aurora-rail .tile,
   .map-rail .aurora-rail .aurora-body { padding: 0; background: none; border: 0; }
 
@@ -2413,6 +2422,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     if (!advisory || !advisory.text) {
       teaser.textContent = 'Waiting for data…';
       openBtn.disabled = true;
+      root.classList.remove('is-ready');
       advisoryData = null;
       return;
     }
@@ -2422,6 +2432,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       ? `${date} — ${advisory.teaser}`
       : `${date} — ${advisory.idLine || 'Advisory issued'}`);
     openBtn.disabled = false;
+    root.classList.add('is-ready');
   }
 
   function openAdvisoryOverlay() {
@@ -2433,10 +2444,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function closeAdvisoryOverlay() {
     document.getElementById('advisoryOverlay').hidden = true;
   }
-  // Delegated: these buttons belong to a hero container, and there may be
-  // more than one of it.
+  // Delegated: these tiles belong to a hero container, and there may be
+  // more than one of it. #113: the whole tile is the target, not just the
+  // button inside it -- `.is-ready` keeps a click before data has loaded
+  // from opening an overlay with nothing in it.
   document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-part="advisory-open"]')) openAdvisoryOverlay();
+    if (e.target.closest('[data-slot="advisory"].is-ready')) openAdvisoryOverlay();
   });
   document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
   document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
