@@ -110,12 +110,23 @@ export function sevWord(level) {
 // exceeds 1% ~90-95% of days, exceeds 5% ~15-20%, exceeds 10% ~5-10%,
 // exceeds 25% ~2-4%, exceeds 50% <1%. Cutoffs are config constants here,
 // easy to retune without touching the rendering logic.
-export function tierClass(pct) {
+//
+// `range` caps the tier to what the line it colours can actually mean --
+// issue #131 (signalk-noaa-space-weather). Left uncapped (S's single line),
+// a rare-but-survivable reading and a rare-and-severe one paint the same
+// red. R splits one probability into two lines, R1-R2 and R3-R5, and both
+// went through this table unconstrained, so a merely-likely R1-R2 could
+// outcolour a rarer, more severe R3-R5 on the same day -- the row read
+// backwards on the day it mattered. R1-R2 is capped at sev-2 (its ceiling
+// is NOAA's own "Moderate"); R3-R5 is floored at sev-3 ("Strong", its own
+// floor). This spends the "still genuinely rare" cue at the low end of
+// R3-R5 -- a 15% chance of R3+ can no longer read as calm as a 15% chance
+// of S1 -- which is the trade this issue's fix argues for.
+export function tierClass(pct, range = {}) {
   if (pct === null || pct === undefined) return null
-  if (pct <= 5) return 'sev-1'
-  if (pct <= 10) return 'sev-3'
-  if (pct <= 25) return 'sev-4'
-  return 'sev-5'
+  const { min = 1, max = 5 } = range
+  const level = pct <= 5 ? 1 : pct <= 10 ? 3 : pct <= 25 ? 4 : 5
+  return `sev-${Math.min(max, Math.max(min, level))}`
 }
 
 // Half-circle arc gauge: fill is always linear 0-100% (honest magnitude),
@@ -177,11 +188,13 @@ export function scalesMarkup(card) {
   }
   const sPredCell = (day) =>
     `<div class="scales-arc">${arcSvg(day.sProbability, tierClass(day.sProbability))}</div>`
-  const rLine = (pct, label) =>
-    `<div class="scales-r-line ${tierClass(pct) || 'sev-0'}">${label}: <b>${pct === null ? '&ndash;' : Math.round(pct) + '%'}</b></div>`
+  // R1-R2 can never outcolour R3-R5: each line's tier is capped to the
+  // severity its own band can reach (see tierClass).
+  const rLine = (pct, label, range) =>
+    `<div class="scales-r-line ${tierClass(pct, range) || 'sev-0'}">${label}: <b>${pct === null ? '&ndash;' : Math.round(pct) + '%'}</b></div>`
   const rPredCell = (day) => `<div class="scales-r-day">
-        ${rLine(day.rMinorProbability, 'R1&ndash;R2')}
-        ${rLine(day.rMajorProbability, 'R3&ndash;R5')}
+        ${rLine(day.rMinorProbability, 'R1&ndash;R2', { max: 2 })}
+        ${rLine(day.rMajorProbability, 'R3&ndash;R5', { min: 3 })}
       </div>`
 
   const days = card.forecast
