@@ -603,7 +603,7 @@
      kpPlot sets the real one, so a chart that asks for a date gutter does not
      need a second hand-typed number here to agree with it. */
   #kpChart, #outlook27Chart { display: block; width: 100%; height: 132px; }
-  .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
+  .timeline-legend { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
   .timeline-legend .sw.block { height: 9px; width: 7px; opacity: 0.45; }
   /* The span control sits over the chart's right-hand end rather than up in
@@ -614,7 +614,7 @@
   .caveat {
     margin: 12px 0 0; font-size: 0.72rem; color: var(--text-dim); max-width: 74ch;
   }
-  .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
+  .kp-summary { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
   .kp-summary b { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 400; }
 
   .learn-more { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.72rem; }
@@ -2330,7 +2330,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     });
 
   /**
-   * What the outlook adds, in a sentence, under the chart.
+   * What the outlook adds, in two numbers, under the chart.
    *
    * Only what is beyond the 3-day forecast: `outlookAhead` takes the peak and
    * the first storm day over that stretch, deliberately not reading
@@ -2338,11 +2338,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
    * 27 rows and can therefore name a day already past.
    */
   function outlookSummary(ahead) {
-    if (!ahead) return '<span>Beyond 72h: this outlook&rsquo;s window has passed.</span>';
-    return `<span>Outlook peak <b>${ahead.peak.kp.toFixed(1)}</b> on <b>${outlookDate(ahead.peak.time)}</b></span>` +
-      (ahead.storm
-        ? `<span>First G1 day <b>${outlookDate(ahead.storm.time)}</b> at Kp <b>${ahead.storm.kp.toFixed(1)}</b></span>`
-        : '<span>No G1 day ahead in the outlook</span>');
+    // Silence when there is nothing ahead or no storm day in it: the chart
+    // already shows both, and a sentence saying so is a line nobody needed.
+    if (!ahead) return '';
+    return `<span>Outlook <b>${ahead.peak.kp.toFixed(1)}</b> ${outlookDate(ahead.peak.time)}</span>` +
+      (ahead.storm ? `<span>G1 <b>${outlookDate(ahead.storm.time)}</b></span>` : '');
   }
 
   function renderKp(body, kp, flux) {
@@ -2375,25 +2375,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <div class="timeline-legend">
           <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
-          ${outlookDays ? '<span><span class="sw block" style="background:var(--amber)"></span>Outlook, daily max</span>' : ''}
-          ${flux?.xray ? '<span><span class="sw" style="background:var(--xray)"></span>X-ray flux (R)</span>' : ''}
-          ${flux?.proton ? '<span><span class="sw" style="background:var(--proton)"></span>Proton flux (S)</span>' : ''}
-          <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds</span>
+          ${outlookDays ? '<span title="NOAA 27-day outlook, daily max: last rotation repeated, so which weeks to watch, not what will happen"><span class="sw block" style="background:var(--amber)"></span>Outlook</span>' : ''}
+          ${flux?.xray ? '<span title="GOES X-ray flux, log scale, R1 on the G1 row"><span class="sw" style="background:var(--xray)"></span>X-ray</span>' : ''}
+          ${flux?.proton ? '<span title="GOES proton flux, log scale, S1 on the G1 row"><span class="sw" style="background:var(--proton)"></span>Protons</span>' : ''}
+          <span title="NOAA levels 1-5: G on Kp, R on X-ray, S on protons"><span class="sw" style="background:var(--sev-4)"></span>Levels</span>
         </div>
         <div class="kp-summary">
-          <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
-          <span>24h peak <b>${max24h !== null ? max24h.toFixed(1) : '–'}</b></span>
-          <span>72h peak <b>${max72h !== null ? max72h.toFixed(1) : '–'}</b></span>
+          <span>Now <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
+          <span>24h <b>${max24h !== null ? max24h.toFixed(1) : '–'}</b></span>
+          <span>72h <b>${max72h !== null ? max72h.toFixed(1) : '–'}</b></span>
           ${outlookDays ? outlookSummary(ahead) : ''}
-        </div>
-        ${outlookDays ? `<p class="caveat">Expanding draws NOAA&rsquo;s 27-day outlook behind the
-          forecast, one bar per UTC day. It is a <em>recurrence</em> forecast &mdash; last
-          rotation repeated &mdash; so it says which weeks to watch, not what will happen.</p>` : ''}
-        ${flux?.xray || flux?.proton ? `<p class="caveat">The dotted rows are NOAA&rsquo;s 0&ndash;5
-          severity levels, and all three series are graded on them &mdash; G on Kp, R on X-ray flux,
-          S on proton flux &mdash; so one ladder reads for all of them. Each flux trace keeps its own
-          logarithmic axis, pinned to that ladder at the levels. Observed only, and only as far back
-          as this run of the plugin has been polling.</p>` : ''}`;
+        </div>`;
       const canvas = body.querySelector('#kpChart');
       canvas._kp = { series, days: outlookDays, span, flux };
       setKpSpan(canvas, span, false);
