@@ -634,23 +634,19 @@
     margin-bottom: 10px; font-size: 0.72rem; color: var(--text-dim);
   }
   .map-toolbar .group { display: flex; align-items: center; gap: 8px; }
-  .map-toolbar .group > .label {
-    font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: 0.08em; font-size: 0.6rem;
-  }
-  .map-toolbar label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
-  /* The band-edge contours are drawn on the absorption layer, so with that
-     layer off the control has nothing to act on. */
-  .map-toolbar label.check.off { opacity: 0.4; cursor: default; }
+  label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
+  label.check:has(input:disabled) { cursor: default; }
   /* Toggling a layer changes the map, not the surrounding text -- a section,
      the click-help line, or the probe readout that popped in and out with
      the checkbox read as content jumping (Mark's punch-list follow-up), so
      they dim instead of disappearing once they have anything to show. */
   .map-help.off, .map-section.off, .drap-probe.off { opacity: 0.4; }
-  .map-toolbar input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
-  /* A segmented control rather than a <select>: there are two projections and
-     the point of the control is that you can see both names and flip between
-     them, which a dropdown hides behind a click. */
+  label.check input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
+  /* A segmented control rather than a <select>: the choices are few and the
+     point of the control is that you can see every name and flip between
+     them, which a dropdown hides behind a click. Both remaining controls use
+     it -- projection and extent -- so the toolbar is one idiom repeated
+     rather than a segmented control, a slider and a readout in a row. */
   .seg { display: flex; border: 1px solid var(--grid); border-radius: 4px; overflow: hidden; }
   .seg button {
     font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.06em;
@@ -660,8 +656,6 @@
   .seg button + button { border-left: 1px solid var(--grid); }
   .seg button[aria-pressed="true"] { color: var(--bg); background: var(--amber); }
   .seg button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
-  .map-toolbar input[type="range"] { width: 110px; accent-color: var(--amber); cursor: pointer; }
-  .map-toolbar .reading { font-variant-numeric: tabular-nums; color: var(--text); min-width: 5.5em; }
   /* Sized in JS: the viewport follows the projection and the expand state, so
      an azimuthal disc is not squeezed into a letterbox. */
   /* The ground is painted by spaceMap.js, not by CSS -- see MAP_GROUND there
@@ -950,6 +944,9 @@
     padding: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px;
   }
   .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* A segmented control spanning the rail, rather than one hugging its words
+     with the rest of the row empty behind it. */
+  .map-view .map-toolbar .seg button { flex: 1 1 0; }
   .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
   .diag-teaser { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .diag-verdict { color: var(--text-dim); font-size: 0.86rem; }
@@ -977,6 +974,7 @@
     .map-view .map-toolbar { top: 0; border-width: 0 0 1px; }
     .map-view .map-footer { bottom: 0; border-width: 1px 0 0; }
     .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
+    .map-view .map-toolbar .seg button { flex: 0 0 auto; }
     .map-view .map-section { flex-direction: row; align-items: center; flex: 1 1 24rem; gap: 8px; }
     .map-view .drap-probe { flex: 1 1 100%; }
     .map-view .aurora-rail { flex: 1 1 100%; }
@@ -1227,7 +1225,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, RADIUS_STOPS, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -2738,6 +2736,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       stamp: (entry) => `valid ${fmtTime(entry.grid.validTime)}`,
       empty: 'No D-RAP grid cached yet.',
       fetchTitle: 'Fetches the D-RAP grid from NOAA now.',
+      // The band contours are drawn on this layer and nothing else, so the
+      // switch for them belongs on this layer's row -- beside the colorbar
+      // they are drawn over -- rather than as a fourth cluster in the
+      // toolbar, where it had to be dimmed and disabled by hand to say which
+      // layer it acted on. The row already dims as a whole when the layer is
+      // off, so that special case goes with it.
+      extra: () =>
+        `<label class="check"
+          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
+          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
+          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>`,
       legend: () => drapLegendHtml()
     }
   }
@@ -2919,12 +2928,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     canvas.classList.toggle('probe-cursor', layerOn('drap') && !!lastPosition && !!mapEntries.drap)
   }
 
-  function zoomWording(deg) {
-    if (deg >= 175) return 'the whole world'
-    if (deg >= 90) return 'a hemisphere'
-    return `${Math.round(deg)}° around`
-  }
-
   // --- the toolbar ---------------------------------------------------------
 
   function toolbarHtml() {
@@ -2944,20 +2947,21 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
         type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
     }).join('')
+    const zoomButtons = RADIUS_STOPS
+      .map((stop) =>
+        `<button type="button" data-radius="${stop.deg}" title="${stop.hint}"
+          aria-pressed="${mapControls.radiusDeg === stop.deg}">${stop.label}</button>`)
+      .join('')
+    // No "Layers"/"View"/"Zoom" headings over the three groups: every control
+    // under them already says its own name -- the checkboxes are the layer
+    // names, the buttons are the projections and the extents -- so the
+    // headings only repeated the category of a word the reader was already
+    // reading. They carry their names for a screen reader instead, where the
+    // grouping isn't visible and does have to be said.
     return `<div class="map-toolbar">
-      <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
-      <div class="group"><span class="label">View</span><span class="seg">${projButtons}</span></div>
-      <div class="group"><span class="label">Zoom</span>
-        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="5"
-          value="${mapControls.radiusDeg}" aria-label="Map zoom, degrees of arc from the vessel">
-        <span class="reading" id="mapZoomReading">${zoomWording(mapControls.radiusDeg)}</span>
-      </div>
-      <div class="group">
-        <label class="check${layerOn('drap') ? '' : ' off'}"
-          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
-          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
-          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>
-      </div>
+      <div class="group" role="group" aria-label="Map layers">${layerBoxes}</div>
+      <span class="seg" role="group" aria-label="Map projection">${projButtons}</span>
+      <span class="seg" role="group" aria-label="Map extent">${zoomButtons}</span>
       ${mapHelpHtml()}
     </div>`
   }
@@ -2990,7 +2994,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : escapeHtml(mapErrors[id]?.message || 'not loaded')}</span>`
       const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
       return `<div class="map-section${layerOn(id) ? '' : ' off'}">
-        <span class="sec-label">${meta.label}</span>${button}${status}${scale}
+        <span class="sec-label">${meta.label}</span>${button}${status}${meta.extra ? meta.extra() : ''}${scale}
       </div>`
     }).join('')
     // The aurora reading at the vessel sits with the layer it comes out of,
@@ -3094,12 +3098,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         renderMap()
       })
     }
-    const zoom = document.getElementById('mapZoom')
-    if (zoom) {
-      zoom.addEventListener('input', () => {
-        mapControls.radiusDeg = Number(zoom.value)
-        document.getElementById('mapZoomReading').textContent = zoomWording(mapControls.radiusDeg)
-        drawMapCanvas()
+    for (const button of body.querySelectorAll('button[data-radius]')) {
+      button.addEventListener('click', () => {
+        const deg = Number(button.dataset.radius)
+        if (mapControls.radiusDeg === deg) return
+        mapControls.radiusDeg = deg
+        renderMap()
       })
     }
     const bandEdges = document.getElementById('mapBandEdges')

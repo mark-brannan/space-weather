@@ -60,8 +60,27 @@ export const MAP_TRACK = '#4ad2ff'
 // regardless of the page's own theme.
 export const MAP_PROBE_LINE = '#ffb238'
 
-export const MIN_RADIUS_DEG = 15
 export const MAX_RADIUS_DEG = 180
+
+/**
+ * The extents the map offers, as named stops rather than a continuous slider.
+ *
+ * The slider that used to sit here was continuous in the control and
+ * categorical in the readout -- five degrees of travel changed nothing a
+ * reader could name, and the readout only ever had three things to say
+ * ("the whole world", "a hemisphere", "N degrees around"). Issue #177 asked
+ * for extent as "regional, global, maybe intermediate steps", and the
+ * regional view is the thing that #166's switcher was actually valuable for:
+ * a mode worth naming, not a number worth dragging to.
+ *
+ * 30 degrees is about 1800 nautical miles from the vessel -- an auroral oval
+ * overhead fits in it, which 15 did not.
+ */
+export const RADIUS_STOPS = [
+  { id: 'regional', deg: 30, label: 'Regional', hint: 'About 1800 nautical miles around the vessel.' },
+  { id: 'hemisphere', deg: 90, label: 'Hemisphere', hint: 'Everything within a quarter of the globe.' },
+  { id: 'global', deg: MAX_RADIUS_DEG, label: 'Global', hint: 'The whole planet.' }
+]
 // The whole planet, not a regional close-up. The first thing a global product
 // has to establish is that it is global: opening at 60 degrees showed a piece
 // of the aurora oval with no way to tell whether the rest of it was elsewhere
