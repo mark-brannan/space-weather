@@ -61,7 +61,10 @@ function createAzimuthal(lat0, lon0) {
     // see `strokeRings` in spaceMap.js.
     separable: false,
     center: { latitude: lat0, longitude: lon0 },
-    radiusWorld: (deg) => Math.min(180, Math.max(1, deg)) * D2R,
+    // Not capped at 180: the disc itself ends at the antipode whatever the
+    // radius says (see `inverse`), so a radius past it draws the whole
+    // planet smaller than the viewport, with a margin around it.
+    radiusWorld: (deg) => Math.max(1, deg) * D2R,
     // The radius is honoured on the SHORTER axis, which is what `radiusDeg`
     // says it means -- arc from the centre to the *nearer* edge. Scaling from
     // the longer axis instead (what #177 asked for, in a squat tile where the
