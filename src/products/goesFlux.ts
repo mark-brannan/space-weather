@@ -203,10 +203,15 @@ export const goesFlux: Product = {
         SERIES_WINDOW_MS
       )
       if (merged.length === 0) continue
+      // Every point, not just the newest: a merge can raise a bucket behind
+      // the newest one, and a roll can drop one and add one at equal length.
+      const held = retained[channel]
       const unchanged =
-        merged.length === retained[channel].length &&
-        merged[merged.length - 1].value ===
-          retained[channel][retained[channel].length - 1]?.value
+        merged.length === held.length &&
+        merged.every(
+          (point, i) =>
+            point.time === held[i].time && point.value === held[i].value
+        )
       retained[channel] = merged
       if (!unchanged) values.push({ path: `${base}.series`, value: merged })
     }

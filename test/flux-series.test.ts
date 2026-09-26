@@ -138,6 +138,20 @@ describe('the retained window', () => {
     ])
   })
 
+  it('keeps the held reading when the fresh one is a cut-short edge', () => {
+    // The payload's six-hour edge slid into this bucket, so the fresh read
+    // saw only its tail and missed the peak the held read caught.
+    const held = [{ time: at(0), value: 5 }]
+    const fresh = [
+      { time: at(0), value: 2 },
+      { time: at(15), value: 1 }
+    ]
+    expect(mergeFluxSeries(held, fresh, WINDOW)[0]).toEqual({
+      time: at(0),
+      value: 5
+    })
+  })
+
   it('drops what has fallen out of the window behind the newest point', () => {
     const held = [
       { time: at(0), value: 1 },

@@ -32,9 +32,9 @@ export const S_THRESHOLDS = [1e5, 1e6, 1e7, 1e8, 1e9]
 
 /**
  * Where each trace sits when nothing is happening -- the baseline of the plot,
- * not zero, which has no place on a log axis. A1 for the X-ray channel and
- * 0.1 pfu for the proton channel are both about a decade under a quiet day, so
- * a quiet trace rides just off the floor rather than pinned flat to it.
+ * not zero, which has no place on a log axis. A decade under A1 for the X-ray
+ * channel and 0.1 pfu for the proton channel, so a quiet trace rides above the
+ * floor rather than pinned flat to it.
  */
 export const XRAY_FLOOR = 1e-9
 export const PROTON_FLOOR = 1e3
@@ -52,7 +52,9 @@ const MAX_KP = 9
  */
 export function ladderScale(thresholds, floor) {
   const knots = [[Math.log10(floor), 0]]
-  thresholds.forEach((value, i) => knots.push([Math.log10(value), kpFloorForG(i + 1)]))
+  thresholds.forEach((value, i) =>
+    knots.push([Math.log10(value), kpFloorForG(i + 1)])
+  )
   // One decade of headroom above the top threshold. NOAA's scale stops at 5
   // and the flux does not: an X28 has happened, and without this it would draw
   // at the same height as the X20 that opens R5.
@@ -89,7 +91,10 @@ export function fluxOverlay(data) {
     const points = node && typeof node === 'object' ? node.series?.value : null
     if (!Array.isArray(points) || points.length === 0) return null
     const mapped = points
-      .map((point) => ({ time: Date.parse(point?.time), kp: ladder(point?.value) }))
+      .map((point) => ({
+        time: Date.parse(point?.time),
+        kp: ladder(point?.value)
+      }))
       .filter((point) => Number.isFinite(point.time))
     return mapped.length > 0 ? mapped : null
   }

@@ -2133,8 +2133,10 @@ export function parseGoesFluxSeries(
  * its full width within a day of starting, and a restart costs only the width,
  * never a wrong number. What it draws is always what this run has measured.
  *
- * `incoming` wins on a shared bucket: a bucket still being filled when it was
- * first read can only have gone up.
+ * A shared bucket keeps the larger of its two readings. Each is the maximum
+ * over a subset of the same records: the held one may have been read while
+ * the bucket was still filling, and the fresh one may be the payload's oldest
+ * bucket, cut short by the six-hour edge sliding through it.
  */
 export function mergeFluxSeries(
   existing: FluxPoint[],
@@ -2143,7 +2145,8 @@ export function mergeFluxSeries(
 ): FluxPoint[] {
   const merged = new Map<string, number>()
   for (const point of existing) merged.set(point.time, point.value)
-  for (const point of incoming) merged.set(point.time, point.value)
+  for (const point of incoming)
+    merged.set(point.time, Math.max(point.value, merged.get(point.time) ?? 0))
   const points = [...merged.entries()]
     .map(([time, value]) => ({ time, value }))
     .sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
