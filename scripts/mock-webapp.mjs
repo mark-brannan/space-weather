@@ -429,19 +429,27 @@ const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
 
 const iso = (offsetMin) =>
   new Date(Date.now() + offsetMin * 60000).toISOString()
-// A day of 15-minute flux buckets, as the plugin's `.series` child carries
-// them: a wandering background, one event peaking eight hours back at the
-// state's 24h peak, and a tail that lands on the current reading. Shaped in
-// log space because that is the axis the chart draws it on.
+// A rotation of flux buckets, as the plugin's `.series` child carries them:
+// 3-hourly back to 27 days, 15-minute over the newest day. A wandering
+// background, a flare a fortnight back, one event peaking eight hours back at
+// the state's 24h peak, and a tail that lands on the current reading. Shaped
+// in log space because that is the axis the chart draws it on. A two-day hole
+// ten days back stands for the plugin having been down, which the chart
+// breaks rather than rules across.
 const fluxHistory = (now, peak, background) => {
   const [lb, lp, ln] = [background, peak, now].map(Math.log10)
-  return Array.from({ length: 96 }, (_, i) => {
-    const min = -(95 - i) * 15
+  const coarse = Array.from({ length: 26 * 8 }, (_, i) => -(27 * 24 - i * 3) * 60)
+    .filter((min) => min < -10 * 1440 || min >= -8 * 1440)
+  const fine = Array.from({ length: 96 }, (_, i) => -(95 - i) * 15)
+  return [...coarse, ...fine].map((min) => {
     const hours = (min + 480) / 60
     const event = hours < 0 ? Math.exp(hours * 3) : Math.exp(-hours / 2)
-    const wander = 0.15 * Math.sin(i / 5)
-    const settle = Math.max(0, (i - 87) / 8)
-    const l = (lb + wander + (lp - lb) * event) * (1 - settle) + ln * settle
+    const flare = Math.exp(-Math.abs(min + 14 * 1440) / 360)
+    const wander = 0.15 * Math.sin(min / 75)
+    const settle = Math.max(0, (min + 120) / 120)
+    const l =
+      (lb + wander + (lp - lb) * Math.max(event, 0.8 * flare)) * (1 - settle) +
+      ln * settle
     return { time: iso(min), value: Math.pow(10, l) }
   })
 }
