@@ -4,7 +4,8 @@ import {
   LETTERS,
   SCALES_CARD_SOURCES,
   scalesCard,
-  scalesMarkup
+  scalesMarkup,
+  tierClass
 } from '../public/scales.js'
 import {
   SCALES_FIXTURES,
@@ -93,6 +94,60 @@ describe('the Storm Scales card, rendered to markup', () => {
     expect(html).toContain('id="letterG">&ndash;')
     expect(html).toContain('id="letterS">&ndash;')
     expect(html).toContain('id="letterR">&ndash;')
+  })
+})
+
+/**
+ * Issue #131 (signalk-noaa-space-weather): R1-R2 and R3-R5 shared one
+ * rarity-only tier table, so a merely-likely minor forecast could outcolour
+ * a rarer, more severe one on the same day. `tierClass`'s `range` argument
+ * caps each line to what its own band can mean; these pin that a capped
+ * line never paints past its ceiling or floor, and that the two lines on
+ * the issue's own reported day come out in severity order.
+ */
+describe('tierClass caps a line to its band', () => {
+  it('never exceeds the cap, however high the probability', () => {
+    expect(tierClass(99, { max: 2 })).toBe('sev-2')
+    expect(tierClass(55, { max: 2 })).toBe('sev-2')
+  })
+
+  it('still reads calm at low probability under a cap', () => {
+    expect(tierClass(1, { max: 2 })).toBe('sev-1')
+  })
+
+  it('never drops below the floor, however low the probability', () => {
+    expect(tierClass(1, { min: 3 })).toBe('sev-3')
+    expect(tierClass(0, { min: 3 })).toBe('sev-3')
+  })
+
+  it('is unconstrained with no range, matching the old S behaviour', () => {
+    expect(tierClass(1)).toBe('sev-1')
+    expect(tierClass(15)).toBe('sev-4')
+    expect(tierClass(60)).toBe('sev-5')
+  })
+})
+
+describe('the R1-R2 / R3-R5 lines read in severity order', () => {
+  // The issue's own reported case: the less severe, more likely band used
+  // to read as the more alarming colour.
+  it('colours R3-R5 15% more severely than R1-R2 55%', () => {
+    const card = scalesCard({})
+    card.forecast[0].rMinorProbability = 55
+    card.forecast[0].rMajorProbability = 15
+    const html = scalesMarkup(card)
+    expect(html).toContain('scales-r-line sev-2">R1&ndash;R2')
+    expect(html).toContain('scales-r-line sev-4">R3&ndash;R5')
+  })
+
+  // Both bands at the same probability used to render identically (both
+  // sev-5); the fix has to still tell them apart.
+  it('never lets a coin-flip R1-R2 and R3-R5 render identically', () => {
+    const card = scalesCard({})
+    card.forecast[0].rMinorProbability = 30
+    card.forecast[0].rMajorProbability = 30
+    const html = scalesMarkup(card)
+    expect(html).toContain('scales-r-line sev-2">R1&ndash;R2')
+    expect(html).toContain('scales-r-line sev-5">R3&ndash;R5')
   })
 })
 
