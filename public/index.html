@@ -645,20 +645,14 @@
     margin-bottom: 10px; font-size: 0.72rem; color: var(--text-dim);
   }
   .map-toolbar .group { display: flex; align-items: center; gap: 8px; }
-  .map-toolbar .group > .label {
-    font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: 0.08em; font-size: 0.6rem;
-  }
-  .map-toolbar label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
-  /* The band-edge contours are drawn on the absorption layer, so with that
-     layer off the control has nothing to act on. */
-  .map-toolbar label.check.off { opacity: 0.4; cursor: default; }
+  label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
+  label.check:has(input:disabled) { cursor: default; }
   /* Toggling a layer changes the map, not the surrounding text -- a section,
      the click-help line, or the probe readout that popped in and out with
      the checkbox read as content jumping (Mark's punch-list follow-up), so
      they dim instead of disappearing once they have anything to show. */
   .map-help.off, .map-section.off, .drap-probe.off { opacity: 0.4; }
-  .map-toolbar input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
+  label.check input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
   /* A segmented control rather than a <select>: there are two projections and
      the point of the control is that you can see both names and flip between
      them, which a dropdown hides behind a click. */
@@ -961,6 +955,12 @@
     padding: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px;
   }
   .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* Controls span the rail rather than hugging their words with the rest of
+     the row empty behind them -- and the slider's thumb is the small target
+     the review complained of, so it takes all the width there is. */
+  .map-view .map-toolbar .seg button { flex: 1 1 0; }
+  .map-view .map-toolbar .zoom { width: 100%; }
+  .map-view .map-toolbar .zoom input[type="range"] { flex: 1 1 auto; width: auto; }
   .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
   .diag-teaser { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .diag-verdict { color: var(--text-dim); font-size: 0.86rem; }
@@ -997,6 +997,8 @@
     .map-view .map-toolbar { top: 0; border-width: 0 0 1px; }
     .map-view .map-footer { bottom: 0; border-width: 1px 0 0; }
     .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
+    .map-view .map-toolbar .seg button { flex: 0 0 auto; }
+    .map-view .map-toolbar .zoom { width: auto; }
     .map-view .map-section { flex-direction: row; align-items: center; flex: 1 1 24rem; gap: 8px; }
     .map-view .drap-probe { flex: 1 1 100%; }
     .map-view .aurora-rail { flex: 1 1 100%; }
@@ -1248,7 +1250,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -2799,6 +2801,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       stamp: (entry) => `valid ${fmtTime(entry.grid.validTime)}`,
       empty: 'No D-RAP grid cached yet.',
       fetchTitle: 'Fetches the D-RAP grid from NOAA now.',
+      // The band contours are drawn on this layer and nothing else, so the
+      // switch for them belongs on this layer's row -- beside the colorbar
+      // they are drawn over -- rather than as a fourth cluster in the
+      // toolbar, where it had to be dimmed and disabled by hand to say which
+      // layer it acted on. The row already dims as a whole when the layer is
+      // off, so that special case goes with it.
+      extra: () =>
+        `<label class="check"
+          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
+          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
+          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>`,
       legend: () => drapLegendHtml()
     }
   }
@@ -2981,9 +2994,53 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function zoomWording(deg) {
-    if (deg >= 175) return 'the whole world'
+    if (deg >= 180) return 'the whole world'
     if (deg >= 90) return 'a hemisphere'
     return `${Math.round(deg)}° around`
+  }
+
+  // On the slider, the last two steps at either end are the end. A thumb
+  // that stops at "nearly the whole world" or "nearly as close as it goes" is
+  // the thing the review complained of: the ends are the two views a reader
+  // actually wants, and the thumb is a small target to land on them with.
+  // The wheel does not snap -- it arrives at an end by stepping, and a snap
+  // zone would swallow the first step away from it.
+  const RADIUS_SNAP_DEG = RADIUS_STEP_DEG * 2
+  function clampRadius(deg, snap) {
+    if (deg <= MIN_RADIUS_DEG + (snap ? RADIUS_SNAP_DEG : 0)) return MIN_RADIUS_DEG
+    if (deg >= MAX_RADIUS_DEG - (snap ? RADIUS_SNAP_DEG : 0)) return MAX_RADIUS_DEG
+    return Math.round(deg / RADIUS_STEP_DEG) * RADIUS_STEP_DEG
+  }
+
+  // The one control change that does not rebuild the toolbar: the slider is
+  // being dragged, or the wheel is turning over the canvas, and either way the
+  // thumb and the readout are moved in place so the pointer keeps hold.
+  function setRadius(deg, { snap = false } = {}) {
+    const next = clampRadius(deg, snap)
+    // The thumb is put where the snap landed even when nothing else changed:
+    // it has been dragged into the snap zone, and it belongs at the end.
+    const zoom = document.getElementById('mapZoom')
+    if (zoom) zoom.value = String(next)
+    if (next === mapControls.radiusDeg) return
+    mapControls.radiusDeg = next
+    const reading = document.getElementById('mapZoomReading')
+    if (reading) reading.textContent = zoomWording(next)
+    drawMapCanvas()
+  }
+
+  // A wheel notch zooms by a ratio, not a fixed number of degrees: five
+  // degrees is the whole picture at the near end and nothing at the far end.
+  // Never less than one slider step, so a notch always does something, and
+  // trackpads -- which report many small deltas per gesture -- are scaled by
+  // their pixel delta rather than counted as notches.
+  function wheelRadius(event) {
+    const pixels = event.deltaMode === 0 ? event.deltaY : event.deltaY * 40
+    const factor = Math.exp(Math.max(-1, Math.min(1, pixels / 100)) * Math.LN2 * 0.35)
+    const from = mapControls.radiusDeg
+    const scaled = from * factor
+    return factor > 1
+      ? Math.max(from + RADIUS_STEP_DEG, scaled)
+      : Math.min(from - RADIUS_STEP_DEG, scaled)
   }
 
   // --- the toolbar ---------------------------------------------------------
@@ -3005,19 +3062,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
         type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
     }).join('')
+    // No "Layers"/"View"/"Zoom" headings over the groups: every control under
+    // them already says its own name -- the checkboxes are the layer names,
+    // the buttons are the projections, the readout says how far the slider
+    // reaches -- so the headings only repeated the category of a word the
+    // reader was already reading. They carry their names for a screen reader
+    // instead, where the grouping isn't visible and does have to be said.
+    // The slider keeps its ticks: the two ends and the hemisphere are where
+    // it snaps, and the ticks say so before the thumb is touched.
     return `<div class="map-toolbar">
-      <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
-      <div class="group"><span class="label">View</span><span class="seg">${projButtons}</span></div>
-      <div class="group"><span class="label">Zoom</span>
-        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="5"
-          value="${mapControls.radiusDeg}" aria-label="Map zoom, degrees of arc from the vessel">
+      <div class="group" role="group" aria-label="Map layers">${layerBoxes}</div>
+      <span class="seg" role="group" aria-label="Map projection">${projButtons}</span>
+      <div class="group zoom" role="group" aria-label="Map extent">
+        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="${RADIUS_STEP_DEG}"
+          list="mapZoomStops" value="${mapControls.radiusDeg}"
+          title="Drag, or roll the wheel over the map."
+          aria-label="Map zoom, degrees of arc from the vessel">
+        <datalist id="mapZoomStops">
+          <option value="${MIN_RADIUS_DEG}"></option><option value="90"></option><option value="${MAX_RADIUS_DEG}"></option>
+        </datalist>
         <span class="reading" id="mapZoomReading">${zoomWording(mapControls.radiusDeg)}</span>
-      </div>
-      <div class="group">
-        <label class="check${layerOn('drap') ? '' : ' off'}"
-          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
-          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
-          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>
       </div>
       ${mapHelpHtml()}
     </div>`
@@ -3051,7 +3115,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : escapeHtml(mapErrors[id]?.message || 'not loaded')}</span>`
       const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
       return `<div class="map-section${layerOn(id) ? '' : ' off'}">
-        <span class="sec-label">${meta.label}</span>${button}${status}${scale}
+        <span class="sec-label">${meta.label}</span>${button}${status}${meta.extra ? meta.extra() : ''}${scale}
       </div>`
     }).join('')
     // The aurora reading at the vessel sits with the layer it comes out of,
@@ -3095,6 +3159,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     paint()
 
     const canvas = mapCanvas()
+    // The wheel zooms the map, not the page, while the pointer is over it --
+    // the review's first ask. Zoom is about the vessel, since that is what
+    // the map is centred on; there is no pan for the cursor to anchor.
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault()
+        setRadius(wheelRadius(event))
+      },
+      { passive: false }
+    )
     canvas.addEventListener('click', (event) => {
       if (!lastPosition || !layerOn('drap') || !mapEntries.drap) return
       const rect = canvas.getBoundingClientRect()
@@ -3156,13 +3231,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       })
     }
     const zoom = document.getElementById('mapZoom')
-    if (zoom) {
-      zoom.addEventListener('input', () => {
-        mapControls.radiusDeg = Number(zoom.value)
-        document.getElementById('mapZoomReading').textContent = zoomWording(mapControls.radiusDeg)
-        drawMapCanvas()
-      })
-    }
+    if (zoom) zoom.addEventListener('input', () => setRadius(Number(zoom.value), { snap: true }))
     const bandEdges = document.getElementById('mapBandEdges')
     if (bandEdges) {
       bandEdges.addEventListener('change', () => {

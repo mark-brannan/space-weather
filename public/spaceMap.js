@@ -60,13 +60,27 @@ export const MAP_TRACK = '#4ad2ff'
 // regardless of the page's own theme.
 export const MAP_PROBE_LINE = '#ffb238'
 
-export const MIN_RADIUS_DEG = 15
-export const MAX_RADIUS_DEG = 180
+/**
+ * The zoom control's travel, in degrees of arc from the vessel to the nearer
+ * edge of the viewport.
+ *
+ * Both ends reach a little past the picture they name. 180 is the whole
+ * planet with the antipode on the rim; 200 is the same disc with a margin
+ * around it, so "all the way out" reads as a globe rather than a picture
+ * cropped at the edge. 10 at the near end is about 600 nautical miles around
+ * the vessel -- tighter than an auroral oval needs, but the view a reader
+ * dragging inward is asking for. Neither end is the default: see
+ * DEFAULT_RADIUS_DEG.
+ */
+export const MIN_RADIUS_DEG = 10
+export const MAX_RADIUS_DEG = 200
+// The slider's granularity, and the least one wheel notch moves it.
+export const RADIUS_STEP_DEG = 5
 // The whole planet, not a regional close-up. The first thing a global product
 // has to establish is that it is global: opening at 60 degrees showed a piece
 // of the aurora oval with no way to tell whether the rest of it was elsewhere
 // or absent. Zooming in is a question the reader asks second.
-export const DEFAULT_RADIUS_DEG = MAX_RADIUS_DEG
+export const DEFAULT_RADIUS_DEG = 180
 
 /**
  * The two products, as layers.
