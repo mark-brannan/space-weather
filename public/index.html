@@ -223,9 +223,7 @@
   .link-more[hidden] { display: none; }
 
   /* One NOAA message: its verb and scale on a head row, then whatever it
-     carries -- a watch's day table, the body text. The list is the stop-gap
-     for the designed in-force tile, so it stays inside the overlay the
-     advisory already established rather than claiming grid space. */
+     carries -- a watch's day table, the body text. */
   .msg { border-top: 1px solid var(--grid); padding: 14px 0 4px; }
   .msg:first-of-type { border-top: 0; }
   .msg-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
@@ -725,36 +723,8 @@
   .scale-tick.align-right { transform: translateX(-100%); }
   .map-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; }
 
-  /* line-height is explicit because the two-line trim measures against it. */
-  .advisory-teaser {
-    margin-top: 12px; font-size: 0.86rem; color: var(--text);
-    line-height: 1.45; overflow: hidden;
-  }
-
-  .overlay {
-    position: fixed; inset: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: center; padding: 20px;
-  }
-  /* Author CSS always beats the [hidden] UA default, so `display: flex`
-     above would win even while the hidden attribute is set -- this is what
-     actually hides it, and what the JS toggling `.hidden` depends on. */
-  .overlay[hidden] { display: none; }
-  .overlay-backdrop {
-    position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 70%, transparent);
-  }
-  .overlay-panel {
-    position: relative; z-index: 1; max-width: 720px; width: 100%; max-height: 85vh;
-    overflow-y: auto; border: 1px solid var(--grid); border-radius: 4px; background: var(--panel);
-    box-shadow: var(--shadow); padding: 24px 26px;
-  }
-  .overlay-close {
-    position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; line-height: 1;
-    font-size: 1.3rem; color: var(--text-dim); background: transparent; border: 1px solid var(--grid);
-    border-radius: 4px; cursor: pointer;
-  }
-  .overlay-close:hover { border-color: var(--amber); color: var(--amber); }
-  .overlay-panel h2 { margin: 4px 0 6px; }
-  .overlay-explainer {
+  .advisory-tile h2 { margin: 6px 0 2px; }
+  .advisory-explainer {
     font-size: 0.78rem; font-style: italic; color: var(--text-dim);
     margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--grid);
   }
@@ -765,13 +735,7 @@
 
   /* Fetch diagnostics. A table, not a picture: the map's one-canvas rule is
      about the map, and a divergence between two byte figures is a number
-     beside a number. In the overlay the advisory and the messages list
-     already established rather than in a tile, because the grid is for the
-     weather and this is housekeeping about the plugin -- but reachable from
-     the footstrip, which is already where the page says how old its data is.
-     Wider than the other two overlays: six columns of figures, and a table
-     that has to wrap is a table nobody compares anything in. */
-  .overlay-panel.wide { max-width: 940px; }
+     beside a number. */
   .diag-verdict { border-left: 3px solid var(--sev-0); padding: 6px 0 6px 12px; margin: 10px 0 16px; }
   .diag-verdict.agrees { border-left-color: var(--sev-1); }
   .diag-verdict.collecting { border-left-color: var(--sev-0); }
@@ -951,20 +915,13 @@
   }
   .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
   .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-  .diag-teaser { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .diag-verdict { color: var(--text-dim); font-size: 0.86rem; }
-  .diag-verdict.warn { color: var(--amber); }
-  .diag-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 14px; }
-  .advisory-tile .advisory-teaser { margin-top: 8px; max-width: 78ch; }
-
-  /* signalk-noaa-space-weather#113: the inline button was too small a
-     target on a touchscreen. The whole tile is the hit area now; hover and
-     press on the tile are the only cue, since nothing else about it looks
-     interactive before the outlook has loaded. */
-  .advisory-tile.is-ready { cursor: pointer; transition: border-color 0.2s, background-color 0.15s; }
-  .advisory-tile.is-ready:hover { border-color: var(--amber); }
-  .advisory-tile.is-ready:active { background: var(--panel-2); }
-  .advisory-tile.is-ready:focus-within { outline: 2px solid var(--amber); outline-offset: 2px; }
+  /* The one-line summary and the body below it. Not .diag-verdict and
+     .diag-detail: diagnostics.js owns those names for the wording block
+     inside the table, and its 68ch cap on the detail was clipping the
+     table when the wrapper borrowed the name. */
+  .diag-summary { color: var(--text-dim); font-size: 0.86rem; }
+  .diag-summary.warn { color: var(--amber); }
+  .diag-body { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 14px; }
   .map-rail .aurora-rail .tile,
   .map-rail .aurora-rail .aurora-body { padding: 0; background: none; border: 0; }
 
@@ -1018,17 +975,21 @@
         <h1>NOAA Space Weather</h1>
         <span class="chip sev-0" id="heroChip">Loading</span>
       </div>
-      <!-- Three questions, not a partition of the data: a reading belongs in
-           every view that answers with it, which is why the renderers below
-           take a container instead of an id. One page, one poll, one state --
-           the tabs choose what is drawn, never what is fetched. -->
+      <!-- Four kinds of answer, not a partition of the data: the numbers, what
+           NOAA wrote, where, and whether the plumbing is healthy. A reading
+           belongs in every view that answers with it, which is why the
+           renderers below take a container instead of an id. One page, one
+           poll, one state -- the tabs choose what is drawn, never what is
+           fetched. -->
       <nav class="viewnav" role="tablist" aria-label="Views">
         <button type="button" role="tab" id="tab-dashboard" data-view="dashboard"
           aria-controls="view-dashboard" aria-selected="true">Dashboard</button>
-        <button type="button" role="tab" id="tab-kpview" data-view="kpview"
-          aria-controls="view-kpview" aria-selected="false" tabindex="-1">Conditions</button>
+        <button type="button" role="tab" id="tab-advisories" data-view="advisories"
+          aria-controls="view-advisories" aria-selected="false" tabindex="-1">Advisories</button>
         <button type="button" role="tab" id="tab-map" data-view="map"
           aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
+        <button type="button" role="tab" id="tab-diagnostics" data-view="diagnostics"
+          aria-controls="view-diagnostics" aria-selected="false" tabindex="-1">Diagnostics</button>
       </nav>
       <div class="statusbar-tail">
         <span class="statusbar-sep" aria-hidden="true"></span>
@@ -1054,36 +1015,6 @@
         </div>
       </div>
 
-      <!-- Promoted out of the hero's right-hand column into a tile of its own.
-           Squeezed beside the verdict it was two clipped lines of a bulletin
-           written in paragraphs -- the one piece of prose on the page, and the
-           only thing here that says what the week ahead looks like, reading
-           like a caption. It gets the width now. -->
-      <div class="tile span-12 advisory-tile" data-slot="advisory">
-        <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
-        <div class="advisory-teaser" data-part="teaser">Waiting for data&hellip;</div>
-        <button type="button" data-part="advisory-open" class="btn-outline" disabled style="margin-top:12px;">Read full outlook</button>
-      </div>
-
-      <!-- Always on the page, never behind a link. What NOAA has said is in
-           force is the one thing on this dashboard the reader is meant to act
-           on, and it was reachable only by noticing a clause at the end of the
-           hero and clicking it. A modal for the same list would now be a
-           second copy of it, so there is no longer one. -->
-      <div class="tile span-12">
-        <div class="tile-head">
-          <h2 data-part="messages-title">Messages in force</h2>
-          <a class="info" href="https://www.swpc.noaa.gov/noaa-scales-explanation"
-            target="_blank" rel="noopener">i<span class="bubble">NOAA issues a <strong>watch</strong>
-            when a storm is expected days out, a <strong>warning</strong> when it is expected within
-            hours, an <strong>alert</strong> when it is observed, and a <strong>summary</strong> once
-            it is over. This lists what is in force now, plus anything stood down in the last two
-            days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</span></a>
-        </div>
-        <div data-slot="messages">
-          <div class="empty-state">Waiting for data&hellip;</div>
-        </div>
-      </div>
 
       <div class="tile span-12">
         <div class="tile-head">
@@ -1099,56 +1030,13 @@
         </div>
       </div>
 
-      <!-- The fetch diagnostics, promoted out of a link in the footstrip. What
-           this plugin costs the boat's connection is not a developer's
-           curiosity -- it is the one figure a user on a satellite plan needs --
-           and it was a grey word at the bottom of the page. Folded rather than
-           expanded, because the verdict is one line and the table behind it is
-           long. -->
-      <div class="tile span-12">
-        <div class="tile-head">
-          <h2>Fetch diagnostics</h2>
-          <a class="info" href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">i<span
-            class="bubble">Every endpoint this plugin fetches declares its measured size, and the
-            configuration screen prices your settings out of those declarations. This is the other
-            half: what the last 24 hours actually cost, against what was predicted. A declared size
-            goes stale when NOAA changes a payload, and a stale one makes the configuration screen
-            quietly wrong &mdash; which is what these figures are here to catch. Sizes are
-            compressed transfer sizes, which is what a fetch really costs, not the size of the
-            parsed document.</span></a>
-        </div>
-        <div data-slot="diagnostics">
-          <div class="empty-state">Waiting for data&hellip;</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="learn-more">
-      <span class="label" style="margin-right:2px">Learn more</span>
-      <!-- Ordered for this app's reader, not to match NOAA's own menu: most
-           specific to what is on screen first, general background last. Do not
-           reorder these to agree with spaceweather.gov (#114, and the argument
-           in docs/design-decisions.md). -->
-      <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
-      <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
-      <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
-      <a href="https://www.spaceweather.gov/about-space-weather" target="_blank" rel="noopener">About space weather</a>
-    </div>
-  </section>
-
-  <!-- Every measured reading on one page, which is what "Conditions" means to
-       a mariner already: geomagnetic, solar, radio. They are one tab rather
-       than three because they are one question asked at three removes -- the
-       Sun is doing something (solar wind, flux, flares), the field responds
-       (Kp), and the band you were about to use opens or closes (HF). Reading
-       any of them alone leaves the reader guessing at the other two, and each
-       on its own left most of a page empty.
-
-       Not "Timeline" -- that named a widget, not a subject, and only one of
-       these three is a chart. Not "Details" -- a tab named for how much there
-       is of something collects whatever nobody placed. -->
-  <section class="view" id="view-kpview" role="tabpanel" aria-labelledby="tab-kpview" tabindex="0" hidden>
-    <div class="grid">
+      <!-- Every measured reading on the same page as the verdict: the Sun is
+           doing something (solar wind, flux, flares), the field responds (Kp),
+           and the band you were about to use opens or closes (HF). They were a
+           "Conditions" tab of their own for a while, but that was a split of
+           the numbers, not a different question -- a reader who had the scales
+           and wanted Kp had to change tab to get it. Severity-first, so a
+           phone scrolling down leaves the least urgent for last. -->
       <div class="tile span-12">
         <div class="tile-head">
           <h2>Planetary K-Index</h2>
@@ -1197,6 +1085,85 @@
         </div>
       </div>
     </div>
+
+    <div class="learn-more">
+      <span class="label" style="margin-right:2px">Learn more</span>
+      <!-- Ordered for this app's reader, not to match NOAA's own menu: most
+           specific to what is on screen first, general background last. Do not
+           reorder these to agree with spaceweather.gov (#114, and the argument
+           in docs/design-decisions.md). -->
+      <a href="https://www.spaceweather.gov/noaa-scales-explanation" target="_blank" rel="noopener">G/S/R scales explained</a>
+      <a href="https://www.spaceweather.gov/impacts" target="_blank" rel="noopener">Space weather impacts</a>
+      <a href="https://www.spaceweather.gov/phenomena" target="_blank" rel="noopener">Space weather phenomena</a>
+      <a href="https://www.spaceweather.gov/about-space-weather" target="_blank" rel="noopener">About space weather</a>
+    </div>
+  </section>
+
+
+  <!-- The text NOAA writes, in full: the weekly outlook and the watches,
+       warnings and alerts in force. Both are read, not glanced at, and neither
+       fits beside a number without being cut to a caption -- which is what
+       happened to each of them in turn on the dashboard. -->
+  <section class="view" id="view-advisories" role="tabpanel" aria-labelledby="tab-advisories" tabindex="0" hidden>
+    <div class="grid">
+      <!-- The whole bulletin, not a two-line teaser with the rest behind a
+           modal. This tab exists for the prose; hiding the prose on it would
+           be the one thing it is for. -->
+      <div class="tile span-12 advisory-tile" data-slot="advisory">
+        <span class="label">Advisory &middot; NOAA SWPC &middot; Weekly outlook</span>
+        <h2 data-part="advisory-title">&mdash;</h2>
+        <pre class="advisory-text" data-part="advisory-text">Waiting for data&hellip;</pre>
+        <p class="advisory-explainer">A plain-language recap of last week and the week ahead, published Monday mornings.</p>
+      </div>
+
+      <!-- Always in full, never behind a link. What NOAA has said is in force
+           is the one thing on this page the reader is meant to act on, and it
+           was once reachable only by noticing a clause at the end of the hero
+           and clicking it. A modal for the same list would be a second copy of
+           it, so there is not one. -->
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2 data-part="messages-title">Messages in force</h2>
+          <a class="info" href="https://www.swpc.noaa.gov/noaa-scales-explanation"
+            target="_blank" rel="noopener">i<span class="bubble">NOAA issues a <strong>watch</strong>
+            when a storm is expected days out, a <strong>warning</strong> when it is expected within
+            hours, an <strong>alert</strong> when it is observed, and a <strong>summary</strong> once
+            it is over. This lists what is in force now, plus anything stood down in the last two
+            days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</span></a>
+        </div>
+        <div data-slot="messages">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-diagnostics" role="tabpanel" aria-labelledby="tab-diagnostics" tabindex="0" hidden>
+    <div class="grid">
+      <!-- What this plugin costs the boat's connection is not a developer's
+           curiosity -- it is the one figure a user on a satellite plan needs.
+           It was a grey word in the footstrip, then a folded tile on the
+           dashboard; now it has the tab, so the table is always open. Nothing
+           about the weather is on this tab, and nothing about the plumbing is
+           on any other. -->
+      <div class="tile span-12">
+        <div class="tile-head">
+          <h2>Fetch diagnostics</h2>
+          <button type="button" id="diagRefresh" class="btn-outline">Refresh</button>
+          <a class="info" href="https://www.swpc.noaa.gov" target="_blank" rel="noopener">i<span
+            class="bubble">Every endpoint this plugin fetches declares its measured size, and the
+            configuration screen prices your settings out of those declarations. This is the other
+            half: what the last 24 hours actually cost, against what was predicted. A declared size
+            goes stale when NOAA changes a payload, and a stale one makes the configuration screen
+            quietly wrong &mdash; which is what these figures are here to catch. Sizes are
+            compressed transfer sizes, which is what a fetch really costs, not the size of the
+            parsed document.</span></a>
+        </div>
+        <div data-slot="diagnostics">
+          <div class="empty-state">Waiting for data&hellip;</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <div class="footstrip">
@@ -1214,17 +1181,6 @@
     <div class="empty-state">Waiting for data&hellip;</div>
   </div>
 </section>
-
-<div class="overlay" id="advisoryOverlay" hidden>
-  <div class="overlay-backdrop" id="advisoryBackdrop"></div>
-  <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="advisoryOverlayTitle">
-    <button type="button" class="overlay-close" id="advisoryClose" aria-label="Close">&times;</button>
-    <span class="label">Advisory &middot; NOAA SWPC</span>
-    <h2 id="advisoryOverlayTitle">&mdash;</h2>
-    <pre class="advisory-text" id="advisoryOverlayText"></pre>
-    <p class="overlay-explainer">A plain-language recap of last week and the week ahead, published Monday mornings.</p>
-  </div>
-</div>
 
 <script type="module">
 import { heroInputFrom, heroState, kpFloorForG, outlookAhead, uncapitalise, watchAhead } from './hero.js';
@@ -1252,7 +1208,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // that answers with it, so everything below renders into a container it is
   // handed rather than one it looks up by id. An id would let the second
   // appearance of a datum drift from the first.
-  const VIEWS = ['dashboard', 'kpview', 'map'];
+  const VIEWS = ['dashboard', 'advisories', 'map', 'diagnostics'];
   let currentView = null;
 
   /** Every container for a slot that is on screen. A hidden view has none. */
@@ -1285,6 +1241,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // the map does not make them. The canvas itself is drawn by the observer
     // in renderMap, once the row it sits in has a box.
     if (name === 'map' && mapState === 'idle') loadMap();
+    // Opening the tab is the one moment the reader is actually looking at
+    // these figures, so it is also the moment worth a fresh read.
+    if (name === 'diagnostics') readTelemetry(true).catch(() => {});
   }
 
   for (const tab of document.querySelectorAll('.viewnav [role="tab"]')) {
@@ -2368,78 +2327,21 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
-  let advisoryData = null;
   let messageRows = [];
-  // The teaser is a teaser -- the full bulletin is one tap away -- so it is
-  // trimmed to two lines to keep the tile off the rest of the page.
-  //
-  // Trimmed here rather than with `-webkit-line-clamp`, which appends the
-  // single-glyph "…". In this tile's monospace that ellipsis occupies one
-  // cell like any other character and reads as punctuation rather than as
-  // "there is more", so the omission goes unnoticed. Three periods take
-  // three cells and cannot be mistaken for the end of a sentence.
-  const CONTINUES = '...';
-  // NOAA writes these bulletins in long sentences, so a cut lands mid-word far
-  // more often than not, and a broken word reads as a corrupted feed rather
-  // than as an omission. Back up to the last space instead -- unless the cut
-  // is inside the only word there is, where a hard cut beats an empty teaser.
-  function cutAt(text, end) {
-    if (end >= text.length) return text.trimEnd();
-    const kept = text.slice(0, end);
-    const lastSpace = kept.search(/\s+\S*$/);
-    return (lastSpace > 0 ? kept.slice(0, lastSpace) : kept).trimEnd();
-  }
-  function trimToTwoLines(el, text) {
-    el.textContent = text;
-    const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
-    const maxHeight = lineHeight * 2 + 1;
-    if (el.scrollHeight <= maxHeight) return;
-    let lo = 0, hi = text.length;
-    while (lo < hi) {
-      const mid = Math.ceil((lo + hi) / 2);
-      el.textContent = cutAt(text, mid) + CONTINUES;
-      if (el.scrollHeight <= maxHeight) lo = mid; else hi = mid - 1;
-    }
-    el.textContent = cutAt(text, lo) + CONTINUES;
-  }
 
   function renderAdvisory(root, advisory) {
-    const teaser = root.querySelector('[data-part="teaser"]');
-    const openBtn = root.querySelector('[data-part="advisory-open"]');
+    const title = root.querySelector('[data-part="advisory-title"]');
+    const text = root.querySelector('[data-part="advisory-text"]');
     if (!advisory || !advisory.text) {
-      teaser.textContent = 'Waiting for data…';
-      openBtn.disabled = true;
-      root.classList.remove('is-ready');
-      advisoryData = null;
+      title.textContent = '\u2014';
+      text.textContent = 'Waiting for data\u2026';
       return;
     }
-    advisoryData = advisory;
     const date = shortDate(advisory.issued);
-    trimToTwoLines(teaser, advisory.teaser
-      ? `${date} — ${advisory.teaser}`
-      : `${date} — ${advisory.idLine || 'Advisory issued'}`);
-    openBtn.disabled = false;
-    root.classList.add('is-ready');
+    title.textContent = advisory.idLine || 'Advisory Outlook';
+    if (date) title.textContent += ` \u00b7 ${date}`;
+    text.textContent = advisory.text;
   }
-
-  function openAdvisoryOverlay() {
-    if (!advisoryData) return;
-    document.getElementById('advisoryOverlayTitle').textContent = advisoryData.idLine || 'Advisory Outlook';
-    document.getElementById('advisoryOverlayText').textContent = advisoryData.text;
-    document.getElementById('advisoryOverlay').hidden = false;
-  }
-  function closeAdvisoryOverlay() {
-    document.getElementById('advisoryOverlay').hidden = true;
-  }
-  // Delegated: these tiles belong to a hero container, and there may be
-  // more than one of it. #113: the whole tile is the target, not just the
-  // button inside it -- `.is-ready` keeps a click before data has loaded
-  // from opening an overlay with nothing in it.
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-slot="advisory"].is-ready')) openAdvisoryOverlay();
-  });
-  document.getElementById('advisoryClose').addEventListener('click', closeAdvisoryOverlay);
-  document.getElementById('advisoryBackdrop').addEventListener('click', closeAdvisoryOverlay);
 
   // NOAA's own messages, as a list off the hero. Rebuilt from the subtree on
   // every poll rather than cached: a message's state changes under it when it
@@ -2525,12 +2427,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   let telemetryData = null;
   let telemetryReadAt = 0;
 
-  // Folded or not, by the reader's own click. The verdict is one line and is
-  // always drawn; the table behind it is long, and rebuilding it is a full
-  // markup regeneration on a 60-second poll, so it is only built when it is
-  // actually on screen.
-  let diagnosticsExpanded = false;
-
   async function readTelemetry(force) {
     if (!force && Date.now() - telemetryReadAt < TELEMETRY_MS) return;
     telemetryReadAt = Date.now();
@@ -2554,38 +2450,25 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   /**
-   * The teaser and, once asked for, the table. The teaser is the same sentence
-   * that used to be a grey aside in the footstrip -- whether what this plugin
-   * actually fetched matches what the configuration screen priced. That is the
-   * figure a reader on a metered connection came for, so it is a card on the
-   * dashboard now rather than a word at the bottom of it.
+   * The verdict, then the table. The verdict is the same sentence that used
+   * to be a grey aside in the footstrip -- whether what this plugin actually
+   * fetched matches what the configuration screen priced. The table is
+   * rebuilt on every poll, but only while this tab is on screen: a hidden
+   * view has no slot (see visibleSlots), so a reader who never opens it
+   * never pays for the markup.
    */
   function drawDiagnostics(body) {
     const view = diagnosticsView(telemetryData, Date.now());
     const note = footstripNote(view);
     const verdict = note ? note.text : 'Traffic is tracking what the configuration screen predicted.';
-    body.innerHTML = `<div class="diag-teaser">
-        <span class="diag-verdict${note ? ' warn' : ''}">${escapeHtml(verdict)}</span>
-        <button type="button" class="btn-outline" data-part="diag-toggle"
-          aria-expanded="${diagnosticsExpanded}">${diagnosticsExpanded ? 'Hide the detail' : 'Show the detail'}</button>
-      </div>
-      ${diagnosticsExpanded ? `<div class="diag-detail">${diagnosticsMarkup(view)}</div>` : ''}`;
-    body.querySelector('[data-part="diag-toggle"]').addEventListener('click', () => {
-      diagnosticsExpanded = !diagnosticsExpanded;
-      // Unfolding is the one moment the reader is actually looking, so it is
-      // also the moment worth spending a fresh read on.
-      if (diagnosticsExpanded) readTelemetry(true).catch(() => {});
-      renderDiagnostics();
-    });
+    body.innerHTML = `<div class="diag-summary${note ? ' warn' : ''}">${escapeHtml(verdict)}</div>
+      <div class="diag-body">${diagnosticsMarkup(view)}</div>`;
   }
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('advisoryOverlay').hidden) {
-      closeAdvisoryOverlay();
-      return;
-    }
-    handleMapKey(e);
+  document.getElementById('diagRefresh').addEventListener('click', () => {
+    readTelemetry(true).catch(() => {});
   });
+
+  window.addEventListener('keydown', handleMapKey);
 
   // --- Info bubbles ---------------------------------------------------------
   //
@@ -2636,7 +2519,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function handleMapKey(e) {
     const canvas = mapCanvas();
     if (!canvas) return;
-    if (!document.getElementById('advisoryOverlay').hidden) return;
     const activeTag = document.activeElement && document.activeElement.tagName;
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
     if (e.key === 'Escape') {
@@ -3357,10 +3239,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     latest = { data, kp, status, pos };
     paint();
     // Not awaited: a slow or missing telemetry route must not hold up the
-    // readings on the page. Forced while the panel is open, so what a reader
+    // readings on the page. Forced while the tab is open, so what a reader
     // is looking at keeps up with the poll; on its own ten-minute cadence
     // otherwise, which is plenty for a figure measured over 24 hours.
-    readTelemetry(diagnosticsExpanded).catch(() => {});
+    readTelemetry(currentView === 'diagnostics').catch(() => {});
 
     // A single failed/empty poll (e.g. the position source hasn't published
     // yet right after a server restart) must not erase a good position the
