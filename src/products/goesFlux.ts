@@ -31,17 +31,19 @@ import {
  * stretch of the Kp chart's 72-hour span -- a few hundred pixels for 96 hours,
  * so a 1-per-minute trace there is several samples per pixel, all of it paid
  * for in delta traffic to every connected client on every poll. Three hours
- * behind that, back to one solar rotation, because that is the chart's
- * 27-day span: the outlook it draws forward is the last rotation repeated,
- * the flux of that rotation is what it is repeating, and three hours is the
- * Kp bin the same axis already carries. Each bucket is its window's maximum,
- * so coarsening keeps every flare's peak and loses only when inside the three
- * hours it came.
+ * behind that, back to three days, because that is as far as the observed Kp
+ * on the same axis reaches, and three hours is the Kp bin it is drawn in.
+ * Not a rotation: the 27-day outlook repeats coronal-hole geomagnetic
+ * activity, which neither of these channels measures, and a month of
+ * history is delta traffic a Pi on battery pays for an answer nobody asked
+ * (Solace, 2026-09-27). Each bucket is its window's maximum, so coarsening
+ * keeps every flare's peak and loses only when inside the three hours it
+ * came.
  */
 const SERIES_BUCKET_MS = 15 * 60 * 1000
 const SERIES_FINE_MS = 24 * 60 * 60 * 1000
 const SERIES_COARSE_BUCKET_MS = 3 * 60 * 60 * 1000
-const SERIES_WINDOW_MS = 27 * 24 * 60 * 60 * 1000
+const SERIES_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
 
 type Held = { xray: FluxPoint[]; proton: FluxPoint[] }
 
@@ -137,7 +139,7 @@ export const goesFlux: Product = {
           displayName: 'GOES X-ray Flux history',
           shortName: 'X-ray history',
           description:
-            'Long-channel (0.1-0.8nm) X-ray flux over the last 27 days as an' +
+            'Long-channel (0.1-0.8nm) X-ray flux over the last 3 days as an' +
             " array of {time, value}, each point its window's maximum: one per" +
             ' 15 minutes over the newest 24 hours, one per 3 hours before that.' +
             ' Not a scalar path -- intended for drawing a timeline rather than' +
@@ -171,7 +173,7 @@ export const goesFlux: Product = {
           displayName: 'GOES Proton Flux history',
           shortName: 'Proton history',
           description:
-            'Integral proton flux, >=10 MeV channel, over the last 27 days as' +
+            'Integral proton flux, >=10 MeV channel, over the last 3 days as' +
             " an array of {time, value}, each point its window's maximum: one" +
             ' per 15 minutes over the newest 24 hours, one per 3 hours before' +
             ' that. Not a scalar path -- intended for drawing a timeline rather' +

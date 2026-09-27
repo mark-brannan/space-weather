@@ -1876,7 +1876,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
    * view is the outlook's own window, extended at either end if the forecast
    * pokes out of it -- it can, since NOAA issues the table weekly and the
    * 3-day product runs continuously -- and reaching back over whatever flux
-   * history is held, up to the rotation the outlook is a repeat of.
+   * history is held, which runs as far back as the observed Kp.
    */
   function kpDomain(span, series, days, flux) {
     const s0 = Date.parse(series[0].time);
@@ -2046,9 +2046,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
    * ruled through a gap down to the floor would draw a blackout clearing that
    * never happened.
    *
-   * Drawn at both spans. At 72 hours only the newest day is inside the plot;
-   * at 27 days the domain reaches back over the rest of the history, so the
-   * rotation the outlook repeats sits behind it.
+   * Drawn at both spans. At 72 hours the history fills the observed stretch;
+   * at 27 days it is narrow, but it is what there is, and a trace that
+   * vanished on expanding would read as the data having gone.
    */
   function drawFluxTrace({ ctx, padL, padR, padT, plotH, cssW, y }, points, x, color) {
     if (!points) return;
@@ -2390,8 +2390,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
           <span title="Kp as NOAA measured it, in 3-hour bins. Runs a bin or two behind now: NOAA confirms a bin only after it closes"><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
           <span title="NOAA's 3-day Kp forecast. Left of NOW it is NOAA's estimate for bins not yet confirmed"><span class="sw" style="background:var(--amber)"></span>Forecast</span>
           ${outlookDays ? `<span data-span="${SPAN_27D}" title="NOAA's weekly 27-day outlook, daily max Kp: last solar rotation repeated, so which weeks to watch, not what will happen"><span class="sw block" style="background:var(--amber)"></span>27-day outlook</span>` : ''}
-          ${flux?.xray ? `<span title="GOES X-ray flux on a log scale pinned so R1-R5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 27 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--xray)"></span>X-ray</span>` : ''}
-          ${flux?.proton ? `<span title="GOES proton flux (>=10 MeV) on a log scale pinned so S1-S5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 27 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--proton)"></span>Protons</span>` : ''}
+          ${flux?.xray ? `<span title="GOES X-ray flux on a log scale pinned so R1-R5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 3 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--xray)"></span>X-ray</span>` : ''}
+          ${flux?.proton ? `<span title="GOES proton flux (>=10 MeV) on a log scale pinned so S1-S5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 3 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--proton)"></span>Protons</span>` : ''}
         </div>
         ${outlookSummary(ahead)}`;
       const canvas = body.querySelector('#kpChart');
