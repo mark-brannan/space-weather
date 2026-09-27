@@ -167,8 +167,10 @@ never handed over red.
 - Branch from latest `main`; `npm run format` and `npm test` must pass.
 - One logical change per PR. Title as the release note -- it becomes one.
   Rebase onto `main`, never merge it in.
-- A PR touching `public/` carries pictures from the mock rig
-  ([docs/development.md](docs/development.md)), both themes.
+- **Any change a reader could see -- `public/`, styling, copy, layout, a
+  consumer's chrome -- is shown on the mock rig as bare URLs before the tests
+  re-run** ([docs/development.md](docs/development.md#what-a-session-here-can-show)).
+  Unsure whether it shows? Show it. Its PR carries pictures, both themes.
 - **Never touch version numbers.** `release-please` owns them (see
   Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
   makes the anti-minor bias a config setting -- decline a reviewer's
