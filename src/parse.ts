@@ -2126,7 +2126,7 @@ export function parseGoesFluxSeries(
  * The retained window, extended by what a fresh payload adds.
  *
  * The endpoint the plugin polls carries six hours while the history it keeps
- * is weeks. Rather than pay four times the bytes for the `-1-day` variant on
+ * is three days. Rather than pay four times the bytes for the `-1-day` variant on
  * every poll, a run of the plugin remembers the buckets it has already seen
  * (and `goesFluxCache` carries them across a restart) and lets the
  * overlapping windows fill the rest in. What it draws is always what the

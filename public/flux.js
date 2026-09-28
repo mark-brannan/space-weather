@@ -76,6 +76,9 @@ export function ladderScale(thresholds, floor) {
 export const xrayLadder = ladderScale(R_THRESHOLDS, XRAY_FLOOR)
 export const protonLadder = ladderScale(S_THRESHOLDS, PROTON_FLOOR)
 
+/** The widest spacing two held points have while polling ran between them. */
+const MAX_GAP_MS = 6 * 60 * 60 * 1000
+
 /**
  * The two overlay series out of the polled document, as `{time, kp}` already
  * on the Kp chart's scale -- so the drawing code has one kind of point to
@@ -86,9 +89,6 @@ export const protonLadder = ladderScale(S_THRESHOLDS, PROTON_FLOOR)
  * something to say, and "no series yet" is the state a fresh install is in
  * for its first poll.
  */
-/** The widest spacing two held points have while polling ran between them. */
-const MAX_GAP_MS = 6 * 60 * 60 * 1000
-
 export function fluxOverlay(data) {
   const series = (node, ladder) => {
     const points = node && typeof node === 'object' ? node.series?.value : null

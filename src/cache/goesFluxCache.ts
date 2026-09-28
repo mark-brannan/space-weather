@@ -1,6 +1,6 @@
 /**
  * Persists the GOES flux history between restarts. The endpoint the product
- * polls carries six hours and the history it publishes is weeks, so without
+ * polls carries six hours and the history it publishes is three days, so without
  * this a restart would put the chart back to a six-hour stub and it would take
  * the whole window to grow back.
  */
