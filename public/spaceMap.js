@@ -115,7 +115,8 @@ export function viewFor(canvas, options = {}) {
     center: options.position || { latitude: 20, longitude: 0 },
     radiusDeg: options.radiusDeg || DEFAULT_RADIUS_DEG,
     width,
-    height
+    height,
+    inset: options.inset
   })
 }
 
@@ -253,13 +254,7 @@ function paintRaster(ctx, view, layers) {
  */
 function discPath(view) {
   const path = new Path2D()
-  path.arc(
-    view.width / 2,
-    view.height / 2,
-    Math.PI * view.scale,
-    0,
-    Math.PI * 2
-  )
+  path.arc(view.cx, view.cy, Math.PI * view.scale, 0, Math.PI * 2)
   return path
 }
 
