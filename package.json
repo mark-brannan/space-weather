@@ -49,6 +49,7 @@
     "dev:webapp:stop": "node scripts/webapp-ctl.mjs stop",
     "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
     "dev:webapp:orphans": "node scripts/webapp-ctl.mjs orphans",
+    "shots": "node scripts/shots.mjs",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "node scripts/sync-coastline.mjs"
   },
@@ -76,6 +77,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "playwright": "^1.62.1",
     "prettier": "^3.4.2",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

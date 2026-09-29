@@ -172,8 +172,9 @@ never handed over red.
   before the tests re-run**
   ([docs/development.md](docs/development.md#what-a-session-here-can-show)).
   Unsure whether it shows? Show it. The rig stays up; the closing message
-  repeats the URLs and the stop command next to the PR link. Screenshots,
-  both themes, go in the PR body, not the chat.
+  repeats the URLs and the stop command next to the PR link. Its PR carries
+  pictures, dark theme only (`npm run shots`) -- see
+  [docs/development.md](docs/development.md#pictures-for-a-pr).
 - **Never touch version numbers.** `release-please` owns them (see
   Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
   makes the anti-minor bias a config setting -- decline a reviewer's
