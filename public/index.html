@@ -52,6 +52,10 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
+    /* The two flux overlays on the Kp chart. Cyan and violet because every
+       other hue in this palette already means a severity level, and a series
+       that borrowed one would read as a reading of it. */
+    --xray: #5fc6da; --proton: #b58bdf;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     /* Canonical desktop tile padding. .tile normally overrides this itself,
@@ -69,6 +73,7 @@
       --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
       --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
       --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
+      --xray: #11707f; --proton: #6b3fa0;
       --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
       --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
       color-scheme: light;
@@ -78,6 +83,7 @@
     --ink: #0a0f14; --panel: #111a22; --panel-2: #16212a; --grid: #223038;
     --text: #e8dfc8; --text-dim: #92a29f; --amber: #ffb238;
     --aurora-a: #3fd15c; --aurora-b: #f0d33c; --aurora-c: #ff9a3c; --aurora-d: #ff4d4d;
+    --xray: #5fc6da; --proton: #b58bdf;
     --sev-0: #4c5d55; --sev-1: #7fae5a; --sev-2: #bcbb46; --sev-3: #e0c53e; --sev-4: #e2703a; --sev-5: #e2483f;
     --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.35);
     color-scheme: dark;
@@ -86,6 +92,7 @@
     --ink: #eef1ea; --panel: #ffffff; --panel-2: #f4f6f0; --grid: #cfd6cb;
     --text: #14211d; --text-dim: #55645d; --amber: #a9660a;
     --aurora-a: #1f8a3e; --aurora-b: #a9880e; --aurora-c: #c2650f; --aurora-d: #c22f2f;
+    --xray: #11707f; --proton: #6b3fa0;
     --sev-0: #7c8b82; --sev-1: #4f7a34; --sev-2: #7d8419; --sev-3: #a99015; --sev-4: #b3501f; --sev-5: #b3312a;
     --shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 20px rgba(20,33,29,0.08);
     color-scheme: light;
@@ -624,9 +631,13 @@
      kpPlot sets the real one, so a chart that asks for a date gutter does not
      need a second hand-typed number here to agree with it. */
   #kpChart, #outlook27Chart { display: block; width: 100%; height: 132px; }
-  .timeline-legend { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
+  .timeline-legend { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; font-size: 0.7rem; color: var(--text-dim); }
   .timeline-legend .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
   .timeline-legend .sw.block { height: 9px; width: 7px; opacity: 0.45; }
+  .timeline-legend [hidden] { display: none; }
+  /* Hover text carries what the tile no longer says in prose; a help cursor
+     is the only sign on desktop that there is any. */
+  .timeline-legend [title], .kp-summary[title] { cursor: help; }
   /* The span control sits over the chart's right-hand end rather than up in
      the tile head, because what it changes is the chart's x-axis and nothing
      else on the tile. Right-aligned: it is the far end of the window that
@@ -635,7 +646,7 @@
   .caveat {
     margin: 12px 0 0; font-size: 0.72rem; color: var(--text-dim); max-width: 74ch;
   }
-  .kp-summary { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
+  .kp-summary { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
   .kp-summary b { color: var(--text); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 400; }
 
   .learn-more { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.72rem; }
@@ -662,20 +673,14 @@
     margin-bottom: 10px; font-size: 0.72rem; color: var(--text-dim);
   }
   .map-toolbar .group { display: flex; align-items: center; gap: 8px; }
-  .map-toolbar .group > .label {
-    font-family: var(--font-display); text-transform: uppercase;
-    letter-spacing: 0.08em; font-size: 0.6rem;
-  }
-  .map-toolbar label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
-  /* The band-edge contours are drawn on the absorption layer, so with that
-     layer off the control has nothing to act on. */
-  .map-toolbar label.check.off { opacity: 0.4; cursor: default; }
+  label.check { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text); }
+  label.check:has(input:disabled) { cursor: default; }
   /* Toggling a layer changes the map, not the surrounding text -- a section,
      the click-help line, or the probe readout that popped in and out with
      the checkbox read as content jumping (Mark's punch-list follow-up), so
      they dim instead of disappearing once they have anything to show. */
   .map-help.off, .map-section.off, .drap-probe.off { opacity: 0.4; }
-  .map-toolbar input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
+  label.check input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
   /* A segmented control rather than a <select>: there are two projections and
      the point of the control is that you can see both names and flip between
      them, which a dropdown hides behind a click. */
@@ -944,6 +949,12 @@
     padding: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px;
   }
   .map-view .map-toolbar .group { flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* Controls span the rail rather than hugging their words with the rest of
+     the row empty behind them -- and the slider's thumb is the small target
+     the review complained of, so it takes all the width there is. */
+  .map-view .map-toolbar .seg button { flex: 1 1 0; }
+  .map-view .map-toolbar .zoom { width: 100%; }
+  .map-view .map-toolbar .zoom input[type="range"] { flex: 1 1 auto; width: auto; }
   .map-view .map-section { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
   /* The one-line summary and the body below it. Not .diag-verdict and
      .diag-detail: diagnostics.js owns those names for the wording block
@@ -973,6 +984,8 @@
     .map-view .map-toolbar { top: 0; border-width: 0 0 1px; }
     .map-view .map-footer { bottom: 0; border-width: 1px 0 0; }
     .map-view .map-toolbar .group { flex-direction: row; align-items: center; gap: 8px; }
+    .map-view .map-toolbar .seg button { flex: 0 0 auto; }
+    .map-view .map-toolbar .zoom { width: auto; }
     .map-view .map-section { flex-direction: row; align-items: center; flex: 1 1 24rem; gap: 8px; }
     .map-view .drap-probe { flex: 1 1 100%; }
     .map-view .aurora-rail { flex: 1 1 100%; }
@@ -1224,13 +1237,14 @@ import { heroInputFrom, heroState, kpFloorForG, outlookAhead, uncapitalise, watc
 import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
+import { fluxOverlay } from './flux.js';
 import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
 import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { LAYOUT_KEY, defaultLayout, layoutFromText, moveSlot, toggleSlot } from './layout.js';
-import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -1411,7 +1425,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
     for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
     for (const el of visibleSlots('hf')) renderHf(el, hfCard(data));
-    for (const el of visibleSlots('kp')) renderKp(el, kp);
+    for (const el of visibleSlots('kp')) renderKp(el, kp, fluxOverlay(data));
     labelAuroraButtons();
   }
 
@@ -1932,15 +1946,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
    * throw away the observed stretch the chart is half made of. The rotation
    * view is the outlook's own window, extended at either end if the forecast
    * pokes out of it -- it can, since NOAA issues the table weekly and the
-   * 3-day product runs continuously.
+   * 3-day product runs continuously -- and reaching back over whatever flux
+   * history is held, which runs as far back as the observed Kp.
    */
-  function kpDomain(span, series, days) {
+  function kpDomain(span, series, days, flux) {
     const s0 = Date.parse(series[0].time);
     const s1 = Date.parse(series[series.length - 1].time);
     if (span === SPAN_72H || !days) return [s0, s1];
     const d0 = Date.parse(days[0].time);
     const d1 = Date.parse(days[days.length - 1].time) + DAY_MS;
-    return [Math.min(s0, d0), Math.max(s1, d1)];
+    const f0 = Math.min(flux?.xray?.[0]?.time ?? Infinity, flux?.proton?.[0]?.time ?? Infinity);
+    return [Math.min(s0, d0, f0), Math.max(s1, d1)];
   }
 
   /** The plot's own height, before any axis gutter under it. */
@@ -1974,7 +1990,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       sev5: styles.getPropertyValue('--sev-5').trim(),
       sev4: styles.getPropertyValue('--sev-4').trim(),
       sev3: styles.getPropertyValue('--sev-3').trim(),
-      sev1: styles.getPropertyValue('--sev-1').trim()
+      sev1: styles.getPropertyValue('--sev-1').trim(),
+      xray: styles.getPropertyValue('--xray').trim(),
+      proton: styles.getPropertyValue('--proton').trim()
     };
 
     // The canvas is pulled out into the tile's horizontal padding, so the
@@ -2087,6 +2105,46 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   /**
+   * One flux trace over the Kp plot, on the ladder both already share.
+   *
+   * Drawn under the Kp line rather than over it, and thinner: Kp is what the
+   * tile is called and what the summary underneath reports, so a flux trace
+   * that hid it would have changed which chart this is. `flux.js` has already
+   * put every point on the Kp scale, so this reuses `y()` and cannot end up
+   * drawing a threshold at a different height than the ladder does.
+   *
+   * A null point is a break, not a zero: the channels drop records, and a line
+   * ruled through a gap down to the floor would draw a blackout clearing that
+   * never happened.
+   *
+   * Drawn at both spans. At 72 hours the history fills the observed stretch;
+   * at 27 days it is narrow, but it is what there is, and a trace that
+   * vanished on expanding would read as the data having gone.
+   */
+  function drawFluxTrace({ ctx, padL, padR, padT, plotH, cssW, y }, points, x, color) {
+    if (!points) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(padL, padT, cssW - padL - padR, plotH);
+    ctx.clip();
+    ctx.beginPath();
+    let pen = false;
+    for (const point of points) {
+      if (point.kp === null) { pen = false; continue; }
+      const px = x(point.time), py = y(point.kp);
+      pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      pen = true;
+    }
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 1.25;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  /**
    * Date stamps in the gutter below the baseline.
    *
    * The step follows the span rather than the data: a stamp per day is right
@@ -2163,6 +2221,13 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const times = series.map((p) => Date.parse(p.time));
     drawKpDates(plot, t0, t1, x);
     if (days) drawOutlookBars(plot, days, x, reveal, times[n - 1]);
+
+    // The flux overlays, before the Kp line so they sit under it. Read off the
+    // canvas rather than passed down: they arrive on a different poll from the
+    // Kp series and every caller of this already holds the canvas.
+    const flux = canvas._kp?.flux;
+    drawFluxTrace(plot, flux?.xray, x, c.xray);
+    drawFluxTrace(plot, flux?.proton, x, c.proton);
 
     // Where measurement stops. NOAA's `observed` column lags the clock by one
     // to two 3-hour bins, so this is not "now" -- the points between it and
@@ -2290,7 +2355,14 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const st = canvas._kp;
     if (!st) return;
     st.span = span;
-    const to = kpDomain(span, st.series, st.days);
+    // A legend entry names only what this span draws: the outlook bars are
+    // absent at 72 hours, and a key for a series that is not on the chart
+    // sends the eye hunting for it.
+    const legend = canvas.closest('.timeline-wrap')?.parentElement?.querySelector('.timeline-legend');
+    for (const item of legend?.querySelectorAll('[data-span]') || []) {
+      item.hidden = item.dataset.span !== span;
+    }
+    const to = kpDomain(span, st.series, st.days, st.flux);
     const target = span === SPAN_27D ? 1 : 0;
     const from = st.domain || to;
     const reveal0 = st.reveal ?? 0;
@@ -2321,7 +2393,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function repaintKp(canvas) {
     const st = canvas?._kp;
     if (!st) return;
-    st.domain = kpDomain(st.span, st.series, st.days);
+    st.domain = kpDomain(st.span, st.series, st.days, st.flux);
     st.reveal = st.span === SPAN_27D ? 1 : 0;
     drawKpChart(canvas, st.series, st.days, st.domain, st.reveal);
   }
@@ -2343,22 +2415,22 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     });
 
   /**
-   * What the outlook adds, in a sentence, under the chart.
+   * The one thing under the chart: the outlook's first storm day, the only
+   * fact the 72-hour view cannot show. Everything else the old summary row
+   * said -- Kp now, the 24h and 72h peaks -- the chart draws and the scales
+   * tile reports, so it said it twice.
    *
-   * Only what is beyond the 3-day forecast: `outlookAhead` takes the peak and
-   * the first storm day over that stretch, deliberately not reading
-   * `...outlook27.maxKp` and `...nextStormTime`, which are published over all
-   * 27 rows and can therefore name a day already past.
+   * Only what is beyond the 3-day forecast: `outlookAhead` takes the first
+   * storm day over that stretch, deliberately not reading `...nextStormTime`,
+   * which is published over all 27 rows and can name a day already past.
    */
   function outlookSummary(ahead) {
-    if (!ahead) return '<span>Beyond 72h: this outlook&rsquo;s window has passed.</span>';
-    return `<span>Outlook peak <b>${ahead.peak.kp.toFixed(1)}</b> on <b>${outlookDate(ahead.peak.time)}</b></span>` +
-      (ahead.storm
-        ? `<span>First G1 day <b>${outlookDate(ahead.storm.time)}</b> at Kp <b>${ahead.storm.kp.toFixed(1)}</b></span>`
-        : '<span>No G1 day ahead in the outlook</span>');
+    if (!ahead?.storm) return '';
+    return `<div class="kp-summary" title="First day beyond the 3-day forecast where NOAA's 27-day outlook reaches Kp 5 (G1). A recurrence forecast: last rotation repeated"><span>Next storm day in the 27-day outlook:
+      <b>${outlookDate(ahead.storm.time)}</b></span></div>`;
   }
 
-  function renderKp(body, kp) {
+  function renderKp(body, kp, flux) {
     const observed = leafValue(kp?.observed);
     const max24h = leafValue(kp?.['forecast.max24h']);
     const max72h = leafValue(kp?.['forecast.max72h']);
@@ -2386,22 +2458,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         </div>` : ''}
         <div class="timeline-wrap"><canvas id="kpChart"></canvas></div>
         <div class="timeline-legend">
-          <span><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
-          <span><span class="sw" style="background:var(--amber)"></span>Forecast</span>
-          ${outlookDays ? '<span><span class="sw block" style="background:var(--amber)"></span>Outlook, daily max</span>' : ''}
-          <span><span class="sw" style="background:var(--sev-4)"></span>Storm thresholds</span>
+          <span title="Kp as NOAA measured it, in 3-hour bins. Runs a bin or two behind now: NOAA confirms a bin only after it closes"><span class="sw" style="background:var(--text-dim)"></span>Observed</span>
+          <span title="NOAA's 3-day Kp forecast. Left of NOW it is NOAA's estimate for bins not yet confirmed"><span class="sw" style="background:var(--amber)"></span>Forecast</span>
+          ${outlookDays ? `<span data-span="${SPAN_27D}" title="NOAA's weekly 27-day outlook, daily max Kp: last solar rotation repeated, so which weeks to watch, not what will happen"><span class="sw block" style="background:var(--amber)"></span>27-day outlook</span>` : ''}
+          ${flux?.xray ? `<span title="GOES X-ray flux on a log scale pinned so R1-R5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 3 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--xray)"></span>X-ray</span>` : ''}
+          ${flux?.proton ? `<span title="GOES proton flux (>=10 MeV) on a log scale pinned so S1-S5 sit on the G1-G5 rows: 15-minute peaks over the last day, 3-hour peaks back to 3 days. Only as far back as the plugin has been running"><span class="sw" style="background:var(--proton)"></span>Protons</span>` : ''}
         </div>
-        <div class="kp-summary">
-          <span>Observed <b>${observed !== null ? observed.toFixed(1) : '–'}</b></span>
-          <span>24h peak <b>${max24h !== null ? max24h.toFixed(1) : '–'}</b></span>
-          <span>72h peak <b>${max72h !== null ? max72h.toFixed(1) : '–'}</b></span>
-          ${outlookDays ? outlookSummary(ahead) : ''}
-        </div>
-        ${outlookDays ? `<p class="caveat">Expanding draws NOAA&rsquo;s 27-day outlook behind the
-          forecast, one bar per UTC day. It is a <em>recurrence</em> forecast &mdash; last
-          rotation repeated &mdash; so it says which weeks to watch, not what will happen.</p>` : ''}`;
+        ${outlookSummary(ahead)}`;
       const canvas = body.querySelector('#kpChart');
-      canvas._kp = { series, days: outlookDays, span };
+      canvas._kp = { series, days: outlookDays, span, flux };
       setKpSpan(canvas, span, false);
       for (const button of body.querySelectorAll('.kp-span button')) {
         button.addEventListener('click', () => {
@@ -2732,6 +2797,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       stamp: (entry) => `valid ${fmtTime(entry.grid.validTime)}`,
       empty: 'No D-RAP grid cached yet.',
       fetchTitle: 'Fetches the D-RAP grid from NOAA now.',
+      // The band contours are drawn on this layer and nothing else, so the
+      // switch for them belongs on this layer's row -- beside the colorbar
+      // they are drawn over -- rather than as a fourth cluster in the
+      // toolbar, where it had to be dimmed and disabled by hand to say which
+      // layer it acted on. The row already dims as a whole when the layer is
+      // off, so that special case goes with it.
+      extra: () =>
+        `<label class="check"
+          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
+          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
+          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>`,
       legend: () => drapLegendHtml()
     }
   }
@@ -2914,9 +2990,53 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function zoomWording(deg) {
-    if (deg >= 175) return 'the whole world'
+    if (deg >= 180) return 'the whole world'
     if (deg >= 90) return 'a hemisphere'
     return `${Math.round(deg)}° around`
+  }
+
+  // On the slider, the last two steps at either end are the end. A thumb
+  // that stops at "nearly the whole world" or "nearly as close as it goes" is
+  // the thing the review complained of: the ends are the two views a reader
+  // actually wants, and the thumb is a small target to land on them with.
+  // The wheel does not snap -- it arrives at an end by stepping, and a snap
+  // zone would swallow the first step away from it.
+  const RADIUS_SNAP_DEG = RADIUS_STEP_DEG * 2
+  function clampRadius(deg, snap) {
+    if (deg <= MIN_RADIUS_DEG + (snap ? RADIUS_SNAP_DEG : 0)) return MIN_RADIUS_DEG
+    if (deg >= MAX_RADIUS_DEG - (snap ? RADIUS_SNAP_DEG : 0)) return MAX_RADIUS_DEG
+    return Math.round(deg / RADIUS_STEP_DEG) * RADIUS_STEP_DEG
+  }
+
+  // The one control change that does not rebuild the toolbar: the slider is
+  // being dragged, or the wheel is turning over the canvas, and either way the
+  // thumb and the readout are moved in place so the pointer keeps hold.
+  function setRadius(deg, { snap = false } = {}) {
+    const next = clampRadius(deg, snap)
+    // The thumb is put where the snap landed even when nothing else changed:
+    // it has been dragged into the snap zone, and it belongs at the end.
+    const zoom = document.getElementById('mapZoom')
+    if (zoom) zoom.value = String(next)
+    if (next === mapControls.radiusDeg) return
+    mapControls.radiusDeg = next
+    const reading = document.getElementById('mapZoomReading')
+    if (reading) reading.textContent = zoomWording(next)
+    drawMapCanvas()
+  }
+
+  // A wheel notch zooms by a ratio, not a fixed number of degrees: five
+  // degrees is the whole picture at the near end and nothing at the far end.
+  // Never less than one slider step, so a notch always does something, and
+  // trackpads -- which report many small deltas per gesture -- are scaled by
+  // their pixel delta rather than counted as notches.
+  function wheelRadius(event) {
+    const pixels = event.deltaMode === 0 ? event.deltaY : event.deltaY * 40
+    const factor = Math.exp(Math.max(-1, Math.min(1, pixels / 100)) * Math.LN2 * 0.35)
+    const from = mapControls.radiusDeg
+    const scaled = from * factor
+    return factor > 1
+      ? Math.max(from + RADIUS_STEP_DEG, scaled)
+      : Math.min(from - RADIUS_STEP_DEG, scaled)
   }
 
   // --- the toolbar ---------------------------------------------------------
@@ -2938,19 +3058,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
         type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
     }).join('')
+    // No "Layers"/"View"/"Zoom" headings over the groups: every control under
+    // them already says its own name -- the checkboxes are the layer names,
+    // the buttons are the projections, the readout says how far the slider
+    // reaches -- so the headings only repeated the category of a word the
+    // reader was already reading. They carry their names for a screen reader
+    // instead, where the grouping isn't visible and does have to be said.
+    // The slider keeps its ticks: the two ends and the hemisphere are where
+    // it snaps, and the ticks say so before the thumb is touched.
     return `<div class="map-toolbar">
-      <div class="group"><span class="label">Layers</span>${layerBoxes}</div>
-      <div class="group"><span class="label">View</span><span class="seg">${projButtons}</span></div>
-      <div class="group"><span class="label">Zoom</span>
-        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="5"
-          value="${mapControls.radiusDeg}" aria-label="Map zoom, degrees of arc from the vessel">
+      <div class="group" role="group" aria-label="Map layers">${layerBoxes}</div>
+      <span class="seg" role="group" aria-label="Map projection">${projButtons}</span>
+      <div class="group zoom" role="group" aria-label="Map extent">
+        <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="${RADIUS_STEP_DEG}"
+          list="mapZoomStops" value="${mapControls.radiusDeg}"
+          title="Drag, or roll the wheel over the map."
+          aria-label="Map zoom, degrees of arc from the vessel">
+        <datalist id="mapZoomStops">
+          <option value="${MIN_RADIUS_DEG}"></option><option value="90"></option><option value="${MAX_RADIUS_DEG}"></option>
+        </datalist>
         <span class="reading" id="mapZoomReading">${zoomWording(mapControls.radiusDeg)}</span>
-      </div>
-      <div class="group">
-        <label class="check${layerOn('drap') ? '' : ' off'}"
-          title="Draw a line where the absorption cutoff crosses each marine SSB band edge. NOAA's colours say how much is absorbed; these say which of your bands has gone under."><input
-          type="checkbox" id="mapBandEdges" ${mapControls.bandEdges ? 'checked' : ''}
-          ${layerOn('drap') ? '' : 'disabled'}> Band edges</label>
       </div>
       ${mapHelpHtml()}
     </div>`
@@ -2984,7 +3111,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         : `<span class="sec-time">${mapErrors[id]?.notCached ? meta.empty : escapeHtml(mapErrors[id]?.message || 'not loaded')}</span>`
       const scale = entry ? (typeof meta.legend === 'function' ? meta.legend() : meta.legend) : ''
       return `<div class="map-section${layerOn(id) ? '' : ' off'}">
-        <span class="sec-label">${meta.label}</span>${button}${status}${scale}
+        <span class="sec-label">${meta.label}</span>${button}${status}${meta.extra ? meta.extra() : ''}${scale}
       </div>`
     }).join('')
     // The aurora reading at the vessel sits with the layer it comes out of,
@@ -3028,6 +3155,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     paint()
 
     const canvas = mapCanvas()
+    // The wheel zooms the map, not the page, while the pointer is over it --
+    // the review's first ask. Zoom is about the vessel, since that is what
+    // the map is centred on; there is no pan for the cursor to anchor.
+    canvas.addEventListener(
+      'wheel',
+      (event) => {
+        event.preventDefault()
+        setRadius(wheelRadius(event))
+      },
+      { passive: false }
+    )
     canvas.addEventListener('click', (event) => {
       if (!lastPosition || !layerOn('drap') || !mapEntries.drap) return
       const rect = canvas.getBoundingClientRect()
@@ -3089,13 +3227,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       })
     }
     const zoom = document.getElementById('mapZoom')
-    if (zoom) {
-      zoom.addEventListener('input', () => {
-        mapControls.radiusDeg = Number(zoom.value)
-        document.getElementById('mapZoomReading').textContent = zoomWording(mapControls.radiusDeg)
-        drawMapCanvas()
-      })
-    }
+    if (zoom) zoom.addEventListener('input', () => setRadius(Number(zoom.value), { snap: true }))
     const bandEdges = document.getElementById('mapBandEdges')
     if (bandEdges) {
       bandEdges.addEventListener('change', () => {

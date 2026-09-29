@@ -429,6 +429,33 @@ const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
 
 const iso = (offsetMin) =>
   new Date(Date.now() + offsetMin * 60000).toISOString()
+// Three days of flux buckets, as the plugin's `.series` child carries them:
+// 3-hourly back to 72 hours, 15-minute over the newest day. A wandering
+// background, a flare two and a half days back, one event peaking eight hours
+// back at the state's 24h peak, and a tail that lands on the current reading.
+// Shaped in log space because that is the axis the chart draws it on. A
+// twelve-hour hole a day and a half back stands for the plugin having been
+// down, which the chart breaks rather than rules across.
+const fluxHistory = (now, peak, background) => {
+  const [lb, lp, ln] = [background, peak, now].map(Math.log10)
+  const coarse = Array.from({ length: 2 * 8 }, (_, i) => -(3 * 24 - i * 3) * 60)
+    .filter((min) => min < -44 * 60 || min >= -32 * 60)
+  const fine = Array.from({ length: 96 }, (_, i) => -(95 - i) * 15)
+  return [...coarse, ...fine].map((min) => {
+    const hours = (min + 480) / 60
+    const event = hours < 0 ? Math.exp(hours * 3) : Math.exp(-hours / 2)
+    const flare = Math.exp(-Math.abs(min + 60 * 60) / 360)
+    const wander = 0.15 * Math.sin(min / 75)
+    const settle = Math.max(0, (min + 120) / 120)
+    const l =
+      (lb + wander + (lp - lb) * Math.max(event, 0.8 * flare)) * (1 - settle) +
+      ln * settle
+    return { time: iso(min), value: Math.pow(10, l) }
+  })
+}
+// X-ray flux for each R level, the same readings the scalar leaf uses.
+const XRAY_AT_R = [1.8e-6, 1.5e-5, 6e-5, 2e-4, 1.5e-3, 3e-3]
+
 // The published F10.7 zone ladder, mirroring `zonesForF107` in src/parse.ts.
 const F107_ZONES = [
   {
@@ -516,7 +543,11 @@ function series({
  * A window that always started today would never show the ghosted stretch,
  * which is most of what the chart has to get right.
  */
-function outlook27({ peakKp = 4, peakDayFromNow = 12, issuedDaysAgo = 5 } = {}) {
+function outlook27({
+  peakKp = 4,
+  peakDayFromNow = 12,
+  issuedDaysAgo = 5
+} = {}) {
   const midnight = new Date()
   midnight.setUTCHours(0, 0, 0, 0)
   const day0 = midnight.getTime() - issuedDaysAgo * 86400000
@@ -524,9 +555,13 @@ function outlook27({ peakKp = 4, peakDayFromNow = 12, issuedDaysAgo = 5 } = {}) 
   for (let i = 0; i < 27; i++) {
     const from = i - issuedDaysAgo
     const decay = Math.abs(from - peakDayFromNow) / 2.2
-    const kp = Math.max(1, Math.min(9, Math.round(
-      Math.max(2 + Math.sin(i / 2.1) * 0.8, peakKp - decay)
-    )))
+    const kp = Math.max(
+      1,
+      Math.min(
+        9,
+        Math.round(Math.max(2 + Math.sin(i / 2.1) * 0.8, peakKp - decay))
+      )
+    )
     out.push({
       time: new Date(day0 + i * 86400000).toISOString(),
       f107: 90 + Math.round(Math.sin(i / 4) * 25 + i * 0.8),
@@ -851,7 +886,9 @@ function payload(name, s) {
       return {
         observed: leaf(s.kpObserved, s.ageMin ?? -6),
         forecast: {
-          max24h: leaf(Math.max(...s.series.slice(from, from + 8).map((p) => p.kp))),
+          max24h: leaf(
+            Math.max(...s.series.slice(from, from + 8).map((p) => p.kp))
+          ),
           max72h: leaf(Math.max(...s.series.map((p) => p.kp))),
           maxNoaaScale: leaf(s.observed?.G ?? 0),
           series: leaf(s.series),
@@ -859,7 +896,9 @@ function payload(name, s) {
           // polls daily against a weekly issue, so a fresh install has the
           // 3-day forecast for most of a day before it has this one, and the
           // tile has to be complete without it.
-          ...(s.outlook === null ? {} : { outlook27: outlookLeaves(s.outlook ?? outlook27()) })
+          ...(s.outlook === null
+            ? {}
+            : { outlook27: outlookLeaves(s.outlook ?? outlook27()) })
         }
       }
     case 'alerts': {
@@ -998,16 +1037,23 @@ function payload(name, s) {
       // between.
       const trend =
         s.observed.R >= 2 ? 2.4 : s.observed.R < s.peak24h.R ? 0.6 : 1.02
+      const now = s.observed.R >= 2 ? 4.2e-5 : 1.8e-6
       return {
-        ...leaf(s.observed.R >= 2 ? 4.2e-5 : 1.8e-6, age),
-        trend: leaf(trend, age)
+        ...leaf(now, age),
+        trend: leaf(trend, age),
+        series: leaf(fluxHistory(now, XRAY_AT_R[s.peak24h.R], 4e-7), age)
       }
     }
-    case 'protonFlux':
+    case 'protonFlux': {
+      if (s.observed === null) return null
       // In pfu the S levels are decades from 10, and the path carries SI.
-      return s.observed === null
-        ? null
-        : leaf(Math.pow(10, s.observed.S) * 1e4, age)
+      const now = Math.pow(10, s.observed.S) * 1e4
+      const peak = Math.pow(10, s.peak24h.S + 0.3) * 1e4
+      return {
+        ...leaf(now, age),
+        series: leaf(fluxHistory(now, peak, 3e3), age)
+      }
+    }
     case 'f107':
       // Walks the convention's five bands across the states rather than
       // tracking the storm: solar flux is a solar-cycle number, and whether

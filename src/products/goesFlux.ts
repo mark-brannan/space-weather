@@ -7,10 +7,75 @@
  * publishes -- see "GOES X-ray and proton flux time series (#83)".
  */
 import { PROTON_FLUX_BASE, XRAY_FLUX_BASE } from '../paths.js'
-import { ValueUpdate, parseGoesFlux, xrayFluxTrend } from '../parse.js'
-import type { Meta } from '../publisher.js'
+import {
+  FluxPoint,
+  ValueUpdate,
+  coarsenFluxSeries,
+  mergeFluxSeries,
+  parseGoesFlux,
+  parseGoesFluxSeries,
+  xrayFluxTrend
+} from '../parse.js'
+import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { GOES_PROTONS_6_HOUR, GOES_XRAYS_6_HOUR } from '../endpoints.js'
+import {
+  readGoesFluxCache,
+  writeGoesFluxCache
+} from '../cache/goesFluxCache.js'
+
+/**
+ * The buckets the flux history is drawn at, and how much of it is kept.
+ *
+ * Fifteen minutes over the newest day, because that day is the observed
+ * stretch of the Kp chart's 72-hour span -- a few hundred pixels for 96 hours,
+ * so a 1-per-minute trace there is several samples per pixel, all of it paid
+ * for in delta traffic to every connected client on every poll. Three hours
+ * behind that, back to three days, because that is as far as the observed Kp
+ * on the same axis reaches, and three hours is the Kp bin it is drawn in.
+ * Not a rotation: the 27-day outlook repeats coronal-hole geomagnetic
+ * activity, which neither of these channels measures, and a month of
+ * history is delta traffic a Pi on battery pays for an answer nobody asked
+ * (Solace, 2026-09-27). Each bucket is its window's maximum, so coarsening
+ * keeps every flare's peak and loses only when inside the three hours it
+ * came.
+ */
+const SERIES_BUCKET_MS = 15 * 60 * 1000
+const SERIES_FINE_MS = 24 * 60 * 60 * 1000
+const SERIES_COARSE_BUCKET_MS = 3 * 60 * 60 * 1000
+const SERIES_WINDOW_MS = 3 * 24 * 60 * 60 * 1000
+
+type Held = { xray: FluxPoint[]; proton: FluxPoint[] }
+
+/**
+ * What the plugin has seen, which is the only history there is --
+ * `publisher.ts` writes values, never a series, and the `-6-hour` endpoint the
+ * poll already pays for carries a fraction of the window. See
+ * `mergeFluxSeries`: successive six-hour payloads overlap, so the retained
+ * window widens on its own and no wider endpoint has to be fetched.
+ *
+ * Keyed by publisher rather than held in one module variable: a publisher is
+ * one server's lifetime, so its first refresh is the start the cache is read
+ * back on, and two of them (tests, a second tab) never share a history.
+ */
+const retained = new WeakMap<Publisher, Held>()
+
+function restore(publisher: Publisher): Held {
+  let held = retained.get(publisher)
+  if (held) return held
+  const cached = readGoesFluxCache(publisher)
+  held = { xray: cached?.xray ?? [], proton: cached?.proton ?? [] }
+  retained.set(publisher, held)
+  // Published before the fetch, so a restart whose first poll fails still
+  // shows the history it came up with rather than nothing until the next.
+  const values: ValueUpdate[] = []
+  if (held.xray.length > 0)
+    values.push({ path: `${XRAY_FLUX_BASE}.series`, value: held.xray })
+  if (held.proton.length > 0)
+    values.push({ path: `${PROTON_FLUX_BASE}.series`, value: held.proton })
+  if (cached && values.length > 0) publisher.values(values, cached.fetchedAt)
+  return held
+}
 
 export const goesFlux: Product = {
   name: 'GOES X-ray and Proton Flux',
@@ -67,6 +132,23 @@ export const goesFlux: Product = {
         }
       },
       {
+        // A child of a leaf, as `.trend` is and for the same reason: it is
+        // the same measurement over time, not a second one.
+        path: `${XRAY_FLUX_BASE}.series`,
+        value: {
+          displayName: 'GOES X-ray Flux history',
+          shortName: 'X-ray history',
+          description:
+            'Long-channel (0.1-0.8nm) X-ray flux over the last 3 days as an' +
+            " array of {time, value}, each point its window's maximum: one per" +
+            ' 15 minutes over the newest 24 hours, one per 3 hours before that.' +
+            ' Not a scalar path -- intended for drawing a timeline rather than' +
+            ' a gauge. Only as wide as the plugin has been polling.',
+          units: 'W/m2',
+          timeout: 60 * 60 * 6
+        }
+      },
+      {
         path: PROTON_FLUX_BASE,
         value: {
           displayName: 'GOES Proton Flux',
@@ -84,11 +166,27 @@ export const goesFlux: Product = {
           // notification for one condition, and the two would disagree the
           // moment those thresholds moved.
         }
+      },
+      {
+        path: `${PROTON_FLUX_BASE}.series`,
+        value: {
+          displayName: 'GOES Proton Flux history',
+          shortName: 'Proton history',
+          description:
+            'Integral proton flux, >=10 MeV channel, over the last 3 days as' +
+            " an array of {time, value}, each point its window's maximum: one" +
+            ' per 15 minutes over the newest 24 hours, one per 3 hours before' +
+            ' that. Not a scalar path -- intended for drawing a timeline rather' +
+            ' than a gauge. Only as wide as the plugin has been polling.',
+          units: 'm-2.s-1.sr-1',
+          timeout: 60 * 60 * 6
+        }
       }
     ]
   },
 
   async refresh({ client, publisher, stopped }) {
+    const held = restore(publisher)
     const [xrayJson, protonJson] = await Promise.all([
       client.json(GOES_XRAYS_6_HOUR, 'GOES X-ray Flux'),
       client.json(GOES_PROTONS_6_HOUR, 'GOES Proton Flux')
@@ -122,6 +220,44 @@ export const goesFlux: Product = {
       const publishedTrend = publisher.selfPath(`${XRAY_FLUX_BASE}.trend.value`)
       if (publishedTrend !== trend.ratio)
         values.push({ path: `${XRAY_FLUX_BASE}.trend`, value: trend.ratio })
+    }
+
+    // The history the webapp's chart draws, out of the very payloads above --
+    // no second fetch, no wider window. Published outside the unchanged-value
+    // skip for the same reason `.trend` is: the newest sample can repeat while
+    // the window behind it rolls forward.
+    const fresh = parseGoesFluxSeries(xrayJson, protonJson, SERIES_BUCKET_MS)
+    let moved = false
+    for (const [channel, base] of [
+      ['xray', XRAY_FLUX_BASE],
+      ['proton', PROTON_FLUX_BASE]
+    ] as const) {
+      const merged = coarsenFluxSeries(
+        mergeFluxSeries(held[channel], fresh[channel], SERIES_WINDOW_MS),
+        SERIES_FINE_MS,
+        SERIES_COARSE_BUCKET_MS
+      )
+      if (merged.length === 0) continue
+      // Every point, not just the newest: a merge can raise a bucket behind
+      // the newest one, and a roll can drop one and add one at equal length.
+      const unchanged =
+        merged.length === held[channel].length &&
+        merged.every(
+          (point, i) =>
+            point.time === held[channel][i].time &&
+            point.value === held[channel][i].value
+        )
+      if (unchanged) continue
+      held[channel] = merged
+      moved = true
+      values.push({ path: `${base}.series`, value: merged })
+    }
+    if (moved) {
+      try {
+        writeGoesFluxCache(publisher, held)
+      } catch (err) {
+        publisher.error(`Failed to cache the GOES flux history: ${err}`)
+      }
     }
 
     if (values.length === 0) return

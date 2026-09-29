@@ -199,14 +199,17 @@ describe('solar wind product', () => {
 
 describe('GOES flux product', () => {
   it('publishes the latest X-ray and proton channel from a captured payload', async () => {
-    const h = harness({
-      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
-        'xrays-6-hour.2026_08_20.json'
-      ),
-      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
-        'integral-protons-6-hour.2026_08_20.json'
-      )
-    })
+    const h = harness(
+      {
+        '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+          'xrays-6-hour.2026_08_20.json'
+        ),
+        '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+          'integral-protons-6-hour.2026_08_20.json'
+        )
+      },
+      {}
+    )
     await goesFlux.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
@@ -221,10 +224,13 @@ describe('GOES flux product', () => {
   })
 
   it('publishes nothing at all rather than NaN when the payload is unusable', async () => {
-    const h = harness({
-      '/json/goes/primary/xrays-6-hour.json': [],
-      '/json/goes/primary/integral-protons-6-hour.json': []
-    })
+    const h = harness(
+      {
+        '/json/goes/primary/xrays-6-hour.json': [],
+        '/json/goes/primary/integral-protons-6-hour.json': []
+      },
+      {}
+    )
     await goesFlux.refresh(h.ctx)
     expect(h.published).toEqual([])
     expect(h.errors.length).toBe(1)
@@ -239,12 +245,44 @@ describe('GOES flux product', () => {
         'integral-protons-6-hour.2026_08_20.json'
       )
     }
-    const h = harness(responses)
+    const h = harness(responses, {})
     await goesFlux.refresh(h.ctx)
     await goesFlux.refresh(h.ctx)
 
     expect(h.errors).toEqual([])
     expect(h.published.length).toBe(1)
+  })
+
+  it('brings its history back after a restart, before the first fetch', async () => {
+    const responses = {
+      '/json/goes/primary/xrays-6-hour.json': fixtureJson(
+        'xrays-6-hour.2026_08_20.json'
+      ),
+      '/json/goes/primary/integral-protons-6-hour.json': fixtureJson(
+        'integral-protons-6-hour.2026_08_20.json'
+      )
+    }
+    const cache: Record<string, string> = {}
+    const before = harness(responses, cache)
+    await goesFlux.refresh(before.ctx)
+    const series = before.valueAt('environment.noaa.swpc.xray_flux.series')
+    expect(series.length).toBeGreaterThan(0)
+
+    // A fresh publisher is a restarted server; its first fetch fails.
+    const after = harness({}, cache)
+    await expect(goesFlux.refresh(after.ctx)).rejects.toThrow()
+    expect(after.valueAt('environment.noaa.swpc.xray_flux.series')).toEqual(
+      series
+    )
+    expect(
+      after.valueAt('environment.noaa.swpc.proton_flux.series').length
+    ).toBeGreaterThan(0)
+  })
+
+  it('starts empty over a cache it cannot read', async () => {
+    const h = harness({}, { 'goes-flux.json': '{"fetchedAt":"x","xray":[{}]}' })
+    await expect(goesFlux.refresh(h.ctx)).rejects.toThrow()
+    expect(h.published).toEqual([])
   })
 
   it("carries units 'ratio' on the trend, a quotient against a reference", () => {

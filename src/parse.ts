@@ -2058,6 +2058,136 @@ function median(values: number[]): number | null {
     : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
+/**
+ * The flux history a chart draws, out of the same ~700-record payload
+ * `parseGoesFlux` reads one record of -- so the series costs no second fetch
+ * and no wider window than the one already on the wire.
+ *
+ * Bucketed to `bucketMs` and reduced by **maximum**, not by mean. The X-ray
+ * channel's whole point is the flare: an M5 peaking for three minutes inside
+ * a fifteen-minute bucket is the reading an operator needs, and averaging it
+ * against the background either side would erase it. The proton channel is
+ * ranked the same way for the same reason -- the S scale is defined on the
+ * peak, not on the hour's average.
+ *
+ * A bucket is stamped at its own start, which is what lets two runs of this
+ * over overlapping payloads agree on the same points (see `mergeFluxSeries`).
+ */
+export interface FluxPoint {
+  /** Bucket start, ISO. */
+  time: string
+  /** The bucket's maximum, in the same units the scalar path publishes. */
+  value: number
+}
+
+export function goesFluxSeries(
+  json: any,
+  energy: string,
+  bucketMs: number,
+  scale = 1
+): FluxPoint[] {
+  if (!Array.isArray(json)) return []
+  const buckets = new Map<number, number>()
+  for (const entry of json) {
+    if (entry?.energy !== energy) continue
+    const flux = firstNumber(entry, ['flux'])
+    const at = Date.parse(entry?.time_tag)
+    // Zero and negative are bad records, not readings of "no flux" -- the same
+    // call `xrayFluxTrend` makes, and here it also keeps a log axis finite.
+    if (flux === null || flux <= 0 || !Number.isFinite(at)) continue
+    const bucket = Math.floor(at / bucketMs) * bucketMs
+    const best = buckets.get(bucket)
+    if (best === undefined || flux > best) buckets.set(bucket, flux)
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([at, flux]) => ({
+      time: new Date(at).toISOString(),
+      value: flux * scale
+    }))
+}
+
+/**
+ * Both channels' series in the units their scalar paths publish, from the two
+ * payloads a poll already has in hand.
+ */
+export function parseGoesFluxSeries(
+  xrayJson: any,
+  protonJson: any,
+  bucketMs: number
+): { xray: FluxPoint[]; proton: FluxPoint[] } {
+  return {
+    xray: goesFluxSeries(xrayJson, '0.1-0.8nm', bucketMs),
+    proton: goesFluxSeries(protonJson, '>=10 MeV', bucketMs, PFU_TO_SI)
+  }
+}
+
+/**
+ * The retained window, extended by what a fresh payload adds.
+ *
+ * The endpoint the plugin polls carries six hours while the history it keeps
+ * is three days. Rather than pay four times the bytes for the `-1-day` variant on
+ * every poll, a run of the plugin remembers the buckets it has already seen
+ * (and `goesFluxCache` carries them across a restart) and lets the
+ * overlapping windows fill the rest in. What it draws is always what the
+ * plugin has measured; an outage costs the gap, never a wrong number.
+ *
+ * A shared bucket keeps the larger of its two readings. Each is the maximum
+ * over a subset of the same records: the held one may have been read while
+ * the bucket was still filling, and the fresh one may be the payload's oldest
+ * bucket, cut short by the six-hour edge sliding through it.
+ */
+export function mergeFluxSeries(
+  existing: FluxPoint[],
+  incoming: FluxPoint[],
+  windowMs: number
+): FluxPoint[] {
+  const merged = new Map<string, number>()
+  for (const point of existing) merged.set(point.time, point.value)
+  for (const point of incoming)
+    merged.set(point.time, Math.max(point.value, merged.get(point.time) ?? 0))
+  const points = [...merged.entries()]
+    .map(([time, value]) => ({ time, value }))
+    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
+  if (points.length === 0) return points
+  const newest = Date.parse(points[points.length - 1].time)
+  return points.filter((point) => newest - Date.parse(point.time) <= windowMs)
+}
+
+/**
+ * The series with everything older than `fineMs` behind its newest point
+ * folded into `coarseMs` buckets, by maximum and stamped at the bucket start,
+ * as `goesFluxSeries` does the fine ones.
+ *
+ * Idempotent, so it can run on every poll over what it produced last time: a
+ * coarse point is already on its own bucket's start and folds into itself.
+ * A coarse bucket straddling the fine edge fills over successive polls, and
+ * the maximum is associative, so it ends up exactly the bucket's peak.
+ */
+export function coarsenFluxSeries(
+  points: FluxPoint[],
+  fineMs: number,
+  coarseMs: number
+): FluxPoint[] {
+  if (points.length === 0) return points
+  const edge = Date.parse(points[points.length - 1].time) - fineMs
+  const coarse = new Map<number, number>()
+  const fine: FluxPoint[] = []
+  for (const point of points) {
+    const at = Date.parse(point.time)
+    if (at >= edge) {
+      fine.push(point)
+      continue
+    }
+    const bucket = Math.floor(at / coarseMs) * coarseMs
+    coarse.set(bucket, Math.max(point.value, coarse.get(bucket) ?? 0))
+  }
+  return [...coarse.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([at, value]) => ({ time: new Date(at).toISOString(), value }))
+    .concat(fine)
+}
+
 function lastRecordForEnergy(json: any, energy: string): any {
   if (!Array.isArray(json)) return null
   for (let i = json.length - 1; i >= 0; i--) {

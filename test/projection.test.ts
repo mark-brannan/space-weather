@@ -239,6 +239,30 @@ describe('mapView', () => {
     }
   })
 
+  it('leaves a margin around the disc past 180', () => {
+    // The zoom control runs to 200 so that "all the way out" is a globe with
+    // room around it rather than one cropped at the rim. The antipode is the
+    // rim of the planet whatever the radius says, so past 180 the disc is
+    // drawn smaller than the viewport instead of bigger than the world.
+    const at180 = mapView({
+      projection: 'azimuthal',
+      center,
+      radiusDeg: 180,
+      width: 900,
+      height: 420
+    })
+    const at200 = mapView({
+      projection: 'azimuthal',
+      center,
+      radiusDeg: 200,
+      width: 900,
+      height: 420
+    })
+    expect(Math.PI * at180.scale).toBeCloseTo(210, 6)
+    expect(Math.PI * at200.scale).toBeCloseTo(210 * (180 / 200), 6)
+    expect(at200.toLatLon(450, 210 - Math.PI * at200.scale - 1)).toBeNull()
+  })
+
   it('shows a whole turn of longitude on a flat map, at any latitude', () => {
     // The standard parallel compresses longitude, so the scale that fills the
     // width depends on it. Missing that drew the eastern and western thirds of

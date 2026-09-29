@@ -6,8 +6,9 @@ things that bite before you get this far.
 
 ## What a session here can show
 
-Whenever a change is likely to affect the page, show it running, as bare
-URLs in a list:
+Whenever a change could affect anything a reader sees, show it running, as
+bare URLs in a list -- and when unsure whether it does, show it. A mock rig
+nobody needed costs a click; a UI change nobody saw costs a release:
 
 - mock rig on `localhost`
 - mock rig on a LAN- or Tailscale-reachable URL
