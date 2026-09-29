@@ -23,7 +23,8 @@ import { auroraCellColor } from './aurora.js'
 import { drapNoaaColor } from './drap-colors.js'
 import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
 import { auroraSampler, drapSampler, rasterize } from './mapRaster.js'
-import { subsolarPoint, distanceKm } from './drapMap.js'
+import { distanceKm } from './drapMap.js'
+import { greylineColor, greylineSampler, subsolarPoint } from './greyline.js'
 import { mapView } from './projection.js'
 
 // The map draws on its own ground, not the page's.
@@ -134,7 +135,8 @@ export function drawSpaceMap(canvas, options = {}) {
     vessel,
     probe,
     now,
-    bandContours = false
+    bandContours = false,
+    greyline = false
   } = options
 
   const ratio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1
@@ -151,6 +153,17 @@ export function drawSpaceMap(canvas, options = {}) {
   const ink = options.ink || MAP_INK
 
   const active = []
+  // Under both products, not over them: it lights the day side of a ground
+  // that is otherwise near-black, and the D-RAP ramp and the auroral oval
+  // both read against that wash rather than being tinted by it. Computed from
+  // `now`, so it needs no grid and is never missing.
+  if (greyline) {
+    active.push({
+      id: 'greyline',
+      sample: greylineSampler(now),
+      color: greylineColor
+    })
+  }
   for (const id of LAYER_IDS) {
     if (!layers.includes(id)) continue
     const sample = SAMPLERS[id](grids[id])
@@ -193,7 +206,7 @@ export function drawSpaceMap(canvas, options = {}) {
 
   ctx.save()
   if (disc) ctx.clip(disc)
-  if (drap) drawSun(ctx, view, now, position)
+  if (drap || greyline) drawSun(ctx, view, now, position)
   if (probe?.points?.length)
     drawProbe(
       ctx,
@@ -487,7 +500,9 @@ function labelContour(ctx, view, segments, level, ink, placed) {
   // inside the label's own box and the leader never left it either.
   const minCenterY = size / 2 + 4
   const above = best.y - offset >= minCenterY
-  const ly = above ? best.y - offset : Math.min(view.height - minCenterY, best.y + offset)
+  const ly = above
+    ? best.y - offset
+    : Math.min(view.height - minCenterY, best.y + offset)
   const box = {
     x0: cx - half,
     y0: ly - size / 2 - 2,
