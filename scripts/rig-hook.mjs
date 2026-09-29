@@ -12,9 +12,14 @@
 // serves this worktree. The edit hook is the same test at the first edit,
 // so the rig is up before anyone asks. Wired in .claude/settings.json.
 //
-// The line, one of:
+// The line, one URL per line so each renders as a link wherever it lands
+// (a terminal, the desktop app, a phone), or one of the two no-rig forms:
 //
-//   rig  http://localhost:8731/  http://192.168.x.x:8731/  http://100.x.x.x:8731/
+//   rig  http://localhost:8731/
+//   rig  http://192.168.x.x:8731/
+//   rig  http://100.x.x.x:8731/
+//   stop: node scripts/webapp-ctl.mjs stop 8731
+//
 //   rig  none for this worktree
 //   rig  unreachable from here (cloud VM)
 //
@@ -82,7 +87,7 @@ function uiTouched(root) {
 }
 
 function line(urls, isReachable) {
-  if (urls.length) return `rig  ${urls.join('  ')}`
+  if (urls.length) return urls.map((u) => `rig  ${u}`).join('\n')
   return isReachable
     ? 'rig  none for this worktree'
     : 'rig  unreachable from here (cloud VM)'
@@ -96,7 +101,7 @@ function stopCommand(urls) {
 const START =
   'Start the mock rig for this worktree now: `npm run build` if dist/ is stale, ' +
   'then `node scripts/webapp-ctl.mjs start` (backgrounded, per docs/development.md), ' +
-  'then print `node scripts/webapp-ctl.mjs urls` as the rig line, both forms, before anything else.'
+  'then print `node scripts/webapp-ctl.mjs urls` as bare URLs, one per line, never fenced, before anything else.'
 
 export function stopHook(input, root = repoRoot()) {
   const isReachable = reachable(root)

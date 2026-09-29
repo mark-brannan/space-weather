@@ -39,11 +39,11 @@ describe('UI_PATHS', () => {
 })
 
 describe('stop', () => {
-  it('prints the URLs and the stop command when a rig serves the worktree', () => {
+  it('prints one URL per line and the stop command when a rig serves the worktree', () => {
     seams({ urls: URLS, touched: 'public/hero.js' })
     const out = stopHook({}, ROOT)
     expect(out.systemMessage).toBe(
-      'rig  http://localhost:8731/  http://192.168.1.9:8731/\nstop: node scripts/webapp-ctl.mjs stop 8731'
+      'rig  http://localhost:8731/\nrig  http://192.168.1.9:8731/\nstop: node scripts/webapp-ctl.mjs stop 8731'
     )
     expect(out.decision).toBeUndefined()
   })
