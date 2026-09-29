@@ -618,6 +618,35 @@
   .readout-row.sfi-row .q { flex: 1; margin: 0; text-align: center; }
   .readout-row.sfi-row .v { flex: none; }
 
+  /* Band conditions (issue #85): hamqsl's shape, our own mapping. The word
+     is always printed, so the colour never carries the verdict alone; the
+     "estimate" tag is drawn, not footnoted, because every cell rests on the
+     modelled MUF. */
+  .bc { margin: 4px 0 10px; }
+  .bc-head { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+  .bc-title { font-size: 0.78rem; color: var(--text-dim); }
+  .bc-est {
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em;
+    border: 1px dashed var(--text-dim); border-radius: 3px; padding: 0 4px; color: var(--text-dim);
+  }
+  .bc-head .info { width: 12px; height: 12px; font-size: 8px; }
+  .bc-tables { display: flex; flex-wrap: wrap; gap: 4px 22px; }
+  .bc-table { border-collapse: collapse; font-size: 0.74rem; flex: 1 1 150px; }
+  .bc-table caption { text-align: left; font-size: 0.64rem; color: var(--text-dim); padding-bottom: 2px; }
+  .bc-table th, .bc-table td { padding: 2px 6px; border-top: 1px solid var(--grid); text-align: left; }
+  .bc-table thead th, .bc-table thead td { border-top: none; font-weight: 400; font-size: 0.64rem; color: var(--text-dim); }
+  .bc-table tbody th { font-weight: 400; color: var(--text-dim); white-space: nowrap; }
+  .bc-table thead th.bc-now { color: var(--text); }
+  .bc-now-tag { font-size: 0.56rem; color: var(--amber); }
+  .bc-table td { font-family: var(--font-mono); }
+  .bc-good { color: var(--sev-1); }
+  .bc-fair { color: var(--sev-3); }
+  .bc-poor { color: var(--sev-4); }
+  .bc-none { color: var(--text-dim); }
+  .bc-notes, .bc-empty { font-size: 0.64rem; color: var(--text-dim); margin-top: 4px; }
+  .bc-notes .bc-warn { color: var(--sev-4); }
+  .bc-notes .stale { color: var(--sev-3); }
+
   .readout-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 0; border-top: 1px solid var(--grid); }
   .readout-row:first-of-type { border-top: none; }
   .readout-row .n { font-size: 0.78rem; color: var(--text-dim); }
@@ -1259,6 +1288,7 @@ import { messagesInForce, messagesSummary, messagesTitle } from './messages.js';
 import { scalesCard, scalesMarkup, sevClass, sevWord } from './scales.js';
 import { bandStrip, hfCard, solarCard } from './hf.js';
 import { fluxOverlay } from './flux.js';
+import { bandConditions, bandPanelMarkup } from './bands.js';
 import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
 import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
@@ -1594,7 +1624,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       renderAurora(el, reading.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, reading.pos, reading.source);
     }
     for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
-    for (const el of visibleSlots('hf')) renderHf(el, hfCard(hfAtViewpoint(data)));
+    // The band panel judges the same window the gauge draws, so it reads
+    // the same viewpoint-adjusted tree.
+    const hfData = hfAtViewpoint(data);
+    for (const el of visibleSlots('hf')) renderHf(el, hfCard(hfData), bandConditions(hfData));
     for (const el of visibleSlots('kp')) renderKp(el, kp, fluxOverlay(data));
     labelAuroraButtons();
   }
@@ -1943,7 +1976,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       row('Sunspot number (SSN)', sunspotNumber !== null ? sunspotNumber.toFixed(0) : DASH, '', '', SUNSPOT_NOTE);
   }
 
-  function renderHf(body, card) {
+  function renderHf(body, card, bands) {
     const { cutoffHz, mufHz, mufEstimated, gauge, sfuGauge, sfu, f107Band,
       protonPfu, protonElevated, trendRatio, trendWord } = card;
     if (cutoffHz === null && sfu === null && protonPfu === null && trendRatio === null) {
@@ -2082,7 +2115,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // Solar flux first: it is the day's headline number, and it gates
     // whether the LUF/MUF window below is even worth reading -- low SFI and
     // the ceiling is down wherever the gauge draws it.
-    body.innerHTML = sfiRow + strip + protonRow + trendRow;
+    // The band table reads the same window the gauge draws, per band and
+    // day/night, so it sits straight under the gauge it summarises.
+    const asOf = bands.oldestInputAt
+      ? { text: fmtTime(bands.oldestInputAt), stale: isStale(bands.oldestInputAt) }
+      : null;
+    body.innerHTML = sfiRow + strip + bandPanelMarkup(bands, asOf) + protonRow + trendRow;
   }
 
   /**
