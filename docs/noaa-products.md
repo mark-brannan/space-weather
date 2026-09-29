@@ -190,19 +190,55 @@ Highlights and Forecasts") carries the **identical** issue timestamp — the
 the independent note in `src/products/advisory.ts` that every captured advisory
 fixture is issued on a Monday between 0100 and 0400 UTC.
 
-**This is one issue, seen twice.** It establishes that the product is weekly
-rather than daily; it does *not* establish that Monday ~0153 UTC holds week to
-week. A separate watch outside this repo is collecting that, one issue per
-week; [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
-tracks it, and the Unmeasured list below says what is still open.
+**Cadence, measured 2026-08-13 through 2026-09-28.** A watch outside this repo
+([#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55))
+polled this endpoint 808 times over eight weeks and saw 10 distinct issues.
+Every week's primary issue landed on a Monday (8 of 8), between 00:58 and
+03:17 UTC — a roughly 2h20m spread, not a fixed minute, consistent with
+`advisory.ts`'s approximate Monday window.
 
-**Consequence.** `outlook27` polls once a day and does not chase the issue
-time. Sleeping until just before it and then polling tightly, the way
-`advisory` does, costs roughly four times the bytes to buy same-morning pickup
-of a product whose value is entirely at the far end of its window. Consecutive
-issues overlap by 20 of their 27 days, and the first three days — where being
-a day late would actually matter — are covered far better by `kp` and
-`scales`.
+**Two of the eight weeks carried a second issue**, diffed byte-for-byte
+against that week's Monday issue:
+
+- 2026-08-24 1801 UTC, 15 hours after that Monday's 0259 issue: a genuine
+  correction. Several days' 10.7cm flux shifted by 5–20 sfu, and Sep 01 moved
+  from 1151 to 120 — NOAA's own forecast error, the one `OUTLOOK_RANGES` in
+  `src/parse.ts` is built around. `OUTLOOK_RANGES` does not reject a value
+  like 1151 (f107 has no meaningful upper physical bound), so this class of
+  error still reaches `outlook27.series` for as long as the bad issue stands.
+- 2026-09-03 1312 UTC, 83.3 hours after the prior Monday's issue: a re-stamp,
+  not a correction. The body is byte-identical to 2026-08-31's issue except
+  the `:Issued:` line.
+
+**Consecutive issues do not hold their overlap steady.** Diffing 2026-09-07
+(Mon 0224 UTC) against 2026-09-14 (Mon 0117 UTC) — the cleanest pair, no
+off-cadence issue between them — every one of the 15 calendar days both
+windows cover changed in at least one column between issues, from a few sfu
+up to a full A-index/Kp category (2026-09-16: A-index 10→20, Kp category
+4→5). The nominal 20-day overlap between consecutive issues is a calendar
+fact, not a stability guarantee.
+
+**Conditional GET, extended past +300s.** 807 conditional probes across the
+watch — gaps from twelve hours down to one hour once the watch tightened its
+own cadence — returned exactly one 304, and that one followed its
+unconditional counterpart by 0.4s in the watch's very first run: a
+back-to-back coincidence, not a real gap. Zero 304s at any measured gap of a
+minute or more, extending "Conditional GET never saves anything" (below) past
+the +300s ceiling it measured.
+
+**Consequence: the poll interval is unchanged.** `outlook27` still polls once
+a day and does not chase the issue time. The measured issue-time cluster
+(2h20m) is tight enough that chasing it would be *possible*, but it does not
+clear the bar this file already set: chasing costs roughly four times the
+bytes for same-morning pickup of a product whose value is at the far end of
+its window, and it would not have caught either off-cadence issue anyway —
+one arrived 15 hours after the chased window, the other 83 hours after. The
+one case with real (if low-stakes) exposure is the 1151 misfire: it is not
+caught by validation, but `outlook27` raises no notification and carries no
+`zones`, so the cost of a visibly anomalous single-day flux value living for
+up to a day is a display artifact, not a wrong alarm — and it beats neither
+that bar nor "the first three days are already covered better by `kp` and
+`scales`." Nothing here argues for a code change.
 
 ## Conditional GET never saves anything
 
@@ -556,20 +592,15 @@ overlapping windows of the same data, not a different shape to pin.
 
 Named so nobody cites this file for them:
 
-- whether any endpoint ever returns 304 at a longer gap than 300s — being
-  collected at a twelve-hour gap for `/text/27-day-outlook.txt` under
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
+- whether any endpoint other than `/text/27-day-outlook.txt` ever returns 304
+  at a longer gap than 300s (that one is now measured — see above: zero 304s
+  at gaps from a minute to twelve hours,
+  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55))
 - whether `Cache-Control: max-age=60` is honoured by any intermediary
 - content cadence for `/json/ovation_aurora_latest.json`,
-  `/text/advisory-outlook.txt`, `/text/27-day-outlook.txt`, `/text/wwv.txt` and
-  `/text/daily-solar-indices.txt` — all five were in the size and
+  `/text/advisory-outlook.txt`, `/text/wwv.txt` and
+  `/text/daily-solar-indices.txt` — all four were in the size and
   conditional-GET runs but not the 15-minute cadence watch
 - whether `/text/wwv.txt` is reissued on the hour it claims (NOAA documents it
   as three-hourly, and `aIndex` polls on that documented cadence rather than a
   measured one); the daily A index it carries moves once a day either way
-- whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
-  how tightly the issue time clusters. One issue observed so far; see
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
-- how much two consecutive weekly issues differ across the 20 days their
-  windows overlap; also
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
