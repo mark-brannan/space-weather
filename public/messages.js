@@ -20,13 +20,14 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * How long a stood-down message stays on the list.
  *
- * The alerts subtree is not a history -- a withdrawn message is set back to
- * `normal` and kept, so what is available is "recently in force", bounded by
- * how long the plugin has been running rather than by anything NOAA says.
- * Two days is the span over which a watch, its warning and its summary are
- * one story; past that the list is claiming to be an archive it is not.
+ * The alerts subtree holds one message per code: the live one, or the last
+ * one to end, set back to `normal` and kept. The plugin backfills a week of
+ * those from NOAA's archive (`ALERT_HISTORY_MS` in src/parse.ts, which this
+ * mirrors), so a week is what the list can honestly claim -- enough to see
+ * what happened while you were away, one entry per condition, not NOAA's
+ * whole archive.
  */
-export const RECENT_MS = 2 * DAY_MS
+export const RECENT_MS = 7 * DAY_MS
 
 /**
  * NOAA's verbs, strongest claim about *now* first: an alert is a condition
@@ -56,7 +57,8 @@ export function messagesInForce(alerts, nowMs) {
     if (!inForce) {
       // Aged by the leaf's own timestamp -- when the plugin observed the
       // withdrawal (standDown in products/alerts.ts republishes with a
-      // fresh one) -- not by `value.issued`. A message issued long ago but
+      // fresh one), or when the message ended for one backfilled after a
+      // restart (backfillEnded) -- not by `value.issued`. A message issued long ago but
       // stood down five minutes ago is still fresh news; issued would drop
       // it on arrival. One that cannot be dated has not earned its place
       // either way, so it fails closed the same as an unreadable `issued`

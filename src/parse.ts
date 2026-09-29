@@ -576,6 +576,18 @@ export interface AlertNotification {
 export const ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 /**
+ * How far back a message that has ended is still worth showing.
+ *
+ * A week, so someone back aboard after one can see what happened while they
+ * were gone. The cost does not grow with the window: there is one path per
+ * message code, so a longer window only reaches further back for the codes
+ * NOAA used, never adds a path per message. `RECENT_MS` in
+ * `public/messages.js` is the page's copy, and `test/messages.test.ts` pins
+ * the two together.
+ */
+export const ALERT_HISTORY_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
  * A watch's own fallback expiry: the end of the last day its forecast table
  * names, never earlier than {@link ALERT_MAX_AGE_MS}.
  *
@@ -600,6 +612,8 @@ export interface AlertSelectionOptions {
   now: Date
   /** Overrides {@link ALERT_MAX_AGE_MS}; tests only. */
   maxAgeMs?: number
+  /** Overrides {@link ALERT_HISTORY_MS}; tests only. */
+  historyMs?: number
   alarmLevel?: number
   popupLevel?: number
   listLevel?: number
@@ -612,6 +626,15 @@ export interface AlertSelection {
   unparseable: number
   /** In-force messages discarded by `limit`. Zero in every real payload. */
   dropped: number
+  /**
+   * Codes with nothing in force whose newest message ended within
+   * {@link ALERT_HISTORY_MS}, newest first, each with when it ended.
+   */
+  ended: EndedAlert[]
+}
+
+export interface EndedAlert extends AlertNotification {
+  endedAt: Date
 }
 
 /**
@@ -631,6 +654,10 @@ export interface AlertSelection {
  * extensions, continuations and cancellations of that condition then update
  * the path in place rather than accumulating beside it, and the path count is
  * bounded by NOAA's code list for the life of the server.
+ *
+ * What has ended within {@link ALERT_HISTORY_MS} comes back separately as
+ * `ended`, one per code, for the product to publish quietly on those same
+ * paths -- history without a path per message.
  */
 export function currentAlertNotifications(
   payload: any[],
@@ -642,10 +669,12 @@ export function currentAlertNotifications(
     alarmLevel = NoaaScaleValues.EXTREME,
     popupLevel = alarmLevel - 1,
     listLevel = popupLevel - 1,
+    historyMs = ALERT_HISTORY_MS,
     limit = MAX_ALERT_NOTIFICATIONS
   } = options
 
   const newest = new Map<string, AlertNotification>()
+  const newestEnded = new Map<string, EndedAlert>()
   let unparseable = 0
 
   for (const entry of payload) {
@@ -656,7 +685,8 @@ export function currentAlertNotifications(
     }
 
     const expiresAt = parsed.validUntil ?? watchFallbackExpiry(parsed, maxAgeMs)
-    if (expiresAt.getTime() <= now.getTime()) continue
+    const hasEnded = expiresAt.getTime() <= now.getTime()
+    if (hasEnded && now.getTime() - expiresAt.getTime() > historyMs) continue
 
     const candidate: AlertNotification = {
       code: parsed.messageCode,
@@ -672,10 +702,23 @@ export function currentAlertNotifications(
       predictedByDay: parsed.predictedByDay
     }
 
+    if (hasEnded) {
+      const held = newestEnded.get(candidate.code)
+      if (!held || supersedes(candidate, held))
+        newestEnded.set(candidate.code, { ...candidate, endedAt: expiresAt })
+      continue
+    }
     const held = newest.get(candidate.code)
     if (!held || supersedes(candidate, held))
       newest.set(candidate.code, candidate)
   }
+
+  // A code still in force has its current message on its path already; an
+  // older ended one would only be a stale copy of the same condition.
+  const ended = [...newestEnded.values()]
+    .filter((alert) => !newest.has(alert.code))
+    .sort((a, b) => b.endedAt.getTime() - a.endedAt.getTime())
+    .slice(0, limit)
 
   const held = [...newest.values()]
   const ordered = held
@@ -689,7 +732,8 @@ export function currentAlertNotifications(
   return {
     inForce: ordered.slice(0, limit),
     unparseable,
-    dropped: Math.max(0, ordered.length - limit)
+    dropped: Math.max(0, ordered.length - limit),
+    ended
   }
 }
 
