@@ -79,13 +79,20 @@ describe('resolveViewpoint', () => {
 describe('readChosen', () => {
   it('takes ?at= over what was remembered, and remembers it', () => {
     const storage = memoryStorage()
-    writeChosen(storage, { latitude: 1, longitude: 2, source: 'device' })
+    writeChosen(storage, { latitude: 1, longitude: 2, source: 'entered' })
     expect(readChosen('?at=60.4,5.3', storage)).toEqual({
       latitude: 60.4,
       longitude: 5.3,
       source: 'entered'
     })
     expect(readChosen('', storage)?.latitude).toBe(60.4)
+  })
+
+  it('does not remember a device fix, and it replaces an older entry', () => {
+    const storage = memoryStorage()
+    writeChosen(storage, { latitude: 1, longitude: 2, source: 'entered' })
+    writeChosen(storage, { latitude: 3, longitude: 4, source: 'device' })
+    expect(readChosen('', storage)).toBeNull()
   })
 
   it('forgets on null', () => {

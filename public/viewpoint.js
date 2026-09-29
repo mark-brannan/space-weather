@@ -103,10 +103,16 @@ export function readChosen(search, storage) {
   }
 }
 
-/** Remember a choice, or forget it with null. */
+/**
+ * Remember a choice, or forget it with null. A device fix is not remembered:
+ * it answers "where am I now", and read back on a later visit it would still
+ * say "this device" about wherever the device was then.
+ */
 export function writeChosen(storage, chosen) {
   try {
-    if (chosen) storage?.setItem(STORAGE_KEY, JSON.stringify(chosen))
+    if (chosen && chosen.source !== 'device') {
+      storage?.setItem(STORAGE_KEY, JSON.stringify(chosen))
+    }
     else storage?.removeItem(STORAGE_KEY)
   } catch {
     // Unremembered is fine: the choice still holds for this visit.

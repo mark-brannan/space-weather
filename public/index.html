@@ -1212,7 +1212,7 @@ import { fluxOverlay } from './flux.js';
 import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
 import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
-import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
+import { cutoffAt, gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { auroraSampler } from './mapRaster.js';
 import { SOURCE_LABEL, canLocate, formatCoords, parseCoords, readChosen, resolveViewpoint, writeChosen } from './viewpoint.js';
@@ -1323,9 +1323,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       renderAurora(el, reading.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, reading.pos, reading.source);
     }
     for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
-    // The MUF model is "at this position" too, so it reads for the viewpoint.
-    const atViewpoint = lastPosition ? { ...data, position: { value: lastPosition } } : data;
-    for (const el of visibleSlots('hf')) renderHf(el, hfCard(atViewpoint));
+    for (const el of visibleSlots('hf')) renderHf(el, hfCard(hfAtViewpoint(data)));
     for (const el of visibleSlots('kp')) renderKp(el, kp, fluxOverlay(data));
     labelAuroraButtons();
   }
@@ -3223,9 +3221,10 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function chooseViewpoint(place) {
     chosenPosition = place
     writeChosen(safeStorage(), place)
-    // A link that carried ?at= would otherwise bring the old place back on
-    // the next reload.
-    if (!place && new URLSearchParams(location.search).has('at')) {
+    // ?at= outranks what was remembered, so a link that carried one would
+    // otherwise bring its place back on the next reload over whatever the
+    // reader has chosen since.
+    if (new URLSearchParams(location.search).has('at')) {
       const url = new URL(location.href)
       url.searchParams.delete('at')
       history.replaceState(null, '', url)
@@ -3529,6 +3528,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // it the moment it is shown again.
       drawMapCanvas();
       drawProbeReadout();
+    }
+  }
+
+  // The HF gauge sets the D-RAP cutoff against the MUF estimate, and both are
+  // "at this position": the plugin publishes the cutoff at the vessel's cell,
+  // so away from the vessel it is read off the grid the page holds, by the
+  // same nearest cell the plugin uses. With no grid loaded the whole tile
+  // stays at the vessel rather than scoring one place against another.
+  function hfAtViewpoint(data) {
+    if (!lastPosition || viewpointSource === 'vessel') return data
+    const grid = mapEntries.drap?.grid
+    const mhz = cutoffAt(grid, lastPosition.latitude, lastPosition.longitude)
+    if (mhz === null) return data
+    return {
+      ...data,
+      position: { value: lastPosition },
+      drap: {
+        ...data.drap,
+        highest_affected_frequency: { value: mhz * 1e6, timestamp: grid.validTime }
+      }
     }
   }
 
