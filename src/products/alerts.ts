@@ -42,10 +42,11 @@ export const alerts: Product = {
           description:
             'One notification per NOAA space weather message code, carrying the' +
             ' most recent message for that condition: raised while it is in' +
-            ' force, then kept at normal for a week after it ends.',
-          // The delta timestamp on each of these is the NOAA issue time, so a
+            ' force, then kept at normal once it ends.',
+          // The delta timestamp on a raised one is the NOAA issue time, so a
           // client honouring the timeout expires the notification at the same
-          // moment this plugin would stop republishing it.
+          // moment this plugin would stop republishing it. A stood-down one
+          // is stamped when it ended, already past the timeout, and normal.
           timeout: ALERT_MAX_AGE_MS / 1000
         }
       },

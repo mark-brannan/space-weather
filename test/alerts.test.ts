@@ -582,6 +582,41 @@ describe('alerts product', () => {
     expect(alertPaths.size).toBe(inForce.length + ended.length)
   })
 
+  it('backfills once: a second poll of the same payload publishes no ended path', async () => {
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    atCaptureTime(payload)
+    const { ended } = select('alerts.2026_08_01.json')
+    const h = harness(payload)
+    await alerts.refresh(h.ctx as any)
+    const first = h.published.length
+    await alerts.refresh(h.ctx as any)
+
+    const endedPaths = new Set(ended.map((a) => `${ALERTS_BASE}.${a.code}`))
+    const again = h.published.slice(first).filter((p) => endedPaths.has(p.path))
+    expect(again).toEqual([])
+  })
+
+  it('does not restamp a message it stood down on the same poll', async () => {
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    atCaptureTime(payload)
+    const [alert] = select('alerts.2026_08_01.json').ended
+    const path = `${ALERTS_BASE}.${alert.code}`
+    const h = harness(payload, {
+      [path]: {
+        id: `noaa_swpc_alert_${alert.code}`,
+        serialNumber: alert.serialNumber,
+        issued: alert.issued.toISOString(),
+        state: 'alarm',
+        method: ['visual', 'sound']
+      }
+    })
+    await alerts.refresh(h.ctx as any)
+
+    const writes = h.published.filter((p) => p.path === path)
+    expect(writes).toHaveLength(1)
+    expect(writes[0].value.state).toBe('normal')
+  })
+
   it('leaves a newer message already stood down on its path alone', async () => {
     const payload = fixtureJson('alerts.2026_08_01.json')
     atCaptureTime(payload)

@@ -57,7 +57,8 @@ export function messagesInForce(alerts, nowMs) {
     if (!inForce) {
       // Aged by the leaf's own timestamp -- when the plugin observed the
       // withdrawal (standDown in products/alerts.ts republishes with a
-      // fresh one) -- not by `value.issued`. A message issued long ago but
+      // fresh one), or when the message ended for one backfilled after a
+      // restart (backfillEnded) -- not by `value.issued`. A message issued long ago but
       // stood down five minutes ago is still fresh news; issued would drop
       // it on arrival. One that cannot be dated has not earned its place
       // either way, so it fails closed the same as an unreadable `issued`
