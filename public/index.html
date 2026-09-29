@@ -1256,7 +1256,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { LAYOUT_KEY, defaultLayout, layoutFromText, moveSlot, placeSlot, toggleSlot } from './layout.js';
+import { LAYOUT_KEY, defaultLayout, layoutFromText, placeRun, toggleSlot } from './layout.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
@@ -1361,17 +1361,50 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch {}
   }
 
-  function setLayout(next) {
+  function setLayout(next, { slide = false } = {}) {
     const wasFolded = new Set(layout.filter((entry) => entry.collapsed).map((entry) => entry.slot));
     const opened = next.some((entry) => !entry.collapsed && wasFolded.has(entry.slot));
     layout = next;
-    applyLayout();
+    applyLayout({ slide });
     saveLayout();
     // A tile that just unfolded drew nothing while it was folded.
     if (opened) paint();
   }
 
-  function applyLayout() {
+  // Where a tile sits with no slide running on it: the box the grid gave it,
+  // not the one an animation is passing through.
+  function restingBox(tile) {
+    const box = tile.getBoundingClientRect();
+    const { m41, m42 } = new DOMMatrixReadOnly(getComputedStyle(tile).transform);
+    return { left: box.left - m41, top: box.top - m42, width: box.width, height: box.height };
+  }
+
+  // Rows as the grid laid them out: the tiles that share an offsetTop, in
+  // order. Read from geometry rather than the spans, so the phone's
+  // one-column grid is one tile to a row and a move there is a plain move.
+  function layoutRows() {
+    const rows = [];
+    for (const { slot } of layout) {
+      const top = tileFor(slot).offsetTop;
+      const last = rows[rows.length - 1];
+      if (last && last.top === top) last.slots.push(slot);
+      else rows.push({ top, slots: [slot] });
+    }
+    return rows;
+  }
+
+  // The index in the layout, with `run` lifted out, that puts it after the
+  // first `count` of the other rows.
+  const indexAfterRows = (others, count) =>
+    others.slice(0, count).reduce((n, row) => n + row.slots.length, 0);
+
+  function applyLayout({ slide = false } = {}) {
+    // FLIP: note where every tile is on screen, move them, then play each
+    // from where it was to where it now rests, so a reader sees a tile go
+    // rather than the grid blink into a new order.
+    const glide = slide && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const was = new Map();
+    if (glide) for (const { slot } of layout) was.set(slot, tileFor(slot).getBoundingClientRect());
     for (const { slot, collapsed } of layout) {
       const tile = tileFor(slot);
       // Appending in list order walks every tile to the end in turn, which
@@ -1382,52 +1415,106 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       fold.setAttribute('aria-expanded', String(!collapsed));
       fold.setAttribute('aria-label', collapsed ? 'Expand tile' : 'Collapse tile');
     }
+    for (const [slot, from] of was) {
+      const tile = tileFor(slot);
+      tile.getAnimations().forEach((a) => a.cancel());
+      const to = tile.getBoundingClientRect();
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      if (!dx && !dy) continue;
+      tile.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+        { duration: 180, easing: 'ease-out' }
+      );
+    }
   }
 
   // Dragging is by pointer, not the HTML drag-and-drop API: that API has no
   // touch support on the phones this page is mostly read on, and its ghost
-  // image cannot be styled. The grip captures the pointer, the tile under it
-  // decides the new index, and the list is re-applied live so the tile is
-  // seen to move rather than a placeholder standing in for it. Nothing is
-  // saved until the pointer lifts.
+  // image cannot be styled. The list is re-applied live so the tile is seen
+  // to move rather than a placeholder standing in for it; nothing is saved
+  // until the pointer lifts.
+  //
+  // Rows stay whole. A row -- one full-width tile, or a pair sharing a line
+  // -- moves as a run past other rows, landing above or below one, never
+  // inside it, so dragging Kp across Solar + HF cannot leave either alone on
+  // a half-empty line. Inside its own row a tile swaps with its mate by the
+  // horizontal midline.
   function dragFrom(grip, slot) {
     grip.addEventListener('pointerdown', (down) => {
       if (down.button !== 0) return;
       down.preventDefault();
       const tile = tileFor(slot);
-      grip.setPointerCapture(down.pointerId);
+      const capture = () => { try { grip.setPointerCapture(down.pointerId); } catch {} };
+      capture();
       tile.classList.add('dragging');
       const move = (ev) => {
-        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.tile[data-tile]');
-        if (!under || under === tile) return;
-        const box = under.getBoundingClientRect();
-        const over = layout.findIndex((entry) => entry.slot === under.dataset.tile);
-        const mine = layout.findIndex((entry) => entry.slot === slot);
-        // Crossing the midline of the tile under the pointer is the moment
-        // it swaps; before that, hovering the near half changes nothing.
-        const after = ev.clientY > box.top + box.height / 2;
-        const target = over + (after ? 1 : 0) - (mine < over ? 1 : 0);
-        const next = placeSlot(layout, slot, target);
+        if (ev.pointerId !== down.pointerId) return;
+        const rows = layoutRows();
+        const mineAt = rows.findIndex((row) => row.slots.includes(slot));
+        const mine = rows[mineAt];
+        const others = rows.filter((row) => row !== mine);
+        // The run goes below every other row whose midline the pointer is
+        // past. Hovering the near half of a row changes nothing; crossing
+        // its middle is the moment it moves.
+        const past = others.filter((row) => {
+          const box = restingBox(tileFor(row.slots[0]));
+          return ev.clientY > box.top + box.height / 2;
+        }).length;
+        let run = mine.slots;
+        if (past === mineAt && run.length > 1) {
+          const mates = run.filter((s) => s !== slot);
+          const left = mates.filter((s) => {
+            const box = restingBox(tileFor(s));
+            return ev.clientX > box.left + box.width / 2;
+          }).length;
+          run = [...mates.slice(0, left), slot, ...mates.slice(left)];
+        }
+        const next = placeRun(layout, run, indexAfterRows(others, past));
         if (next === layout) return;
         layout = next;
-        applyLayout();
+        applyLayout({ slide: true });
+        // Re-appending the tile detached the grip for an instant, and that
+        // drops its capture; take it back so the lift still lands here.
+        capture();
       };
-      const up = () => {
-        grip.removeEventListener('pointermove', move);
+      // On window, not the grip: the capture can lapse mid-drag, and a
+      // pointerup that misses would leave the tile dimmed and unsaved.
+      const up = (ev) => {
+        if (ev.pointerId !== down.pointerId) return;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
         tile.classList.remove('dragging');
         saveLayout();
       };
-      grip.addEventListener('pointermove', move);
-      grip.addEventListener('pointerup', up, { once: true });
-      grip.addEventListener('pointercancel', up, { once: true });
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
     });
-    // The keyboard route to the same move, so reordering is not
-    // pointer-only; there is no visible arrow because the grip is the idiom.
+    // The keyboard route to the same moves, so reordering is not
+    // pointer-only: up and down carry the row past its neighbour, left and
+    // right swap a tile with its row-mate.
     grip.addEventListener('keydown', (ev) => {
-      const step = { ArrowUp: -1, ArrowDown: 1 }[ev.key];
+      const rows = layoutRows();
+      const mineAt = rows.findIndex((row) => row.slots.includes(slot));
+      const mine = rows[mineAt];
+      const others = rows.filter((row) => row !== mine);
+      let run = mine.slots;
+      let past = mineAt;
+      const step = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[ev.key];
       if (!step) return;
       ev.preventDefault();
-      setLayout(moveSlot(layout, slot, step));
+      if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+        past = Math.max(0, Math.min(others.length, mineAt + step));
+      } else {
+        const from = run.indexOf(slot);
+        const to = from + step;
+        if (to < 0 || to >= run.length) return;
+        run = run.slice();
+        [run[from], run[to]] = [run[to], run[from]];
+      }
+      setLayout(placeRun(layout, run, indexAfterRows(others, past)), { slide: true });
       grip.focus();
     });
   }
@@ -1449,7 +1536,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       button.addEventListener('click', onClick);
       tools.appendChild(button);
     };
-    tool('fold', 'Collapse tile', 'Collapse or expand', () => setLayout(toggleSlot(layout, entry.slot)));
+    tool('fold', 'Collapse tile', 'Collapse or expand', () => setLayout(toggleSlot(layout, entry.slot), { slide: true }));
     const grip = document.createElement('button');
     grip.type = 'button';
     grip.className = 'tile-grip';
@@ -1464,7 +1551,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   document.getElementById('layoutReset').addEventListener('click', (e) => {
     e.preventDefault();
     try { localStorage.removeItem(LAYOUT_KEY); } catch {}
-    setLayout(defaultLayout());
+    setLayout(defaultLayout(), { slide: true });
   });
   let savedLayout = null;
   try { savedLayout = localStorage.getItem(LAYOUT_KEY); } catch {}

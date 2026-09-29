@@ -4,8 +4,7 @@ import {
   defaultLayout,
   layoutFromText,
   mergeLayout,
-  moveSlot,
-  placeSlot,
+  placeRun,
   toggleSlot
 } from '../public/layout.js'
 
@@ -88,55 +87,78 @@ describe('the dashboard layout, read back from storage', () => {
 describe('moving and folding a tile', () => {
   const order = (layout: { slot: string }[]) => layout.map((e) => e.slot)
 
-  it('swaps with its neighbour in the direction asked', () => {
-    expect(order(moveSlot(defaultLayout(), 'kp', -1))).toEqual([
-      'kp',
-      'scales',
-      'solar',
-      'hf'
-    ])
-    expect(order(moveSlot(defaultLayout(), 'kp', 1))).toEqual([
-      'scales',
-      'solar',
-      'kp',
-      'hf'
-    ])
-  })
-
-  it('stays put at either end, and for a slot it does not have', () => {
-    const layout = defaultLayout()
-    expect(moveSlot(layout, 'scales', -1)).toBe(layout)
-    expect(moveSlot(layout, 'hf', 1)).toBe(layout)
-    expect(moveSlot(layout, 'hero', 1)).toBe(layout)
-  })
-
-  it('drops a slot at an index and keeps the rest in order', () => {
-    expect(order(placeSlot(defaultLayout(), 'hf', 0))).toEqual([
+  it('drops a lone tile at an index of the rest, keeping their order', () => {
+    expect(order(placeRun(defaultLayout(), ['hf'], 0))).toEqual([
       'hf',
       'scales',
       'kp',
       'solar'
     ])
-    expect(order(placeSlot(defaultLayout(), 'scales', 2))).toEqual([
+    expect(order(placeRun(defaultLayout(), ['scales'], 1))).toEqual([
       'kp',
-      'solar',
       'scales',
+      'solar',
       'hf'
     ])
-    expect(order(placeSlot(defaultLayout(), 'kp', 99))).toEqual([
+  })
+
+  it('moves a row as one run, so the pair is never split', () => {
+    // The Solar + HF row, dragged to the top: both come, in their order.
+    expect(order(placeRun(defaultLayout(), ['solar', 'hf'], 0))).toEqual([
+      'solar',
+      'hf',
+      'scales',
+      'kp'
+    ])
+    // Between the two full-width tiles.
+    expect(order(placeRun(defaultLayout(), ['solar', 'hf'], 1))).toEqual([
       'scales',
       'solar',
       'hf',
       'kp'
     ])
+    // A full-width tile dragged below the pair lands after it, not inside.
+    expect(order(placeRun(defaultLayout(), ['kp'], 3))).toEqual([
+      'scales',
+      'solar',
+      'hf',
+      'kp'
+    ])
+  })
+
+  it('swaps row-mates by naming the run in the other order', () => {
+    expect(order(placeRun(defaultLayout(), ['hf', 'solar'], 2))).toEqual([
+      'scales',
+      'kp',
+      'hf',
+      'solar'
+    ])
+  })
+
+  it('carries each tile whole, fold and all', () => {
+    const folded = toggleSlot(defaultLayout(), 'hf')
+    const moved = placeRun(folded, ['solar', 'hf'], 0)
+    expect(moved.find((e) => e.slot === 'hf')?.collapsed).toBe(true)
+  })
+
+  it('clamps the index, and is unchanged when nothing moves', () => {
     const layout = defaultLayout()
-    expect(placeSlot(layout, 'kp', 1)).toBe(layout)
-    expect(placeSlot(layout, 'hero', 0)).toBe(layout)
+    expect(order(placeRun(layout, ['scales'], 99))).toEqual([
+      'kp',
+      'solar',
+      'hf',
+      'scales'
+    ])
+    expect(order(placeRun(layout, ['hf'], -5))[0]).toBe('hf')
+    expect(placeRun(layout, ['kp'], 1)).toBe(layout)
+    expect(placeRun(layout, ['solar', 'hf'], 2)).toBe(layout)
+    expect(placeRun(layout, ['hero'], 0)).toBe(layout)
+    expect(placeRun(layout, [], 0)).toBe(layout)
   })
 
   it('never changes the list it was given', () => {
     const layout = defaultLayout()
-    moveSlot(layout, 'kp', -1)
+    placeRun(layout, ['solar', 'hf'], 0)
     toggleSlot(layout, 'kp')
     expect(layout).toEqual(defaultLayout())
   })
@@ -149,7 +171,10 @@ describe('moving and folding a tile', () => {
   })
 
   it('round-trips through the text it is saved as', () => {
-    const layout = toggleSlot(moveSlot(defaultLayout(), 'hf', -1), 'kp')
+    const layout = toggleSlot(
+      placeRun(defaultLayout(), ['solar', 'hf'], 0),
+      'kp'
+    )
     expect(layoutFromText(JSON.stringify(layout))).toEqual(layout)
     expect(DEFAULT_SLOTS).toHaveLength(layout.length)
   })

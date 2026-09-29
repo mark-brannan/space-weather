@@ -50,28 +50,21 @@ export function layoutFromText(text, slots = DEFAULT_SLOTS) {
   }
 }
 
-/** The layout with `slot` moved `step` places (-1 up, +1 down); unchanged at
- *  either end, or when the slot is not in it. */
-export function moveSlot(layout, slot, step) {
-  const from = layout.findIndex((entry) => entry.slot === slot)
-  const to = from + step
-  if (from < 0 || to < 0 || to >= layout.length) return layout
-  const next = layout.slice()
-  ;[next[from], next[to]] = [next[to], next[from]]
-  return next
-}
-
-/** The layout with `slot` moved to `index`, the other entries keeping their
- *  order; unchanged when the slot is not in it. */
-export function placeSlot(layout, slot, index) {
-  const from = layout.findIndex((entry) => entry.slot === slot)
-  if (from < 0) return layout
-  const to = Math.max(0, Math.min(layout.length - 1, index))
-  if (to === from) return layout
-  const next = layout.slice()
-  const [entry] = next.splice(from, 1)
-  next.splice(to, 0, entry)
-  return next
+/**
+ * The layout with the tiles in `slots` lifted out and put back together, in
+ * the order given, at `index` of what is left; everything else keeps its
+ * order. This is how a whole row moves -- a tile and its row-mate travel as
+ * one run, so a move never splits a pair -- and how row-mates swap, by
+ * naming the same run in the other order at the same place. Unchanged when
+ * the result is the same order, or when a slot is not in the layout.
+ */
+export function placeRun(layout, slots, index) {
+  const run = slots.map((slot) => layout.find((entry) => entry.slot === slot))
+  if (run.length === 0 || run.some((entry) => !entry)) return layout
+  const rest = layout.filter((entry) => !slots.includes(entry.slot))
+  const at = Math.max(0, Math.min(rest.length, index))
+  const next = [...rest.slice(0, at), ...run, ...rest.slice(at)]
+  return next.every((entry, i) => entry === layout[i]) ? layout : next
 }
 
 /** The layout with `slot` folded or unfolded. */
