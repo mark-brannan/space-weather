@@ -4,7 +4,9 @@ import {
   gScaleForKp,
   heroState,
   kpFloorForG,
+  kpSplitIndex,
   outlookAhead,
+  scalesBadgeColumnFraction,
   timerFor,
   uncapitalise,
   watchAhead
@@ -496,5 +498,56 @@ describe('outlookAhead', () => {
 
   it('returns null once the whole window is behind us', () => {
     expect(outlookAhead(days(-30, 4, 5, 6), FROM)).toBe(null)
+  })
+})
+
+describe('kpSplitIndex', () => {
+  it('lands one point before the first forecast point', () => {
+    const points = [
+      { time: '2026-08-12T00:00:00.000Z', kp: 2 },
+      { time: '2026-08-12T03:00:00.000Z', kp: 3 },
+      { time: '2026-08-12T06:00:00.000Z', kp: 3, forecast: true },
+      { time: '2026-08-12T09:00:00.000Z', kp: 4, forecast: true }
+    ]
+    expect(kpSplitIndex(points)).toBe(1)
+  })
+
+  it('lands on the last point when nothing in the series is forecast yet', () => {
+    const points = [
+      { time: '2026-08-12T00:00:00.000Z', kp: 2 },
+      { time: '2026-08-12T03:00:00.000Z', kp: 3 }
+    ]
+    expect(kpSplitIndex(points)).toBe(1)
+  })
+
+  it('clamps to 0 when the very first point is already forecast', () => {
+    const points = [{ time: '2026-08-12T00:00:00.000Z', kp: 2, forecast: true }]
+    expect(kpSplitIndex(points)).toBe(0)
+  })
+})
+
+describe('scalesBadgeColumnFraction', () => {
+  const HOUR = 60 * 60 * 1000
+  const DAY = 24 * HOUR
+  const t0 = Date.parse('2026-08-12T00:00:00.000Z')
+
+  it('is 1 when the observed stretch is exactly one forecast day wide', () => {
+    // Sanity check from the design: observed = 24h, forecast = 3x24h, so
+    // "Past 24h" really is one day-width wide.
+    const splitAt = t0 + DAY
+    const t1 = splitAt + 3 * DAY
+    expect(scalesBadgeColumnFraction([t0, t1], splitAt)).toBeCloseTo(1)
+  })
+
+  it('grows when NOAA carried more observed history', () => {
+    const splitAt = t0 + 2 * DAY
+    const t1 = splitAt + 3 * DAY
+    expect(scalesBadgeColumnFraction([t0, t1], splitAt)).toBeCloseTo(2)
+  })
+
+  it('shrinks when the observed stretch is short', () => {
+    const splitAt = t0 + 12 * HOUR
+    const t1 = splitAt + 3 * DAY
+    expect(scalesBadgeColumnFraction([t0, t1], splitAt)).toBeCloseTo(0.5)
   })
 })
