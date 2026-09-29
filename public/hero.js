@@ -389,3 +389,36 @@ export function heroState(input, now = Date.now()) {
 
   return { kind: 'quiet', peak: null, timer }
 }
+
+/**
+ * The index the Kp chart's own shading uses to mark where measurement stops
+ * and forecast begins -- one point before the first `forecast` entry, since
+ * NOAA's `observed` column lags the clock and the points between it and "now"
+ * are already estimates (see design-decisions.md). Factored out of
+ * `drawKpChart` so the chart and `scalesBadgeColumnFraction` below agree on
+ * one boundary instead of each guessing it separately.
+ */
+export function kpSplitIndex(series) {
+  const n = series.length
+  const splitIndex = series.findIndex((p) => p.forecast)
+  return splitIndex < 0 ? n - 1 : Math.max(0, splitIndex - 1)
+}
+
+/**
+ * How wide Storm Scales' "Past 24h" badge column should be, in units of one
+ * forecast day -- so its left edge lines up with the Kp chart's own
+ * observed/forecast split instead of a fixed, data-independent guess.
+ *
+ * `domain` is the near-view `[t0, t1]` window (`kpDomain(SPAN_72H, ...)`);
+ * `splitAt` is the epoch ms of `series[kpSplitIndex(series)].time`. The
+ * chart's 3-day forecast is already equal-width per day, so one forecast
+ * day's width is `(t1 - splitAt) / 3`, and the observed window's width in
+ * that unit is what the badge column needs to occupy: 1 when the observed
+ * stretch happens to be exactly 24h wide, more when NOAA's feed carried more
+ * history, less when it carried less.
+ */
+export function scalesBadgeColumnFraction(domain, splitAt) {
+  const [t0, t1] = domain
+  const forecastDay = (t1 - splitAt) / 3
+  return (splitAt - t0) / forecastDay
+}
