@@ -222,13 +222,21 @@ export const DEFAULT_PROJECTION = 'azimuthal'
  * (`scaleFor`): an azimuthal disc wants to cover the viewport, a cylindrical
  * rectangle wants to fit a latitude span into its height without drawing the
  * same ocean twice across its width.
+ *
+ * `inset` is how much of each edge of the canvas is covered by controls
+ * floating over it, `{ top, right, bottom, left }` in pixels. The radius and
+ * the centre are fitted to what is left, and the picture carries on under the
+ * controls only where there is more of it than the radius asked for. Fitted
+ * to the whole canvas instead, "the whole world" put the rim of the planet
+ * under the controls, where it read as the map painting over them.
  */
 export function mapView({
   projection = DEFAULT_PROJECTION,
   center,
   radiusDeg = 60,
   width,
-  height
+  height,
+  inset = {}
 }) {
   const entry = PROJECTIONS[projection] || PROJECTIONS[DEFAULT_PROJECTION]
   const lat = Number.isFinite(center?.latitude) ? center.latitude : 0
@@ -242,6 +250,11 @@ export function mapView({
   // rescales underneath the answer. Each pass moves the centre toward the
   // equator and never back, so this settles; the cap is there because a
   // projection is not the place to rely on that.
+  const edge = (px) => (Number.isFinite(px) && px > 0 ? px : 0)
+  const left = edge(inset.left)
+  const top = edge(inset.top)
+  const openWidth = Math.max(1, width - left - edge(inset.right))
+  const openHeight = Math.max(1, height - top - edge(inset.bottom))
   let proj = entry.create(lat, lon, radiusDeg)
   let centerLat = lat
   // Converges geometrically rather than in one step, and a tenth of a degree
@@ -249,16 +262,18 @@ export function mapView({
   // tolerance is what actually ends it.
   for (let pass = 0; pass < 20; pass++) {
     const halfHeightDeg =
-      height / 2 / proj.scaleFor(proj.radiusWorld(radiusDeg), width, height)
+      openHeight /
+      2 /
+      proj.scaleFor(proj.radiusWorld(radiusDeg), openWidth, openHeight)
     const next = proj.clampCenter(lat, halfHeightDeg)
     if (Math.abs(next - centerLat) < 1e-6) break
     centerLat = next
     proj = entry.create(centerLat, lon, radiusDeg)
   }
   const radius = proj.radiusWorld(radiusDeg)
-  const scale = proj.scaleFor(radius, width, height)
-  const cx = width / 2
-  const cy = height / 2
+  const scale = proj.scaleFor(radius, openWidth, openHeight)
+  const cx = left + openWidth / 2
+  const cy = top + openHeight / 2
 
   const toPixel = (lon_, lat_) => {
     const world = proj.forward(lon_, lat_)
@@ -273,6 +288,9 @@ export function mapView({
     radiusDeg,
     width,
     height,
+    // Where the centre is drawn: the middle of the uncovered part.
+    cx,
+    cy,
     scale,
     toPixel,
     // Separable accessors, for the callers (coast-wright's `limn`, the

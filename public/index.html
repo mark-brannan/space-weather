@@ -2975,6 +2975,26 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // that is how "only the visible view renders" holds for the canvas.
   const mapResize = new ResizeObserver(() => drawMapCanvas())
 
+  // Below 1100px the toolbar and the readout float over the canvas, and the
+  // map is fitted to what they leave uncovered -- otherwise "the whole world"
+  // puts the rim of the planet under them. Read off the boxes rather than
+  // the stylesheet, so the wide layout (a rail beside the canvas, covering
+  // none of it) comes out as no inset without a width check to keep in step
+  // with the media query. This measures to place a drawing, not an element:
+  // the canvas is absolutely positioned, so nothing can bounce against it.
+  function chromeInset(canvas) {
+    const box = canvas.getBoundingClientRect()
+    const inset = { top: 0, bottom: 0 }
+    for (const strip of mapRoot()?.querySelectorAll('.map-toolbar, .map-footer') || []) {
+      const r = strip.getBoundingClientRect()
+      if (r.right <= box.left || r.left >= box.right) continue
+      if (r.bottom <= box.top || r.top >= box.bottom) continue
+      if (r.top - box.top < box.bottom - r.bottom) inset.top = Math.max(inset.top, r.bottom - box.top)
+      else inset.bottom = Math.max(inset.bottom, box.bottom - r.top)
+    }
+    return inset
+  }
+
   function drawMapCanvas() {
     const canvas = mapCanvas()
     // No box means a hidden view (or a row that has not been laid out yet):
@@ -2989,6 +3009,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       layers: [...mapControls.layers],
       projection: mapControls.projection,
       radiusDeg: mapControls.radiusDeg,
+      inset: chromeInset(canvas),
       position: lastPosition,
       probe: layerOn('drap') ? drapProbe : null,
       bandContours: mapControls.bandEdges,
@@ -3156,6 +3177,8 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // callback, so there is no separate first paint to keep in step with it.
     mapResize.disconnect()
     mapResize.observe(body.querySelector('.map-canvas-row'))
+    // The strips too: a readout that wraps to another line covers more map.
+    for (const strip of body.querySelectorAll('.map-toolbar, .map-footer')) mapResize.observe(strip)
     drawProbeReadout()
     // The rail is rebuilt whole, which throws away the slots paint() last drew
     // into. Repainting is what fills them back in -- and paint draws no map, so
