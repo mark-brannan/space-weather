@@ -18,7 +18,10 @@ export const fileStore = (dir: string) => createFileStore(() => dir)
  * for something they don't have surfaces as an undefined at runtime instead
  * of failing `npm run typecheck`.
  */
-export function harness(responses: Record<string, unknown>) {
+export function harness(
+  responses: Record<string, unknown>,
+  cache?: Record<string, string>
+) {
   const published: { values: ValueUpdate[]; timestamp: string }[] = []
   const metas: Meta[] = []
   const errors: string[] = []
@@ -47,13 +50,15 @@ export function harness(responses: Record<string, unknown>) {
     fail: () => {},
     error: (m, ...a) => errors.push(`${m} ${a.join(' ')}`),
     debug: () => {},
-    // No product exercised here persists anything; a working store would let
-    // one start doing so unnoticed.
-    readCache: () => {
-      throw new Error('readCache is not stubbed')
+    // A store only where the test hands one in: without it, a product that
+    // starts persisting something fails loudly here rather than unnoticed.
+    readCache: (name) => {
+      if (!cache) throw new Error('readCache is not stubbed')
+      return cache[name] ?? null
     },
-    writeCache: () => {
-      throw new Error('writeCache is not stubbed')
+    writeCache: (name, text) => {
+      if (!cache) throw new Error('writeCache is not stubbed')
+      cache[name] = text
     }
   }
 

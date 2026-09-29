@@ -2125,13 +2125,12 @@ export function parseGoesFluxSeries(
 /**
  * The retained window, extended by what a fresh payload adds.
  *
- * The plugin keeps no history on disk, and the endpoint it polls carries six
- * hours while the chart's observed stretch is twenty-four. Rather than pay
- * four times the bytes for the `-1-day` variant on every poll, a run of the
- * plugin remembers the buckets it has already seen and lets the overlapping
- * windows fill the rest in: at the default hourly interval the series reaches
- * its full width within a day of starting, and a restart costs only the width,
- * never a wrong number. What it draws is always what this run has measured.
+ * The endpoint the plugin polls carries six hours while the history it keeps
+ * is three days. Rather than pay four times the bytes for the `-1-day` variant on
+ * every poll, a run of the plugin remembers the buckets it has already seen
+ * (and `goesFluxCache` carries them across a restart) and lets the
+ * overlapping windows fill the rest in. What it draws is always what the
+ * plugin has measured; an outage costs the gap, never a wrong number.
  *
  * A shared bucket keeps the larger of its two readings. Each is the maximum
  * over a subset of the same records: the held one may have been read while
@@ -2153,6 +2152,40 @@ export function mergeFluxSeries(
   if (points.length === 0) return points
   const newest = Date.parse(points[points.length - 1].time)
   return points.filter((point) => newest - Date.parse(point.time) <= windowMs)
+}
+
+/**
+ * The series with everything older than `fineMs` behind its newest point
+ * folded into `coarseMs` buckets, by maximum and stamped at the bucket start,
+ * as `goesFluxSeries` does the fine ones.
+ *
+ * Idempotent, so it can run on every poll over what it produced last time: a
+ * coarse point is already on its own bucket's start and folds into itself.
+ * A coarse bucket straddling the fine edge fills over successive polls, and
+ * the maximum is associative, so it ends up exactly the bucket's peak.
+ */
+export function coarsenFluxSeries(
+  points: FluxPoint[],
+  fineMs: number,
+  coarseMs: number
+): FluxPoint[] {
+  if (points.length === 0) return points
+  const edge = Date.parse(points[points.length - 1].time) - fineMs
+  const coarse = new Map<number, number>()
+  const fine: FluxPoint[] = []
+  for (const point of points) {
+    const at = Date.parse(point.time)
+    if (at >= edge) {
+      fine.push(point)
+      continue
+    }
+    const bucket = Math.floor(at / coarseMs) * coarseMs
+    coarse.set(bucket, Math.max(point.value, coarse.get(bucket) ?? 0))
+  }
+  return [...coarse.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([at, value]) => ({ time: new Date(at).toISOString(), value }))
+    .concat(fine)
 }
 
 function lastRecordForEnergy(json: any, energy: string): any {

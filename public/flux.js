@@ -76,6 +76,9 @@ export function ladderScale(thresholds, floor) {
 export const xrayLadder = ladderScale(R_THRESHOLDS, XRAY_FLOOR)
 export const protonLadder = ladderScale(S_THRESHOLDS, PROTON_FLOOR)
 
+/** The widest spacing two held points have while polling ran between them. */
+const MAX_GAP_MS = 6 * 60 * 60 * 1000
+
 /**
  * The two overlay series out of the polled document, as `{time, kp}` already
  * on the Kp chart's scale -- so the drawing code has one kind of point to
@@ -96,7 +99,17 @@ export function fluxOverlay(data) {
         kp: ladder(point?.value)
       }))
       .filter((point) => Number.isFinite(point.time))
-    return mapped.length > 0 ? mapped : null
+    // A hole wider than the six hours one poll carries is a stretch nobody
+    // measured -- the plugin was down -- so it is broken rather than ruled
+    // across, the same call a null reading gets.
+    const broken = []
+    for (const point of mapped) {
+      const last = broken[broken.length - 1]
+      if (last && point.time - last.time > MAX_GAP_MS)
+        broken.push({ time: last.time, kp: null })
+      broken.push(point)
+    }
+    return broken.length > 0 ? broken : null
   }
   return {
     xray: series(data?.xrayFlux, xrayLadder),

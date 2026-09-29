@@ -10,6 +10,7 @@ import {
 } from '../public/flux.js'
 import { kpFloorForG } from '../public/hero.js'
 import {
+  coarsenFluxSeries,
   goesFluxSeries,
   mergeFluxSeries,
   parseGoesFluxSeries
@@ -169,6 +170,63 @@ describe('the retained window', () => {
   })
 })
 
+describe('the coarse tail', () => {
+  const at = (minutes: number) => new Date(minutes * 60 * 1000).toISOString()
+  const FINE = 60 * 60 * 1000
+  const COARSE = 3 * 60 * 60 * 1000
+
+  it('folds what is behind the fine edge into coarse peaks', () => {
+    const points = [
+      { time: at(0), value: 1 },
+      { time: at(15), value: 7 },
+      { time: at(170), value: 2 },
+      { time: at(200), value: 3 },
+      { time: at(300), value: 4 },
+      { time: at(315), value: 5 }
+    ]
+    expect(coarsenFluxSeries(points, FINE, COARSE)).toEqual([
+      // A flare's peak survives the fold, only its minute is lost.
+      { time: at(0), value: 7 },
+      { time: at(180), value: 3 },
+      { time: at(300), value: 4 },
+      { time: at(315), value: 5 }
+    ])
+  })
+
+  it('is idempotent, so it can run over its own output every poll', () => {
+    const points = [0, 15, 170, 200, 300, 315].map((m, i) => ({
+      time: at(m),
+      value: i + 1
+    }))
+    const once = coarsenFluxSeries(points, FINE, COARSE)
+    expect(coarsenFluxSeries(once, FINE, COARSE)).toEqual(once)
+  })
+
+  it('fills a bucket straddling the edge to its whole peak', () => {
+    // 180-360 straddles: 195 is folded now, 300 later, as the edge moves on.
+    const first = coarsenFluxSeries(
+      [
+        { time: at(195), value: 2 },
+        { time: at(300), value: 9 },
+        { time: at(300 + 60), value: 1 }
+      ],
+      FINE,
+      COARSE
+    )
+    expect(first[0]).toEqual({ time: at(180), value: 2 })
+    const later = coarsenFluxSeries(
+      [...first, { time: at(420), value: 1 }],
+      FINE,
+      COARSE
+    )
+    expect(later[0]).toEqual({ time: at(180), value: 9 })
+  })
+
+  it('leaves an empty series empty', () => {
+    expect(coarsenFluxSeries([], FINE, COARSE)).toEqual([])
+  })
+})
+
 describe('the overlay the chart is handed', () => {
   const leaf = (points: unknown) => ({ series: { value: points } })
 
@@ -180,6 +238,22 @@ describe('the overlay the chart is handed', () => {
     expect(overlay.xray[0].kp).toBeCloseTo(kpFloorForG(1), 10)
     expect(overlay.proton[0].kp).toBeCloseTo(kpFloorForG(1), 10)
     expect(overlay.xray[0].time).toBe(Date.parse('2026-08-20T00:00:00Z'))
+  })
+
+  it('breaks the trace across a hole no poll covered', () => {
+    const overlay = fluxOverlay({
+      xrayFlux: leaf([
+        { time: '2026-08-20T00:00:00Z', value: 1e-6 },
+        { time: '2026-08-20T03:00:00Z', value: 1e-6 },
+        { time: '2026-08-22T00:00:00Z', value: 1e-6 }
+      ])
+    })
+    expect(overlay.xray.map((p) => p.kp === null)).toEqual([
+      false,
+      false,
+      true,
+      false
+    ])
   })
 
   it('is null for a channel that has published nothing', () => {
