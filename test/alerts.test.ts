@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/config'
 import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../src/paths'
 import {
+  ALERT_HISTORY_MS,
   ALERT_MAX_AGE_MS,
   MAX_ALERT_NOTIFICATIONS,
   currentAlertNotifications
@@ -132,6 +133,49 @@ describe('currentAlertNotifications', () => {
       expect(payload.length, name).toBeGreaterThan(100)
       expect(inForce.length, name).toBeGreaterThan(0)
       expect(inForce.length, name).toBeLessThanOrEqual(10)
+    }
+  })
+
+  it('returns what ended in the past week, one per code, none still live', () => {
+    for (const name of ALERT_FIXTURES) {
+      const payload = fixtureJson(name)
+      const now = captureTime(payload)
+      const { inForce, ended } = select(name)
+      const live = new Set(inForce.map((a) => a.code))
+      const codes = ended.map((a) => a.code)
+
+      expect(ended.length, name).toBeGreaterThan(0)
+      expect(new Set(codes).size, name).toBe(codes.length)
+      for (const alert of ended) {
+        expect(live.has(alert.code), `${name} ${alert.code}`).toBe(false)
+        const age = now.getTime() - alert.endedAt.getTime()
+        expect(age, `${name} ${alert.code}`).toBeGreaterThanOrEqual(0)
+        expect(age, `${name} ${alert.code}`).toBeLessThanOrEqual(
+          ALERT_HISTORY_MS
+        )
+      }
+      const ends = ended.map((a) => a.endedAt.getTime())
+      expect(ends, name).toEqual([...ends].sort((a, b) => b - a))
+    }
+  })
+
+  it('keeps the newest message for a code that has ended', () => {
+    for (const name of ALERT_FIXTURES) {
+      const payload = fixtureJson(name)
+      for (const alert of select(name).ended) {
+        const later = payload.filter(
+          (a: any) =>
+            a.product_id === alert.code &&
+            new Date(a.issue_datetime + 'Z') > alert.issued
+        )
+        expect(later, `${name} ${alert.code}`).toEqual([])
+      }
+    }
+  })
+
+  it('reaches no further back than the history window', () => {
+    for (const name of ALERT_FIXTURES) {
+      expect(select(name, { historyMs: 0 }).ended, name).toEqual([])
     }
   })
 
@@ -510,6 +554,51 @@ describe('alerts product', () => {
     h.published.length = 0
     await alerts.refresh(h.ctx as any)
     expect(h.published).toEqual([])
+  })
+
+  it('backfills what ended in the past week, silent and dated when it ended', async () => {
+    // A restart empties the model, so without this the history the webapp
+    // shows would only go back as far as the last restart.
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    atCaptureTime(payload)
+    const { inForce, ended } = select('alerts.2026_08_01.json')
+    const h = harness(payload)
+    await alerts.refresh(h.ctx as any)
+
+    expect(ended.length).toBeGreaterThan(0)
+    for (const alert of ended) {
+      const entry = h.published.find(
+        (p) => p.path === `${ALERTS_BASE}.${alert.code}`
+      )
+      expect(entry, alert.code).toBeDefined()
+      expect(entry.value.state).toBe('normal')
+      expect(entry.value.method).toEqual([])
+      expect(entry.value.serialNumber).toBe(alert.serialNumber)
+      expect(entry.timestamp).toBe(alert.endedAt.toISOString())
+    }
+    const alertPaths = new Set(
+      h.paths().filter((p) => p.startsWith(ALERTS_BASE + '.'))
+    )
+    expect(alertPaths.size).toBe(inForce.length + ended.length)
+  })
+
+  it('leaves a newer message already stood down on its path alone', async () => {
+    const payload = fixtureJson('alerts.2026_08_01.json')
+    atCaptureTime(payload)
+    const [alert] = select('alerts.2026_08_01.json').ended
+    const path = `${ALERTS_BASE}.${alert.code}`
+    const newer = {
+      id: `noaa_swpc_alert_${alert.code}`,
+      serialNumber: '999999',
+      issued: new Date(alert.issued.getTime() + HOUR_MS).toISOString(),
+      state: 'normal',
+      method: []
+    }
+    const h = harness(payload, { [path]: newer })
+    await alerts.refresh(h.ctx as any)
+
+    expect(h.paths()).not.toContain(path)
+    expect(h.at(path)).toBe(newer)
   })
 
   it('stands down a code that is no longer in force', async () => {

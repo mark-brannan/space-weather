@@ -4,6 +4,7 @@ import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../paths.js'
 import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
+  EndedAlert,
   NOAA_MESSAGE_CODE_REGEX,
   NoaaScaleNames,
   NotificationStates,
@@ -40,7 +41,8 @@ export const alerts: Product = {
           name: 'NOAA SWPC alerts, watches and warnings',
           description:
             'One notification per NOAA space weather message code, carrying the' +
-            ' most recent message for that condition while it is in force.',
+            ' most recent message for that condition: raised while it is in' +
+            ' force, then kept at normal for a week after it ends.',
           // The delta timestamp on each of these is the NOAA issue time, so a
           // client honouring the timeout expires the notification at the same
           // moment this plugin would stop republishing it.
@@ -72,12 +74,15 @@ export const alerts: Product = {
     }
 
     const now = new Date()
-    const { inForce, unparseable, dropped } = currentAlertNotifications(json, {
-      now,
-      alarmLevel: settings.alarmLevel,
-      popupLevel: settings.popupLevel,
-      listLevel: settings.listLevel
-    })
+    const { inForce, ended, unparseable, dropped } = currentAlertNotifications(
+      json,
+      {
+        now,
+        alarmLevel: settings.alarmLevel,
+        popupLevel: settings.popupLevel,
+        listLevel: settings.listLevel
+      }
+    )
 
     let raised = 0
     for (const alert of inForce) {
@@ -88,15 +93,17 @@ export const alerts: Product = {
     const cleared =
       clearWithdrawn(publisher, live, now) +
       clearSerialNumberPaths(publisher, now)
+    const backfilled = backfillEnded(publisher, ended)
 
     publishStorm(publisher, inForce, settings, now)
 
     publisher.debug(
-      '%d of %d NOAA messages in force; %d raised or changed, %d cleared',
+      '%d of %d NOAA messages in force; %d raised or changed, %d cleared, %d ended backfilled',
       inForce.length,
       json.length,
       raised,
-      cleared
+      cleared,
+      backfilled
     )
 
     if (unparseable > 0) {
@@ -145,25 +152,63 @@ function publishAlert(publisher: Publisher, alert: AlertNotification): boolean {
 
   publisher.value(
     path,
-    {
-      id: ID_PREFIX + alert.code,
-      serialNumber: alert.serialNumber,
-      issued: alert.issued.toISOString(),
-      validUntil: alert.validUntil ? alert.validUntil.toISOString() : null,
-      message: alert.mainMessage,
-      description: alert.description,
-      alertLevel: alert.alertLevel,
-      scale: alert.scaleText,
-      state: alert.state,
-      method: alert.method,
-      // Empty for everything but a watch. It is the only forward-looking
-      // thing NOAA publishes with a date on it, and the webapp's hero reads
-      // it: see `watchAhead` in public/hero.js.
-      predictedByDay: alert.predictedByDay
-    },
+    alertValue(alert, alert.state, alert.method),
     alert.issued.toISOString()
   )
   return true
+}
+
+function alertValue(alert: AlertNotification, state: string, method: string[]) {
+  return {
+    id: ID_PREFIX + alert.code,
+    serialNumber: alert.serialNumber,
+    issued: alert.issued.toISOString(),
+    validUntil: alert.validUntil ? alert.validUntil.toISOString() : null,
+    message: alert.mainMessage,
+    description: alert.description,
+    alertLevel: alert.alertLevel,
+    scale: alert.scaleText,
+    state,
+    method,
+    // Empty for everything but a watch. It is the only forward-looking
+    // thing NOAA publishes with a date on it, and the webapp's hero reads
+    // it: see `watchAhead` in public/hero.js.
+    predictedByDay: alert.predictedByDay
+  }
+}
+
+/**
+ * Publish, already stood down, the messages that ended while nobody was
+ * watching -- before this plugin started, or while it was off.
+ *
+ * `clearWithdrawn` only stands down what it saw raised, and a server restart
+ * empties the model, so without this the week of history the webapp shows
+ * would be whatever ended since the last restart. Timestamped when the
+ * message ended, which is what the webapp ages it by: the same instant
+ * `clearWithdrawn` would have stamped had it been running. One path per
+ * code, the same paths as the live ones, so this adds no path the in-force
+ * set could not already have used, and a path already holding this message
+ * or a newer one is left alone -- after the first poll there is nothing to do.
+ */
+function backfillEnded(publisher: Publisher, ended: EndedAlert[]): number {
+  let filled = 0
+  for (const alert of ended) {
+    if (!NOAA_MESSAGE_CODE_REGEX.test(alert.code)) continue
+    const path = `${ALERTS_BASE}.${alert.code}`
+    const existing = publisher.selfPath(`${path}.value`)
+    if (existing) {
+      if (isRaised(existing)) continue
+      if (existing.serialNumber === alert.serialNumber) continue
+      if (Date.parse(existing.issued) >= alert.issued.getTime()) continue
+    }
+    publisher.value(
+      path,
+      alertValue(alert, NotificationStates.NORMAL, []),
+      alert.endedAt.toISOString()
+    )
+    filled++
+  }
+  return filled
 }
 
 const STORM_ID = 'noaa_swpc_storm'
