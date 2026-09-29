@@ -6,16 +6,17 @@ things that bite before you get this far.
 
 ## Pictures for a PR
 
-`npm run shots -- --state <name> --span <72h|27d>` starts the mock rig on
-a free port, drives it with Playwright, and saves
-`shots/kp-<state>-<span>-dark.png` (gitignored). It shoots the Kp tile and
-nothing else yet; for any other surface, drive the mock rig by hand, dark
-theme. It hardcodes `colorScheme: 'dark'` -- dark is the only theme a PR's
-pictures carry, so there is no `--theme` flag to pass. `--state` is one of
-the mock rig's `STATES` keys (`npm run dev:webapp` prints the list on
-startup) and an unknown one is an error; `--span` picks the Kp chart's
-72-hour or 27-day view. Once per machine, `npx playwright install chromium`
-fetches the browser `npm ci` doesn't.
+`npm run shots -- --state <name>` starts the mock rig on a free port, drives
+it with Playwright, and saves a full-page picture of the dashboard to
+`shots/` (gitignored). `--view <dashboard|advisories|map|diagnostics>` picks
+another view; `--tile <slot>`, repeatable, shoots just those tiles of it
+instead (an unknown one lists the view's slots); `--span <72h|27d>` sets the
+Kp chart first. `--state` is one of the mock rig's `STATES` keys
+(`npm run dev:webapp` prints the list). An unknown state or view is an
+error rather than a plausible picture of the wrong thing. It hardcodes
+`colorScheme: 'dark'` -- dark is the only theme a PR's pictures carry, so
+there is no `--theme` flag. Once per machine, `npx playwright install
+chromium` fetches the browser `npm ci` doesn't.
 
 ## What a session here can show
 
