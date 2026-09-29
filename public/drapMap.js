@@ -222,41 +222,9 @@ export function pathAbsorption(grid, from, to) {
   }
 }
 
-/**
- * The subsolar point: where the sun is overhead right now.
- *
- * D-region absorption is a dayside phenomenon, so this is the one mark that
- * makes the picture readable at a glance -- the blob belongs near it, and a
- * blob that is not is worth a second look. Low-precision solar position
- * (NOAA's own "General Solar Position Calculations", good to a few
- * arc-minutes), which is far finer than a 4-degree grid cell.
- */
-export function subsolarPoint(date = new Date()) {
-  const julian = date.getTime() / 86400000 + 2440587.5
-  const n = julian - 2451545.0
-  const meanLongitude = (280.46 + 0.9856474 * n) % 360
-  const meanAnomaly = toRad((357.528 + 0.9856003 * n) % 360)
-  const eclipticLongitude = toRad(
-    meanLongitude +
-      1.915 * Math.sin(meanAnomaly) +
-      0.02 * Math.sin(2 * meanAnomaly)
-  )
-  const obliquity = toRad(23.439 - 0.0000004 * n)
-  const declination = toDeg(
-    Math.asin(Math.sin(obliquity) * Math.sin(eclipticLongitude))
-  )
-  const rightAscension = toDeg(
-    Math.atan2(
-      Math.cos(obliquity) * Math.sin(eclipticLongitude),
-      Math.cos(eclipticLongitude)
-    )
-  )
-  const gmst = (18.697374558 + 24.06570982441908 * n) % 24
-  let longitude = (rightAscension - gmst * 15) % 360
-  if (longitude > 180) longitude -= 360
-  if (longitude < -180) longitude += 360
-  return { latitude: declination, longitude }
-}
+// The astronomy lives in greyline.js; still importable from here for
+// anything that already reaches for it.
+export { subsolarPoint } from './greyline.js'
 
 /**
  * The worst cell anywhere on the globe, and where it is.
