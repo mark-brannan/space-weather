@@ -4,6 +4,16 @@ How to see the page without a server, and the scripts that keep the fixtures
 and the measurements honest. [`CLAUDE.md`](../CLAUDE.md) keeps the handful of
 things that bite before you get this far.
 
+## Pictures for a PR
+
+`npm run shots -- --state <name> --span <72h|27d>` starts the mock rig on
+its own port, drives it with Playwright, and saves `kp-<span>-dark.png` in
+the working directory. It hardcodes `colorScheme: 'dark'` -- dark is the
+only theme a PR's pictures carry, so there is no `--theme` flag to pass.
+`--state` is one of the mock rig's `STATES` keys (`npm run dev:webapp`
+prints the list on startup); `--span` picks the Kp chart's 72-hour or
+27-day view.
+
 ## What a session here can show
 
 Whenever a change could affect anything a reader sees, show it running, as

@@ -170,7 +170,8 @@ never handed over red.
 - **Any change a reader could see -- `public/`, styling, copy, layout, a
   consumer's chrome -- is shown on the mock rig as bare URLs before the tests
   re-run** ([docs/development.md](docs/development.md#what-a-session-here-can-show)).
-  Unsure whether it shows? Show it. Its PR carries pictures, both themes.
+  Unsure whether it shows? Show it. Its PR carries pictures, dark theme only
+  (`npm run shots`) -- see [docs/development.md](docs/development.md#pictures-for-a-pr).
 - **Never touch version numbers.** `release-please` owns them (see
   Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
   makes the anti-minor bias a config setting -- decline a reviewer's
