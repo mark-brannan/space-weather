@@ -174,7 +174,9 @@ never handed over red.
   Unsure whether it shows? Show it. The rig stays up; the closing message
   repeats the URLs and the stop command next to the PR link. Its PR carries
   pictures, dark theme only (`npm run shots`) -- see
-  [docs/development.md](docs/development.md#pictures-for-a-pr).
+  [docs/development.md](docs/development.md#pictures-for-a-pr). The Stop
+  hook (`scripts/rig-hook.mjs`) prints the rig line every turn and blocks
+  the turn while a UI path is touched and no rig serves the worktree.
 - **Never touch version numbers.** `release-please` owns them (see
   Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
   makes the anti-minor bias a config setting -- decline a reviewer's

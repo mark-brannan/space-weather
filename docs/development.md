@@ -21,7 +21,8 @@ chromium` fetches the browser `npm ci` doesn't.
 ## What a session here can show
 
 Whenever a change could affect anything a reader sees, show it running, as
-bare URLs in a list -- and when unsure whether it does, show it. A mock rig
+bare URLs in a list, never inside a code fence (a fenced URL is not a link)
+-- and when unsure whether it does, show it. A mock rig
 nobody needed costs a click; a UI change nobody saw costs a release:
 
 - mock rig on `localhost`
@@ -46,6 +47,24 @@ it were both.
 Share it before re-running the test suite, not after. Start it the way this
 file documents, with the flags this file documents -- a port or `--upstream`
 when the situation calls for one, never an ad hoc proxy or wrapper.
+
+Two hooks in `.claude/settings.json` make this mechanical
+(`scripts/rig-hook.mjs`). On every Stop the user sees the rig, one URL per
+line so each renders as a link, repeats included:
+
+```
+rig  http://localhost:8731/
+rig  http://192.168.x.x:8731/
+rig  http://100.x.x.x:8731/
+stop: node scripts/webapp-ctl.mjs stop 8731
+```
+
+or `rig  none for this worktree`, or `rig  unreachable from here (cloud VM)`.
+While `public/`, `src/browser/` or `scripts/mock-webapp.mjs` is touched and
+no rig serves the worktree, the Stop is blocked until one does; the first
+edit under those paths asks for the rig before anyone has to. `node
+scripts/webapp-ctl.mjs urls` is the same probe by hand: the URLs of the rigs
+whose cwd is this checkout, exit 1 when there are none.
 
 ## Working on the webapp ("rig") without a server
 

@@ -4,6 +4,7 @@
 //   node scripts/webapp-ctl.mjs stop [port]
 //   node scripts/webapp-ctl.mjs list
 //   node scripts/webapp-ctl.mjs orphans
+//   node scripts/webapp-ctl.mjs urls        # rigs serving this checkout, one URL per line
 //
 // A pidfile can't be the source of truth for "is the mock rig running on
 // this port" -- it goes stale the moment the rig was started some other way
@@ -223,6 +224,44 @@ async function cmdStart(port) {
   console.log(`  stop with: node scripts/webapp-ctl.mjs stop ${port}`)
 }
 
+// The rigs whose cwd is this checkout -- `start` spawns with cwd at the repo
+// root and `npm run dev:webapp` runs there too, so cwd is the worktree a rig
+// serves. Prints every reachable form of each one, loopback first, so a
+// caller (the Stop hook, a closing message) never has to work out which
+// address the phone resolves. Exits 1 with nothing printed when none serves
+// this checkout, which is what makes it usable as a test in `sh`.
+function urlsFor(root) {
+  const real = (p) => {
+    try {
+      return realpathSync(p)
+    } catch {
+      return null
+    }
+  }
+  const here = real(root)
+  const addrs = Object.values(os.networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === 'IPv4' && !i.internal)
+    .map((i) => i.address)
+  const urls = []
+  for (const { port, cwd } of listRigs()) {
+    if (!port || !cwd || real(cwd) !== here) continue
+    urls.push(`http://localhost:${port}/`)
+    for (const addr of addrs) urls.push(`http://${addr}:${port}/`)
+  }
+  return urls
+}
+
+function cmdUrls() {
+  const root = run('git', ['rev-parse', '--show-toplevel']).trim() || process.cwd()
+  const urls = urlsFor(root)
+  if (urls.length === 0) {
+    process.exitCode = 1
+    return
+  }
+  for (const u of urls) console.log(u)
+}
+
 const [cmd, arg] = process.argv.slice(2)
 const port = Number(arg) || DEFAULT_PORT
 
@@ -236,13 +275,16 @@ switch (cmd) {
   case 'orphans':
     cmdOrphans()
     break
+  case 'urls':
+    cmdUrls()
+    break
   case 'start':
   case undefined:
     await cmdStart(port)
     break
   default:
     console.error(
-      `unknown command "${cmd}" -- expected start, stop, list, or orphans`
+      `unknown command "${cmd}" -- expected start, stop, list, orphans, or urls`
     )
     process.exitCode = 1
 }
