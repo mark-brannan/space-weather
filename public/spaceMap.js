@@ -131,6 +131,7 @@ export function drawSpaceMap(canvas, options = {}) {
     grids = {},
     layers = LAYER_IDS,
     position,
+    vessel,
     probe,
     now,
     bandContours = false
@@ -203,9 +204,18 @@ export function drawSpaceMap(canvas, options = {}) {
       MAP_TRACK,
       options.distanceFormat
     )
+  // `vessel` only when the reader is looking from somewhere else; otherwise
+  // the viewpoint is the vessel and is drawn as one.
+  if (vessel) {
+    const at = view.toPixel(vessel.longitude, vessel.latitude)
+    if (at) vesselMarker(ctx, at[0], at[1], MAP_TRACK)
+  }
   if (position) {
     const at = view.toPixel(position.longitude, position.latitude)
-    if (at) vesselMarker(ctx, at[0], at[1], MAP_TRACK)
+    if (at) {
+      if (vessel) viewpointMarker(ctx, at[0], at[1], MAP_TRACK)
+      else vesselMarker(ctx, at[0], at[1], MAP_TRACK)
+    }
   }
   ctx.restore()
 
@@ -888,6 +898,21 @@ function vesselMarker(ctx, x, y, color) {
   ctx.closePath()
   ctx.fill()
   ctx.stroke()
+  ctx.restore()
+}
+
+/** A chosen viewpoint: a ringed dot, neither a boat nor a probe's crosshairs. */
+function viewpointMarker(ctx, x, y, color) {
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+  ctx.lineWidth = 1.6
+  ctx.beginPath()
+  ctx.arc(x, y, 6, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(x, y, 2, 0, Math.PI * 2)
+  ctx.fill()
   ctx.restore()
 }
 

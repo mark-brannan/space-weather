@@ -54,7 +54,7 @@ its band.
 
 ## Payload size
 
-Measured 2026-08-28, every endpoint the plugin fetches, in one run of
+Measured 2026-09-28, every endpoint the plugin fetches, in one run of
 `scripts/measure-noaa.mjs`. Wire size is the bytes off the socket with
 `Accept-Encoding: gzip`, which is what the plugin actually costs. The decoded
 size is what a fixture on disk shows, and quoting it overstates the cost by
@@ -68,22 +68,22 @@ that mattered, which is part of how the totals below went stale unnoticed.
 
 | Endpoint | Product | Interval | Wire | Decoded |
 | --- | --- | --- | --- | --- |
-| `/products/noaa-scales.json` | `scales` | `updateInterval` | 211 B | 1.1 KB |
-| `/json/goes/primary/xray-flares-latest.json` | `scales` | `updateInterval` | 452 B | 452 B |
-| `/json/goes/primary/xray-flares-7-day.json` | `scales` | `updateInterval` | 3.2 KB | 16.9 KB |
+| `/products/noaa-scales.json` | `scales` | `updateInterval` | 195 B | 1.1 KB |
+| `/json/goes/primary/xray-flares-latest.json` | `scales` | `updateInterval` | 450 B | 450 B |
+| `/json/goes/primary/xray-flares-7-day.json` | `scales` | `updateInterval` | 2.6 KB | 14.1 KB |
 | `/products/noaa-planetary-k-index-forecast.json` | `kp` | `updateInterval` | 496 B | 6.7 KB |
 | `/products/summary/solar-wind-speed.json` | `solarWind` | `updateInterval` | 59 B | 59 B |
-| `/products/summary/solar-wind-mag-field.json` | `solarWind` | `updateInterval` | 60 B | 60 B |
-| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `goesFluxInterval` | 24.4 KB | 159.5 KB |
-| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `goesFluxInterval` | 7.9 KB | 58.5 KB |
-| `/products/alerts.json` | `alerts` | `updateInterval` | 5.3 KB | 50.3 KB |
-| `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 143.7 KB | 898.9 KB |
-| `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 2.1 KB | 41.5 KB |
-| `/json/f107_cm_flux.json` | `f107` | 4 h | 1.2 KB | 22.3 KB |
-| `/text/wwv.txt` | `aIndex` | 3 h | 346 B | 0.5 KB |
-| `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 845 B | 2.9 KB |
-| `/text/advisory-outlook.txt` | `advisory` | adaptive | 768 B | 1.5 KB |
-| `/text/27-day-outlook.txt` | `outlook27` | 24 h | 442 B | 1.6 KB |
+| `/products/summary/solar-wind-mag-field.json` | `solarWind` | `updateInterval` | 61 B | 61 B |
+| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `goesFluxInterval` | 25.2 KB | 158.8 KB |
+| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `goesFluxInterval` | 7.7 KB | 57.7 KB |
+| `/products/alerts.json` | `alerts` | `updateInterval` | 3.8 KB | 36.4 KB |
+| `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 141.5 KB | 899.0 KB |
+| `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 1.8 KB | 41.5 KB |
+| `/json/f107_cm_flux.json` | `f107` | 4 h | 1.3 KB | 22.8 KB |
+| `/text/wwv.txt` | `aIndex` | 3 h | 302 B | 487 B |
+| `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 799 B | 2.9 KB |
+| `/text/advisory-outlook.txt` | `advisory` | adaptive | 399 B | 731 B |
+| `/text/27-day-outlook.txt` | `outlook27` | 24 h | 476 B | 1.6 KB |
 
 **This table is what `src/endpoints.ts` declares**, at the precision recorded
 here; `test/endpoints.test.ts` renders each declaration back into these units
@@ -91,37 +91,37 @@ and fails if a cell disagrees. So a re-measurement is two edits rather than
 one, and the config form quotes whatever the code declares instead of a
 sentence somebody wrote once.
 
-**The seven rows still marked `updateInterval` come to about 9.7 KB a poll** —
-roughly 230 KB a day at the hourly default. The alerts archive is over half of
+**The seven rows still marked `updateInterval` come to about 7.7 KB a poll** —
+roughly 184 KB a day at the hourly default. The alerts archive is about half of
 it.
 
 **`goesFlux` was three quarters of that poll before it was split off.** Its two
-time-series windows are 32.3 KB together, against 9.7 KB for the other seven
+time-series windows are 33.0 KB together, against 7.7 KB for the other seven
 endpoints put together, and it was the only product on the interval with no
 `enabled` toggle
 ([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
 It now has `goesFluxEnabled`, defaulting **off**, and `goesFluxInterval`,
-defaulting to 60 minutes. A fresh install therefore costs about 301 KB a day
+defaulting to 60 minutes. A fresh install therefore costs about 245 KB a day
 rather than the roughly 1.0 MB it did before, and switching the pair on takes
-it back to about 1.05 MB.
+it back to about 1.0 MB.
 
-The rest of the bill, at the defaults: D-RAP 2.1 KB hourly, about 50 KB a day;
-the fixed-cadence bulletins and indices about 18 KB a day between them. That
-plus the 233 KB poll is the whole of a default install — about 301 KB a day.
-The two opt-in products, if switched on: the GOES flux pair 32.3 KB hourly,
-about 775 KB a day; aurora 143.7 KB every two hours, about 1.7 MB a day.
+The rest of the bill, at the defaults: D-RAP 1.8 KB hourly, about 44 KB a day;
+the fixed-cadence bulletins and indices about 17 KB a day between them. That
+plus the 184 KB poll is the whole of a default install — about 245 KB a day.
+The two opt-in products, if switched on: the GOES flux pair 33 KB hourly,
+about 791 KB a day; aurora 141.5 KB every two hours, about 1.7 MB a day.
 
 **Consequence.** None of the fixed-cadence rows gets a setting. `outlook27` is
-442 B a day, `aIndex` 2.7 KB, `sunspot` 5.0 KB, `f107` 7.2 KB and `advisory`
-about 3.4 KB — 18 KB a day between the five, against 1.0 MB for the poll. A
+476 B a day, `aIndex` 2.4 KB, `sunspot` 4.7 KB, `f107` 7.6 KB and `advisory`
+about 1.7 KB — 17 KB a day between the five, against 1.0 MB for the poll. A
 switch that saves under 2% of the bill is a dial, not a decision.
 
-Earlier figures this run supersedes: the payload table dated 2026-08-09 and its
-"about 5 KB per poll", D-RAP's 3.3 KB from 2026-08-20, and the 7-day flare
-list's 4.9 KB from 2026-08-26. The flare list is the one that genuinely moves
-with the sky rather than with measurement error — it is one record per flare,
-so its size tracks how busy the week was. The rest of the gap is `goesFlux`
-having been added to the poll without the total being re-taken.
+Earlier figures this run supersedes: the 2026-08-28 payload table and its "9.7
+KB a poll" / "301 KB a day" defaults
+([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
+Routine drift, not a new endpoint or a shape change: almost every row moved a
+few percent, `alerts` and the 7-day flare list moved furthest (−28% and −18%),
+and the poll total dropped from 9.7 KB to 7.7 KB.
 
 ### The sunspot number is much cheaper from DSD.txt than from its own products
 
@@ -147,13 +147,13 @@ moved the ground under all three arguments. Aurora (`auroraEnabled`,
 is still the largest single line, but it is now about 1.6× everything else
 combined rather than the thirty times the older figures supported, because the
 non-aurora bill grew to roughly 1.0 MB a day. D-RAP (`drapEnabled`,
-`drapInterval`) measures 2.1 KB, about 50 KB a day at the hourly default —
+`drapInterval`) measures 1.8 KB, about 44 KB a day at the hourly default —
 5% of the poll it used to ride, not the two thirds recorded here before. Its
 switch is not doing the bandwidth job it was given; it stays because it also
 governs whether the product runs at all, and because it shipped.
 
 The GOES flux pair (`goesFluxEnabled`, `goesFluxInterval`) is where that
-bandwidth job actually was: 775 KB a day, three quarters of the non-aurora
+bandwidth job actually was: 791 KB a day, three quarters of the non-aurora
 bill and by far the largest thing a boat on a metered link was paying for
 hourly. It defaults off, on the same rule as aurora — a default of on would
 charge exactly the boat the switch was built for, one that never opens the
@@ -190,19 +190,55 @@ Highlights and Forecasts") carries the **identical** issue timestamp — the
 the independent note in `src/products/advisory.ts` that every captured advisory
 fixture is issued on a Monday between 0100 and 0400 UTC.
 
-**This is one issue, seen twice.** It establishes that the product is weekly
-rather than daily; it does *not* establish that Monday ~0153 UTC holds week to
-week. A separate watch outside this repo is collecting that, one issue per
-week; [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
-tracks it, and the Unmeasured list below says what is still open.
+**Cadence, measured 2026-08-13 through 2026-09-28.** A watch outside this repo
+([#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55))
+polled this endpoint 808 times over eight weeks and saw 10 distinct issues.
+Every week's primary issue landed on a Monday (8 of 8), between 00:58 and
+03:17 UTC — a roughly 2h20m spread, not a fixed minute, consistent with
+`advisory.ts`'s approximate Monday window.
 
-**Consequence.** `outlook27` polls once a day and does not chase the issue
-time. Sleeping until just before it and then polling tightly, the way
-`advisory` does, costs roughly four times the bytes to buy same-morning pickup
-of a product whose value is entirely at the far end of its window. Consecutive
-issues overlap by 20 of their 27 days, and the first three days — where being
-a day late would actually matter — are covered far better by `kp` and
-`scales`.
+**Two of the eight weeks carried a second issue**, diffed byte-for-byte
+against that week's Monday issue:
+
+- 2026-08-24 1801 UTC, 15 hours after that Monday's 0259 issue: a genuine
+  correction. Several days' 10.7cm flux shifted by 5–20 sfu, and Sep 01 moved
+  from 1151 to 120 — NOAA's own forecast error, the one `OUTLOOK_RANGES` in
+  `src/parse.ts` is built around. `OUTLOOK_RANGES` does not reject a value
+  like 1151 (f107 has no meaningful upper physical bound), so this class of
+  error still reaches `outlook27.series` for as long as the bad issue stands.
+- 2026-09-03 1312 UTC, 83.3 hours after the prior Monday's issue: a re-stamp,
+  not a correction. The body is byte-identical to 2026-08-31's issue except
+  the `:Issued:` line.
+
+**Consecutive issues do not hold their overlap steady.** Diffing 2026-09-07
+(Mon 0224 UTC) against 2026-09-14 (Mon 0117 UTC) — the cleanest pair, no
+off-cadence issue between them — every one of the 15 calendar days both
+windows cover changed in at least one column between issues, from a few sfu
+up to a full A-index/Kp category (2026-09-16: A-index 10→20, Kp category
+4→5). The nominal 20-day overlap between consecutive issues is a calendar
+fact, not a stability guarantee.
+
+**Conditional GET, extended past +300s.** 807 conditional probes across the
+watch — gaps from twelve hours down to one hour once the watch tightened its
+own cadence — returned exactly one 304, and that one followed its
+unconditional counterpart by 0.4s in the watch's very first run: a
+back-to-back coincidence, not a real gap. Zero 304s at any measured gap of a
+minute or more, extending "Conditional GET never saves anything" (below) past
+the +300s ceiling it measured.
+
+**Consequence: the poll interval is unchanged.** `outlook27` still polls once
+a day and does not chase the issue time. The measured issue-time cluster
+(2h20m) is tight enough that chasing it would be *possible*, but it does not
+clear the bar this file already set: chasing costs roughly four times the
+bytes for same-morning pickup of a product whose value is at the far end of
+its window, and it would not have caught either off-cadence issue anyway —
+one arrived 15 hours after the chased window, the other 83 hours after. The
+one case with real (if low-stakes) exposure is the 1151 misfire: it is not
+caught by validation, but `outlook27` raises no notification and carries no
+`zones`, so the cost of a visibly anomalous single-day flux value living for
+up to a day is a display artifact, not a wrong alarm — and it beats neither
+that bar nor "the first three days are already covered better by `kp` and
+`scales`." Nothing here argues for a code change.
 
 ## Conditional GET never saves anything
 
@@ -556,20 +592,15 @@ overlapping windows of the same data, not a different shape to pin.
 
 Named so nobody cites this file for them:
 
-- whether any endpoint ever returns 304 at a longer gap than 300s — being
-  collected at a twelve-hour gap for `/text/27-day-outlook.txt` under
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
+- whether any endpoint other than `/text/27-day-outlook.txt` ever returns 304
+  at a longer gap than 300s (that one is now measured — see above: zero 304s
+  at gaps from a minute to twelve hours,
+  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55))
 - whether `Cache-Control: max-age=60` is honoured by any intermediary
 - content cadence for `/json/ovation_aurora_latest.json`,
-  `/text/advisory-outlook.txt`, `/text/27-day-outlook.txt`, `/text/wwv.txt` and
-  `/text/daily-solar-indices.txt` — all five were in the size and
+  `/text/advisory-outlook.txt`, `/text/wwv.txt` and
+  `/text/daily-solar-indices.txt` — all four were in the size and
   conditional-GET runs but not the 15-minute cadence watch
 - whether `/text/wwv.txt` is reissued on the hour it claims (NOAA documents it
   as three-hourly, and `aIndex` polls on that documented cadence rather than a
   measured one); the daily A index it carries moves once a day either way
-- whether `/text/27-day-outlook.txt` is issued on a Monday *every* week, and
-  how tightly the issue time clusters. One issue observed so far; see
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
-- how much two consecutive weekly issues differ across the 20 days their
-  windows overlap; also
-  [#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55)
