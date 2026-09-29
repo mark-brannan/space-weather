@@ -628,7 +628,30 @@ const STATES = {
     peak24h: { G: 0, S: 0, R: 0 },
     kpObserved: 2.33,
     series: series({ peakKp: 3.67, peakInMin: 1800 }),
-    sfi: 96 // Fair (90-119)
+    sfi: 96, // Fair (90-119)
+    // Quiet now, not all week: the plugin backfills what ended in the past
+    // seven days, so a quiet sky on a real server still has a list. The
+    // other quiet-ish states carry none, which keeps the empty list reachable.
+    messages: [
+      {
+        code: 'WARK04',
+        alertLevel: 'WARNING',
+        issuedMin: -4 * 24 * 60,
+        validUntilMin: -4 * 24 * 60 + 9 * 60,
+        endedMin: -4 * 24 * 60 + 9 * 60,
+        state: 'normal',
+        serialNumber: '5190',
+        message: 'WARNING: Geomagnetic K-index of 4 expected',
+        body: [
+          `Valid From: ${fmtIssued(-4 * 24 * 60)}`,
+          `Valid To: ${fmtIssued(-4 * 24 * 60 + 9 * 60)}`,
+          'Warning Condition: Onset',
+          '',
+          'NOAA Space Weather Scale descriptions can be found at',
+          'www.swpc.noaa.gov/noaa-scales-explanation'
+        ]
+      }
+    ]
   },
   recent: {
     // Live on 2026-08-25, and the case that showed the banner was wrong: the
@@ -929,6 +952,8 @@ function payload(name, s) {
         })
       }
       for (const m of s.messages ?? []) {
+        // A backfilled message is stamped when it ended, which is what the
+        // list ages it by; everything else rides the default recent stamp.
         out[m.code] = leaf({
           id: `noaa_swpc_alert_${m.code}`,
           serialNumber: m.serialNumber ?? '1000',
@@ -950,7 +975,7 @@ function payload(name, s) {
           state: m.state,
           method: [],
           predictedByDay: m.predictedByDay ?? []
-        })
+        }, m.endedMin)
       }
       return out
     }

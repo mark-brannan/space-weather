@@ -5,6 +5,7 @@ import {
   messagesSummary,
   messagesTitle
 } from '../public/messages.js'
+import { ALERT_HISTORY_MS } from '../src/parse'
 
 const NOW = Date.parse('2026-08-29T12:00:00.000Z')
 const HOUR = 60 * 60 * 1000
@@ -39,6 +40,12 @@ function leaf(
 }
 
 describe('messagesInForce', () => {
+  it('shows the same week of history the plugin backfills', () => {
+    // A shorter window hides what the plugin published; a longer one waits
+    // for history the plugin never backfills after a restart.
+    expect(RECENT_MS).toBe(ALERT_HISTORY_MS)
+  })
+
   it('reads a published alert leaf into a row the list can draw', () => {
     const [row] = messagesInForce({ ALTK06: leaf('ALTK06') }, NOW)
     expect(row).toMatchObject({

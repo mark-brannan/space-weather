@@ -1145,12 +1145,12 @@
       <div class="tile span-12">
         <div class="tile-head">
           <h2 data-part="messages-title">Messages in force</h2>
-          <a class="info" href="https://www.swpc.noaa.gov/noaa-scales-explanation"
+          <a class="info" href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings"
             target="_blank" rel="noopener">i<span class="bubble">NOAA issues a <strong>watch</strong>
             when a storm is expected days out, a <strong>warning</strong> when it is expected within
             hours, an <strong>alert</strong> when it is observed, and a <strong>summary</strong> once
-            it is over. This lists what is in force now, plus anything stood down in the last two
-            days that this plugin saw &mdash; it is not NOAA&rsquo;s archive.</span></a>
+            it is over. This lists what is in force now, then the last message of each kind to end
+            in the past week. Click for NOAA&rsquo;s full list.</span></a>
         </div>
         <div data-slot="messages">
           <div class="empty-state">Waiting for data&hellip;</div>
@@ -2449,7 +2449,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   function drawMessages(list) {
     const markup = messageRows.length === 0
-      ? '<div class="empty-state">No NOAA messages in force.</div>'
+      ? '<div class="empty-state">No watches, warnings or alerts from NOAA in the past week.' +
+        ' <a href="https://www.swpc.noaa.gov/products/alerts-watches-and-warnings"' +
+        ' target="_blank" rel="noopener">NOAA&rsquo;s full list</a></div>'
       : messageRows.map(messageMarkup).join('');
     // Rewriting identical markup would still reset the scroll position inside
     // a long message body, which is the other half of reading one.
