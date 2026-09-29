@@ -60,7 +60,9 @@ look up with `hostname -I`. To narrow it back to loopback on a network you
 don't trust, `npm run dev:webapp -- --host 127.0.0.1` -- the `--` is not
 optional, npm swallows the flag without it and leaves the server bound to
 every interface, which is the one mistake this option exists to prevent.
-Kill it when done; don't leave stray listeners behind.
+Rigs are left running, not killed on exit -- `npm run dev:webapp:orphans`
+stops the ones whose worktree is gone. The closing message of any session
+that starts a rig carries its stop command.
 
 **In a sandboxed agent session, background it with `&` and `disown` in the
 same shell call, and don't use `pkill` to manage it.** `pkill` gets killed

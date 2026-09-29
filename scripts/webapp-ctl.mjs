@@ -3,6 +3,7 @@
 //   node scripts/webapp-ctl.mjs start [port]   # default 8731
 //   node scripts/webapp-ctl.mjs stop [port]
 //   node scripts/webapp-ctl.mjs list
+//   node scripts/webapp-ctl.mjs orphans
 //
 // A pidfile can't be the source of truth for "is the mock rig running on
 // this port" -- it goes stale the moment the rig was started some other way
@@ -18,14 +19,20 @@
 // No dependencies -- only node:child_process, node:os -- matching the rest
 // of scripts/.
 import { execFileSync } from 'node:child_process'
+import { existsSync, readlinkSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 
 const SIGNATURE = 'mock-webapp.mjs'
 const DEFAULT_PORT = 8731
 
+// stderr is dropped: lsof warns about every filesystem it can't stat (WSL's
+// 9p mounts, for one), once per call, and this script calls it per rig.
 function run(cmd, args) {
   try {
-    return execFileSync(cmd, args, { encoding: 'utf8' })
+    return execFileSync(cmd, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
   } catch {
     return ''
   }
@@ -48,8 +55,21 @@ function isOurs(pid) {
   return commOf(pid) === 'node' && argsOf(pid).includes(SIGNATURE)
 }
 
+// The rig's working directory -- /proc is universal on Linux; lsof's `cwd`
+// fd entry is the macOS fallback (Linux lsof supports it too, but /proc is
+// cheaper and doesn't need lsof at all).
+function cwdOf(pid) {
+  try {
+    return readlinkSync(`/proc/${pid}/cwd`)
+  } catch {
+    const out = run('lsof', ['-p', String(pid), '-d', 'cwd', '-Fn'])
+    const line = out.split('\n').find((l) => l.startsWith('n'))
+    return line ? line.slice(1) : null
+  }
+}
+
 // Every currently-running mock-webapp.mjs pid, with its port if it's
-// listening yet.
+// listening yet and the directory it was started from.
 function listRigs() {
   const psOut = run('ps', ['-eo', 'pid=,comm=,args='])
   const rigs = []
@@ -61,7 +81,7 @@ function listRigs() {
     const lsofOut = run('lsof', ['-aiTCP', '-sTCP:LISTEN', '-p', pid, '-Fn'])
     const portLine = lsofOut.split('\n').find((l) => /^n.*:\d+$/.test(l))
     const port = portLine ? portLine.replace(/^n.*:/, '') : null
-    rigs.push({ pid, port })
+    rigs.push({ pid, port, cwd: cwdOf(pid) })
   }
   return rigs
 }
@@ -72,13 +92,64 @@ function cmdList() {
     console.log('no mock-webapp.mjs processes running')
     return
   }
-  for (const { pid, port } of rigs) {
+  for (const { pid, port, cwd } of rigs) {
+    const where = cwd || 'cwd unknown'
     console.log(
       port
-        ? `port ${port}  running (pid ${pid})  http://127.0.0.1:${port}/`
-        : `pid ${pid}  running, not yet listening on any port`
+        ? `port ${port}  running (pid ${pid})  http://127.0.0.1:${port}/  ${where}`
+        : `pid ${pid}  running, not yet listening on any port  ${where}`
     )
   }
+}
+
+// Is `cwd` inside a live worktree of the repo it sits in? Ask that repo, not
+// the repo this script happens to run from -- a rig started from a
+// different checkout answers against its own `git worktree list`. Both
+// sides are resolved through realpath: /proc reports the canonical path,
+// git reports the path the worktree was registered under, and a symlink in
+// either would otherwise read as an orphan and get the rig killed.
+function isLiveWorktree(cwd) {
+  const top = run('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).trim()
+  if (!top) return false
+  const real = (p) => {
+    try {
+      return realpathSync(p)
+    } catch {
+      return null
+    }
+  }
+  const out = run('git', ['-C', top, 'worktree', 'list', '--porcelain'])
+  return out
+    .split('\n\n')
+    .map((block) => block.match(/^worktree (.+)$/m)?.[1])
+    .filter(Boolean)
+    .map(real)
+    .includes(real(top))
+}
+
+function cmdOrphans() {
+  const rigs = listRigs()
+  if (rigs.length === 0) {
+    console.log('no mock-webapp.mjs processes running')
+    return
+  }
+  let stopped = 0
+  for (const { pid, port, cwd } of rigs) {
+    if (!isOurs(pid)) {
+      console.error(
+        `pid ${pid} no longer looks like a ${SIGNATURE} process -- not touching it. cmdline: ${argsOf(pid)}`
+      )
+      continue
+    }
+    const orphaned = !cwd || !existsSync(cwd) || !isLiveWorktree(cwd)
+    if (!orphaned) continue
+    process.kill(Number(pid))
+    stopped++
+    console.log(
+      `stopped orphaned rig (pid ${pid}, cwd ${cwd || 'unknown'}${port ? `, port ${port}` : ''})`
+    )
+  }
+  if (stopped === 0) console.log('no orphaned rigs')
 }
 
 function cmdStop(port) {
@@ -154,11 +225,16 @@ switch (cmd) {
   case 'stop':
     cmdStop(port)
     break
+  case 'orphans':
+    cmdOrphans()
+    break
   case 'start':
   case undefined:
     await cmdStart(port)
     break
   default:
-    console.error(`unknown command "${cmd}" -- expected start, stop, or list`)
+    console.error(
+      `unknown command "${cmd}" -- expected start, stop, list, or orphans`
+    )
     process.exitCode = 1
 }

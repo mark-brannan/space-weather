@@ -168,10 +168,13 @@ never handed over red.
 - One logical change per PR. Title as the release note -- it becomes one.
   Rebase onto `main`, never merge it in.
 - **Any change a reader could see -- `public/`, styling, copy, layout, a
-  consumer's chrome -- is shown on the mock rig as bare URLs before the tests
-  re-run** ([docs/development.md](docs/development.md#what-a-session-here-can-show)).
-  Unsure whether it shows? Show it. Its PR carries pictures, dark theme only
-  (`npm run shots`) -- see [docs/development.md](docs/development.md#pictures-for-a-pr).
+  consumer's chrome -- is shown on the mock rig as bare URLs, both forms,
+  before the tests re-run**
+  ([docs/development.md](docs/development.md#what-a-session-here-can-show)).
+  Unsure whether it shows? Show it. The rig stays up; the closing message
+  repeats the URLs and the stop command next to the PR link. Its PR carries
+  pictures, dark theme only (`npm run shots`) -- see
+  [docs/development.md](docs/development.md#pictures-for-a-pr).
 - **Never touch version numbers.** `release-please` owns them (see
   Releasing). Commit `type` is the only input; `bump-patch-for-minor-pre-major`
   makes the anti-minor bias a config setting -- decline a reviewer's
