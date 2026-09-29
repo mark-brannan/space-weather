@@ -34,17 +34,18 @@ import { OUTLOOK_27_DAY } from '../endpoints.js'
  * polling tightly, the way `advisory` does -- would cost about four times the
  * bytes to buy same-morning pickup of a product whose value is entirely at
  * the far end of its window. A day late means holding the previous issue for
- * one day in seven, and consecutive issues overlap by 20 of their 27 days.
- * Where staleness would actually matter is the next 72 hours, and `kp` and
- * `scales` already cover that at far higher resolution and skill.
+ * one day in seven. Where staleness would actually matter is the next 72
+ * hours, and `kp` and `scales` already cover that at far higher resolution
+ * and skill. The measured cadence, and the off-cadence corrections chasing
+ * would have missed anyway, are in docs/noaa-products.md.
  */
 const INTERVAL_MINUTES = 1440
 
 /**
  * Well past the reissue interval. A stale outlook is still the best available
- * answer for most of the window it covers -- the far end of it barely moves
- * between issues -- so this is deliberately looser than the six hours the
- * real-time products use.
+ * answer for the window it covers -- there is no other product past 72 hours
+ * -- so this is deliberately looser than the six hours the real-time products
+ * use.
  */
 const TIMEOUT_SECONDS = 60 * 60 * 36
 
