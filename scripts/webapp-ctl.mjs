@@ -143,7 +143,15 @@ function cmdOrphans() {
     }
     const orphaned = !cwd || !existsSync(cwd) || !isLiveWorktree(cwd)
     if (!orphaned) continue
-    process.kill(Number(pid))
+    // One rig we can't signal (another user's, or gone between list and
+    // kill) must not abort the sweep for the rest.
+    try {
+      process.kill(Number(pid))
+    } catch (e) {
+      console.error(`pid ${pid}: could not stop (${e.code || e.message})`)
+      process.exitCode = 1
+      continue
+    }
     stopped++
     console.log(
       `stopped orphaned rig (pid ${pid}, cwd ${cwd || 'unknown'}${port ? `, port ${port}` : ''})`
