@@ -780,6 +780,11 @@
      thing the map does. Widened and given real tick numbers -- a colour ramp
      with no numbers on it isn't a scale, and NOAA's own legend graphics
      always carry a few (Mark's test-rig punch list). */
+  /* The greyline's key: four swatches, each the layer's own ink over the map's
+     own ground, so it reads the same on a light page as on the map. */
+  .greyline-legend { flex-direction: row; justify-content: space-between; gap: 6px; }
+  .greyline-legend .stop { display: flex; align-items: center; gap: 4px; font-size: 0.55rem; color: var(--text-dim); white-space: nowrap; }
+  .greyline-legend .swatch { width: 12px; height: 10px; border-radius: 2px; }
   .map-legend .bar {
     position: relative; width: 100%; min-width: var(--legend-bar-width); height: 10px; border-radius: 4px;
     background: linear-gradient(90deg, rgb(23,227,16), rgb(45,247,3), rgb(248,255,1), rgb(255,163,0), rgb(228,0,0));
@@ -1297,7 +1302,8 @@ import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
 import { LAYOUT_KEY, defaultLayout, layoutFromText, placeRun, toggleSlot } from './layout.js';
 import { auroraSampler } from './mapRaster.js';
 import { SOURCE_LABEL, canLocate, formatCoords, parseCoords, readChosen, resolveViewpoint, writeChosen } from './viewpoint.js';
-import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
+import { greylineLegend } from './greyline.js';
+import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAP_GROUND, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
   const REFRESH_MS = 60000;
@@ -2971,7 +2977,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // NOAA's colorbar says how much is absorbed; these say which of the
     // reader's own bands has gone under. Drawn over NOAA's colours, never
     // instead of them.
-    bandEdges: true
+    bandEdges: true,
+    // Where day is. On by default: it costs no fetch and can never be
+    // missing, and it is what the other two layers are read against --
+    // absorption is a dayside thing, the aurora a nightside one.
+    greyline: true
   }
 
   // The cached grids this page has read back, per layer, plus whatever went
@@ -3099,6 +3109,16 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   function auroraLegendHtml() {
     return `<div class="map-legend"><span class="bar"></span>
       ${tickMarksHtml(AURORA_TICKS)}${scaleTicksHtml(AURORA_TICKS)}</div>`
+  }
+
+  function greylineLegendHtml() {
+    const stops = greylineLegend()
+      .map(({ label, rgba }) => {
+        const ink = rgba ? `rgba(${rgba.slice(0, 3).map(Math.round).join(',')},${rgba[3].toFixed(3)})` : 'transparent'
+        return `<span class="stop"><span class="swatch" style="background:linear-gradient(${ink},${ink}),${MAP_GROUND}"></span>${label}</span>`
+      })
+      .join('')
+    return `<div class="map-legend greyline-legend">${stops}</div>`
   }
 
   function drapLegendHtml() {
@@ -3235,6 +3255,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       vessel: viewpointSource === 'vessel' ? null : vesselPosition,
       probe: layerOn('drap') ? drapProbe : null,
       bandContours: mapControls.bandEdges,
+      greyline: mapControls.greyline,
       distanceFormat
     })
     canvas.classList.toggle('probe-cursor', layerOn('drap') && !!lastPosition && !!mapEntries.drap)
@@ -3308,7 +3329,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       const last = layerOn(id) && mapControls.layers.size === 1
       return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
         type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
-    }).join('')
+    }).join('') +
+      // Beside the products, but outside their at-least-one-stays-on rule:
+      // it draws from the clock rather than a grid, so on its own it would
+      // still leave nothing of NOAA's on the map.
+      `<label class="check" title="Light the day side and the twilight band, from this device's clock. No fetch."><input
+        type="checkbox" id="mapGreyline" ${mapControls.greyline ? 'checked' : ''}> Greyline</label>`
     // No "Layers"/"View"/"Zoom" headings over the groups: every control under
     // them already says its own name -- the checkboxes are the layer names,
     // the buttons are the projections, the readout says how far the slider
@@ -3387,7 +3413,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // The aurora reading at the vessel sits with the layer it comes out of,
     // rather than in a tile on a dashboard that draws no map. It is a value
     // sampled from this grid at this position; the grid is right here.
-    return `<div class="map-footer"><div id="mapProbe"></div>${sections}
+    // A row like the products' own, less the refresh and the timestamp: there
+    // is nothing to fetch and nothing to go stale.
+    const greyline = `<div class="map-section${mapControls.greyline ? '' : ' off'}">
+        <span class="sec-label">Greyline</span><span class="sec-time">from this device's clock</span>${greylineLegendHtml()}
+      </div>`
+    return `<div class="map-footer"><div id="mapProbe"></div>${sections}${greyline}
       <div class="map-section aurora-rail">
         <span class="sec-label">Aurora at your position</span>
         <div data-slot="aurora"><div class="empty-state">Waiting for data&hellip;</div></div>
@@ -3501,6 +3532,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const zoom = document.getElementById('mapZoom')
     if (zoom) zoom.addEventListener('input', () => setRadius(Number(zoom.value), { snap: true }))
     wireViewpoint(body)
+    const greyline = document.getElementById('mapGreyline')
+    greyline?.addEventListener('change', () => {
+      mapControls.greyline = greyline.checked
+      renderMap()
+    })
     const bandEdges = document.getElementById('mapBandEdges')
     if (bandEdges) {
       bandEdges.addEventListener('change', () => {
@@ -3848,6 +3884,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       // it the moment it is shown again.
       drawMapCanvas();
       drawProbeReadout();
+    } else if (mapControls.greyline && mapState === 'ready') {
+      // The greyline is the clock, not a grid: a minute moves the terminator
+      // a quarter of a degree, so it is redrawn on the tick whether or not the
+      // boat moved. Same no-op while the map view is hidden.
+      drawMapCanvas();
     }
   }
 
