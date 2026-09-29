@@ -239,6 +239,26 @@ describe('mapView', () => {
     }
   })
 
+  it('fits the view to the part of the canvas the chrome leaves uncovered', () => {
+    // `inset` is canvas covered by controls floating over it. The radius is
+    // honoured on the shorter axis of what is left, and the centre sits in
+    // the middle of it, in both projections.
+    for (const projection of ['azimuthal', 'cylindrical'] as const) {
+      const view = mapView({
+        projection,
+        center: { latitude: 0, longitude: 0 },
+        radiusDeg: 60,
+        width: 1000,
+        height: 740,
+        inset: { top: 66, bottom: 237 }
+      })
+      const middle = view.toPixel(view.center.longitude, view.center.latitude)!
+      expect(middle[0]).toBeCloseTo(500, 6)
+      expect(middle[1]).toBeCloseTo(66 + 437 / 2, 6)
+      expect(view.toPixel(0, 60)![1]).toBeCloseTo(66, 6)
+    }
+  })
+
   it('leaves a margin around the disc past 180', () => {
     // The zoom control runs to 200 so that "all the way out" is a globe with
     // room around it rather than one cropped at the rim. The antipode is the

@@ -187,6 +187,39 @@ describe('rasterize', () => {
     expect(raster.data[middle + 3]).toBe(255)
   })
 
+  it('keeps a whole-world disc out from under the chrome floating over it', () => {
+    // Below 1100px the toolbar and the readout are translucent strips over
+    // the top and bottom of the canvas. Fitting the disc to the whole canvas
+    // put the rim of the planet -- at a mid-northern centre, the southern
+    // auroral oval -- under those strips, where it read as the map painting
+    // over its own controls
+    // (found reviewing mark-brannan/signalk-noaa-space-weather#351).
+    const inset = { top: 66, bottom: 237 }
+    const view = mapView({
+      projection: 'azimuthal',
+      center: { latitude: 20, longitude: 0 },
+      radiusDeg: 180,
+      width: 1000,
+      height: 740,
+      inset
+    })
+    const raster = rasterize(view, layers(flatDrapGrid(25)), { maxSide: 1000 })
+    expect(raster.height).toBe(740)
+    const alphaAt = (x: number, y: number) =>
+      raster.data[(y * raster.width + x) * 4 + 3]
+    const covered = (y: number) =>
+      y < inset.top || y >= raster.height - inset.bottom
+    let inkUnderChrome = 0
+    for (let y = 0; y < raster.height; y++) {
+      if (!covered(y)) continue
+      for (let x = 0; x < raster.width; x++) if (alphaAt(x, y)) inkUnderChrome++
+    }
+    expect(inkUnderChrome).toBe(0)
+    // ...and the globe still spans the whole of the uncovered height.
+    expect(alphaAt(500, inset.top + 1)).toBe(255)
+    expect(alphaAt(500, raster.height - inset.bottom - 2)).toBe(255)
+  })
+
   it('composites layers in the order it is given', () => {
     const view = mapView({
       projection: 'cylindrical',
