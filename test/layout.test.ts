@@ -5,6 +5,7 @@ import {
   layoutFromText,
   mergeLayout,
   moveSlot,
+  placeSlot,
   toggleSlot
 } from '../public/layout.js'
 
@@ -107,6 +108,30 @@ describe('moving and folding a tile', () => {
     expect(moveSlot(layout, 'scales', -1)).toBe(layout)
     expect(moveSlot(layout, 'hf', 1)).toBe(layout)
     expect(moveSlot(layout, 'hero', 1)).toBe(layout)
+  })
+
+  it('drops a slot at an index and keeps the rest in order', () => {
+    expect(order(placeSlot(defaultLayout(), 'hf', 0))).toEqual([
+      'hf',
+      'scales',
+      'kp',
+      'solar'
+    ])
+    expect(order(placeSlot(defaultLayout(), 'scales', 2))).toEqual([
+      'kp',
+      'solar',
+      'scales',
+      'hf'
+    ])
+    expect(order(placeSlot(defaultLayout(), 'kp', 99))).toEqual([
+      'scales',
+      'solar',
+      'hf',
+      'kp'
+    ])
+    const layout = defaultLayout()
+    expect(placeSlot(layout, 'kp', 1)).toBe(layout)
+    expect(placeSlot(layout, 'hero', 0)).toBe(layout)
   })
 
   it('never changes the list it was given', () => {

@@ -61,6 +61,19 @@ export function moveSlot(layout, slot, step) {
   return next
 }
 
+/** The layout with `slot` moved to `index`, the other entries keeping their
+ *  order; unchanged when the slot is not in it. */
+export function placeSlot(layout, slot, index) {
+  const from = layout.findIndex((entry) => entry.slot === slot)
+  if (from < 0) return layout
+  const to = Math.max(0, Math.min(layout.length - 1, index))
+  if (to === from) return layout
+  const next = layout.slice()
+  const [entry] = next.splice(from, 1)
+  next.splice(to, 0, entry)
+  return next
+}
+
 /** The layout with `slot` folded or unfolded. */
 export const toggleSlot = (layout, slot) =>
   layout.map((entry) =>

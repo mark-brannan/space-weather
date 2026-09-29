@@ -457,11 +457,23 @@
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
 
-  /* Move and fold controls, on the dashboard tiles only. They sit at the far
-     end of the head row so the title, its refresh button and the info icon
-     keep their places whether or not a tile has them. A folded tile keeps
-     the whole head row and nothing below it: the title is what says which
-     tile it is, and the controls are what bring it back. */
+  /* Move and fold, on the dashboard tiles only. The grip at the start of the
+     head row is the drag handle -- the six-dot glyph readers already know
+     from every sortable list -- and the chevron at the far end is the
+     disclosure, turned to point at the body it hides, as a native <details>
+     does. Neither moves the title, the refresh button or the info icon. A
+     folded tile keeps the whole head row and nothing below it: the title is
+     what says which tile it is, and the chevron is what brings it back. */
+  .tile-grip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 26px; margin: 0 -2px 0 -6px; padding: 0; border: 0; border-radius: 4px;
+    background: transparent; color: var(--text-dim); cursor: grab; touch-action: none; flex: none;
+  }
+  .tile-grip svg { width: 10px; height: 16px; fill: currentColor; }
+  .tile-grip:hover, .tile-grip:focus-visible { color: var(--amber); }
+  .tile-grip:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .tile.dragging { opacity: 0.55; border-color: var(--amber); }
+  .tile.dragging .tile-grip { cursor: grabbing; }
   .tile-tools { margin-left: auto; display: inline-flex; gap: 2px; flex: none; }
   .tile-tool {
     display: inline-flex; align-items: center; justify-content: center;
@@ -485,6 +497,7 @@
     /* A thumb target on the phone; the row has room now that the tools are
        the only thing at its far end. */
     .tile-tool { width: 32px; height: 32px; }
+    .tile-grip { width: 26px; height: 32px; margin-left: -8px; }
   }
 
   /* The HF window, on the same 0-35 MHz axis NOAA's D-RAP colorbar and this
@@ -1243,7 +1256,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
-import { LAYOUT_KEY, defaultLayout, layoutFromText, moveSlot, toggleSlot } from './layout.js';
+import { LAYOUT_KEY, defaultLayout, layoutFromText, moveSlot, placeSlot, toggleSlot } from './layout.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
@@ -1337,8 +1350,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const dashboardGrid = document.querySelector('#view-dashboard .grid');
   const tileFor = (slot) => dashboardGrid.querySelector(`.tile[data-tile="${slot}"]`);
   const SVG = {
-    up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg>',
-    down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>',
+    grip: '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg>',
     fold: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>'
   };
   let layout = defaultLayout();
@@ -1360,18 +1372,63 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   }
 
   function applyLayout() {
-    layout.forEach(({ slot, collapsed }, index) => {
+    for (const { slot, collapsed } of layout) {
       const tile = tileFor(slot);
       // Appending in list order walks every tile to the end in turn, which
       // leaves the hero -- never in the list -- where it was, at the top.
       dashboardGrid.appendChild(tile);
       tile.classList.toggle('collapsed', collapsed);
-      const tools = tile.querySelector('.tile-tools');
-      tools.querySelector('.up').disabled = index === 0;
-      tools.querySelector('.down').disabled = index === layout.length - 1;
-      const fold = tools.querySelector('.fold');
+      const fold = tile.querySelector('.tile-tool.fold');
       fold.setAttribute('aria-expanded', String(!collapsed));
       fold.setAttribute('aria-label', collapsed ? 'Expand tile' : 'Collapse tile');
+    }
+  }
+
+  // Dragging is by pointer, not the HTML drag-and-drop API: that API has no
+  // touch support on the phones this page is mostly read on, and its ghost
+  // image cannot be styled. The grip captures the pointer, the tile under it
+  // decides the new index, and the list is re-applied live so the tile is
+  // seen to move rather than a placeholder standing in for it. Nothing is
+  // saved until the pointer lifts.
+  function dragFrom(grip, slot) {
+    grip.addEventListener('pointerdown', (down) => {
+      if (down.button !== 0) return;
+      down.preventDefault();
+      const tile = tileFor(slot);
+      grip.setPointerCapture(down.pointerId);
+      tile.classList.add('dragging');
+      const move = (ev) => {
+        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.tile[data-tile]');
+        if (!under || under === tile) return;
+        const box = under.getBoundingClientRect();
+        const over = layout.findIndex((entry) => entry.slot === under.dataset.tile);
+        const mine = layout.findIndex((entry) => entry.slot === slot);
+        // Crossing the midline of the tile under the pointer is the moment
+        // it swaps; before that, hovering the near half changes nothing.
+        const after = ev.clientY > box.top + box.height / 2;
+        const target = over + (after ? 1 : 0) - (mine < over ? 1 : 0);
+        const next = placeSlot(layout, slot, target);
+        if (next === layout) return;
+        layout = next;
+        applyLayout();
+      };
+      const up = () => {
+        grip.removeEventListener('pointermove', move);
+        tile.classList.remove('dragging');
+        saveLayout();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', up, { once: true });
+      grip.addEventListener('pointercancel', up, { once: true });
+    });
+    // The keyboard route to the same move, so reordering is not
+    // pointer-only; there is no visible arrow because the grip is the idiom.
+    grip.addEventListener('keydown', (ev) => {
+      const step = { ArrowUp: -1, ArrowDown: 1 }[ev.key];
+      if (!step) return;
+      ev.preventDefault();
+      setLayout(moveSlot(layout, slot, step));
+      grip.focus();
     });
   }
 
@@ -1392,10 +1449,17 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       button.addEventListener('click', onClick);
       tools.appendChild(button);
     };
-    tool('up', `Move ${title} up`, 'Move up', () => setLayout(moveSlot(layout, entry.slot, -1)));
-    tool('down', `Move ${title} down`, 'Move down', () => setLayout(moveSlot(layout, entry.slot, 1)));
     tool('fold', 'Collapse tile', 'Collapse or expand', () => setLayout(toggleSlot(layout, entry.slot)));
-    tile.querySelector('.tile-head').appendChild(tools);
+    const grip = document.createElement('button');
+    grip.type = 'button';
+    grip.className = 'tile-grip';
+    grip.setAttribute('aria-label', `Move ${title}: drag, or arrow keys`);
+    grip.title = 'Drag to move';
+    grip.innerHTML = SVG.grip;
+    dragFrom(grip, entry.slot);
+    const head = tile.querySelector('.tile-head');
+    head.prepend(grip);
+    head.appendChild(tools);
   }
   document.getElementById('layoutReset').addEventListener('click', (e) => {
     e.preventDefault();
