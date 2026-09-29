@@ -3884,6 +3884,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAP_GROUND, MAX_RADIUS_DEG, MI
       // it the moment it is shown again.
       drawMapCanvas();
       drawProbeReadout();
+    } else if (mapControls.greyline && mapState === 'ready') {
+      // The greyline is the clock, not a grid: a minute moves the terminator
+      // a quarter of a degree, so it is redrawn on the tick whether or not the
+      // boat moved. Same no-op while the map view is hidden.
+      drawMapCanvas();
     }
   }
 
