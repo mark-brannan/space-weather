@@ -194,9 +194,8 @@ fixture is issued on a Monday between 0100 and 0400 UTC.
 ([#55](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/55))
 polled this endpoint 808 times over eight weeks and saw 10 distinct issues.
 Every week's primary issue landed on a Monday (8 of 8), between 00:58 and
-03:17 UTC — a roughly 2h20m spread, not a fixed minute. That's consistent with
-`advisory.ts`'s Monday-0100-to-0400 window; one of the eight (00:58) lands two
-minutes early of it.
+03:17 UTC — a roughly 2h20m spread, not a fixed minute, consistent with
+`advisory.ts`'s approximate Monday window.
 
 **Two of the eight weeks carried a second issue**, diffed byte-for-byte
 against that week's Monday issue:
