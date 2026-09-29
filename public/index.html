@@ -457,6 +457,49 @@
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
 
+  /* Move and fold, on the dashboard tiles only. The grip at the start of the
+     head row is the drag handle -- the six-dot glyph readers already know
+     from every sortable list -- and the chevron at the far end is the
+     disclosure, turned to point at the body it hides, as a native <details>
+     does. Neither moves the title, the refresh button or the info icon. A
+     folded tile keeps the whole head row and nothing below it: the title is
+     what says which tile it is, and the chevron is what brings it back. */
+  .tile-grip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 26px; margin: 0 -2px 0 -6px; padding: 0; border: 0; border-radius: 4px;
+    background: transparent; color: var(--text-dim); cursor: grab; touch-action: none; flex: none;
+  }
+  .tile-grip svg { width: 10px; height: 16px; fill: currentColor; }
+  .tile-grip:hover, .tile-grip:focus-visible { color: var(--amber); }
+  .tile-grip:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .tile.dragging { opacity: 0.55; border-color: var(--amber); }
+  .tile.dragging .tile-grip { cursor: grabbing; }
+  .tile-tools { margin-left: auto; display: inline-flex; gap: 2px; flex: none; }
+  .tile-tool {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 4px;
+    background: transparent; color: var(--text-dim); cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .tile-tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tile-tool:hover, .tile-tool:focus-visible { color: var(--amber); border-color: var(--amber); }
+  .tile-tool:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .tile-tool:disabled { opacity: 0.3; cursor: default; }
+  .tile-tool:disabled:hover { color: var(--text-dim); border-color: transparent; }
+  .tile-tool.fold svg { transition: transform 0.2s; }
+  .tile.collapsed .tile-tool.fold svg { transform: rotate(-90deg); }
+  .tile.collapsed > :not(.tile-head) { display: none; }
+  .tile.collapsed .tile-head { margin-bottom: 0; }
+  .layout-reset { margin-top: 12px; font-size: 0.72rem; }
+  .layout-reset a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dotted var(--grid); }
+  .layout-reset a:hover { color: var(--amber); border-bottom-color: var(--amber); }
+  @media (max-width: 760px) {
+    /* A thumb target on the phone; the row has room now that the tools are
+       the only thing at its far end. */
+    .tile-tool { width: 32px; height: 32px; }
+    .tile-grip { width: 26px; height: 32px; margin-left: -8px; }
+  }
+
   /* The HF window, on the same 0-35 MHz axis NOAA's D-RAP colorbar and this
      webapp's map legend are drawn against. It replaced nine equal-width band
      chips: those were a ladder of names, so the gap from 2 to 4 MHz drew as
@@ -1037,7 +1080,7 @@
       </div>
 
 
-      <div class="tile span-12">
+      <div class="tile span-12" data-tile="scales">
         <div class="tile-head">
           <h2>NOAA Storm Scales</h2>
           <a class="info" href="https://www.spaceweather.gov/noaa-scales-explanation"
@@ -1058,7 +1101,7 @@
            the numbers, not a different question -- a reader who had the scales
            and wanted Kp had to change tab to get it. Severity-first, so a
            phone scrolling down leaves the least urgent for last. -->
-      <div class="tile span-12">
+      <div class="tile span-12" data-tile="kp">
         <div class="tile-head">
           <h2>Planetary K-Index</h2>
           <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
@@ -1072,7 +1115,7 @@
         </div>
       </div>
 
-      <div class="tile span-4">
+      <div class="tile span-4" data-tile="solar">
         <div class="tile-head">
           <h2>Solar Activity</h2>
           <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
@@ -1086,7 +1129,7 @@
         </div>
       </div>
 
-      <div class="tile span-8" id="hfTile">
+      <div class="tile span-8" id="hfTile" data-tile="hf">
         <div class="tile-head">
           <h2>HF Radio</h2>
           <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
@@ -1105,6 +1148,13 @@
           <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
+    </div>
+
+    <!-- The tiles above can be moved and folded, and the arrangement is kept
+         in this browser. One link undoes all of it; there is no per-tile
+         undo because the default is one click away either way. -->
+    <div class="layout-reset">
+      <a href="#" id="layoutReset">Reset layout</a>
     </div>
 
     <div class="learn-more">
@@ -1214,6 +1264,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { cutoffAt, gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
+import { LAYOUT_KEY, defaultLayout, layoutFromText, placeRun, toggleSlot } from './layout.js';
 import { auroraSampler } from './mapRaster.js';
 import { SOURCE_LABEL, canLocate, formatCoords, parseCoords, readChosen, resolveViewpoint, writeChosen } from './viewpoint.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
@@ -1235,10 +1286,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const VIEWS = ['dashboard', 'advisories', 'map', 'diagnostics'];
   let currentView = null;
 
-  /** Every container for a slot that is on screen. A hidden view has none. */
+  /** Every container for a slot that is on screen. A hidden view has none,
+   *  and neither does a folded tile: both are redrawn from the last poll the
+   *  moment they open, so nothing is drawn into a box with no size. */
   function visibleSlots(name) {
     return [...document.querySelectorAll(`[data-slot="${name}"]`)]
-      .filter((el) => !el.closest('.view[hidden]'));
+      .filter((el) => !el.closest('.view[hidden]') && !el.closest('.tile.collapsed'));
   }
   const kpCanvas = () => visibleSlots('kp')[0]?.querySelector('#kpChart') || null;
 
@@ -1296,6 +1349,224 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // showing a placeholder until the next one, and a reading that appears in
   // two views is drawn from the same numbers both times.
   let latest = null;
+
+  // --- dashboard layout ----------------------------------------------------
+  //
+  // The dashboard tiles can be moved and folded, and the arrangement is kept
+  // per browser. The hero and the Learn more strip are fixed: the verdict is
+  // not a tile to put below the numbers, and the links are not a reading.
+  // What is saved is the list, never the DOM; layout.js decides what a saved
+  // list means and this only applies one.
+  const dashboardGrid = document.querySelector('#view-dashboard .grid');
+  const tileFor = (slot) => dashboardGrid.querySelector(`.tile[data-tile="${slot}"]`);
+  const SVG = {
+    grip: '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg>',
+    fold: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>'
+  };
+  let layout = defaultLayout();
+
+  function saveLayout() {
+    // Storage can be full, disabled or a private window's; the layout still
+    // holds for this page, it just does not survive it.
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch {}
+  }
+
+  function setLayout(next, { slide = false } = {}) {
+    const wasFolded = new Set(layout.filter((entry) => entry.collapsed).map((entry) => entry.slot));
+    const opened = next.some((entry) => !entry.collapsed && wasFolded.has(entry.slot));
+    layout = next;
+    applyLayout({ slide });
+    saveLayout();
+    // A tile that just unfolded drew nothing while it was folded.
+    if (opened) paint();
+  }
+
+  // Where a tile sits with no slide running on it: the box the grid gave it,
+  // not the one an animation is passing through.
+  function restingBox(tile) {
+    const box = tile.getBoundingClientRect();
+    const { m41, m42 } = new DOMMatrixReadOnly(getComputedStyle(tile).transform);
+    return { left: box.left - m41, top: box.top - m42, width: box.width, height: box.height };
+  }
+
+  // Rows as the grid laid them out: the tiles that share an offsetTop, in
+  // order. Read from geometry rather than the spans, so the phone's
+  // one-column grid is one tile to a row and a move there is a plain move.
+  function layoutRows() {
+    const rows = [];
+    for (const { slot } of layout) {
+      const top = tileFor(slot).offsetTop;
+      const last = rows[rows.length - 1];
+      if (last && last.top === top) last.slots.push(slot);
+      else rows.push({ top, slots: [slot] });
+    }
+    return rows;
+  }
+
+  // The index in the layout, with `run` lifted out, that puts it after the
+  // first `count` of the other rows.
+  const indexAfterRows = (others, count) =>
+    others.slice(0, count).reduce((n, row) => n + row.slots.length, 0);
+
+  function applyLayout({ slide = false } = {}) {
+    // FLIP: note where every tile is on screen, move them, then play each
+    // from where it was to where it now rests, so a reader sees a tile go
+    // rather than the grid blink into a new order.
+    const glide = slide && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const was = new Map();
+    if (glide) for (const { slot } of layout) was.set(slot, tileFor(slot).getBoundingClientRect());
+    for (const { slot, collapsed } of layout) {
+      const tile = tileFor(slot);
+      // Appending in list order walks every tile to the end in turn, which
+      // leaves the hero -- never in the list -- where it was, at the top.
+      dashboardGrid.appendChild(tile);
+      tile.classList.toggle('collapsed', collapsed);
+      const fold = tile.querySelector('.tile-tool.fold');
+      fold.setAttribute('aria-expanded', String(!collapsed));
+      fold.setAttribute('aria-label', collapsed ? 'Expand tile' : 'Collapse tile');
+    }
+    for (const [slot, from] of was) {
+      const tile = tileFor(slot);
+      tile.getAnimations().forEach((a) => a.cancel());
+      const to = tile.getBoundingClientRect();
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      if (!dx && !dy) continue;
+      tile.animate(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+        { duration: 180, easing: 'ease-out' }
+      );
+    }
+  }
+
+  // Dragging is by pointer, not the HTML drag-and-drop API: that API has no
+  // touch support on the phones this page is mostly read on, and its ghost
+  // image cannot be styled. The list is re-applied live so the tile is seen
+  // to move rather than a placeholder standing in for it; nothing is saved
+  // until the pointer lifts.
+  //
+  // Rows stay whole. A row -- one full-width tile, or a pair sharing a line
+  // -- moves as a run past other rows, landing above or below one, never
+  // inside it, so dragging Kp across Solar + HF cannot leave either alone on
+  // a half-empty line. Inside its own row a tile swaps with its mate by the
+  // horizontal midline.
+  function dragFrom(grip, slot) {
+    grip.addEventListener('pointerdown', (down) => {
+      if (down.button !== 0) return;
+      down.preventDefault();
+      const tile = tileFor(slot);
+      const capture = () => { try { grip.setPointerCapture(down.pointerId); } catch {} };
+      capture();
+      tile.classList.add('dragging');
+      const move = (ev) => {
+        if (ev.pointerId !== down.pointerId) return;
+        const rows = layoutRows();
+        const mineAt = rows.findIndex((row) => row.slots.includes(slot));
+        const mine = rows[mineAt];
+        const others = rows.filter((row) => row !== mine);
+        // The run goes below every other row whose midline the pointer is
+        // past. Hovering the near half of a row changes nothing; crossing
+        // its middle is the moment it moves.
+        const past = others.filter((row) => {
+          const box = restingBox(tileFor(row.slots[0]));
+          return ev.clientY > box.top + box.height / 2;
+        }).length;
+        let run = mine.slots;
+        if (past === mineAt && run.length > 1) {
+          const mates = run.filter((s) => s !== slot);
+          const left = mates.filter((s) => {
+            const box = restingBox(tileFor(s));
+            return ev.clientX > box.left + box.width / 2;
+          }).length;
+          run = [...mates.slice(0, left), slot, ...mates.slice(left)];
+        }
+        const next = placeRun(layout, run, indexAfterRows(others, past));
+        if (next === layout) return;
+        layout = next;
+        applyLayout({ slide: true });
+        // Re-appending the tile detached the grip for an instant, and that
+        // drops its capture; take it back so the lift still lands here.
+        capture();
+      };
+      // On window, not the grip: the capture can lapse mid-drag, and a
+      // pointerup that misses would leave the tile dimmed and unsaved.
+      const up = (ev) => {
+        if (ev.pointerId !== down.pointerId) return;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        tile.classList.remove('dragging');
+        saveLayout();
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    });
+    // The keyboard route to the same moves, so reordering is not
+    // pointer-only: up and down carry the row past its neighbour, left and
+    // right swap a tile with its row-mate.
+    grip.addEventListener('keydown', (ev) => {
+      const rows = layoutRows();
+      const mineAt = rows.findIndex((row) => row.slots.includes(slot));
+      const mine = rows[mineAt];
+      const others = rows.filter((row) => row !== mine);
+      let run = mine.slots;
+      let past = mineAt;
+      const step = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[ev.key];
+      if (!step) return;
+      ev.preventDefault();
+      if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+        past = Math.max(0, Math.min(others.length, mineAt + step));
+      } else {
+        const from = run.indexOf(slot);
+        const to = from + step;
+        if (to < 0 || to >= run.length) return;
+        run = run.slice();
+        [run[from], run[to]] = [run[to], run[from]];
+      }
+      setLayout(placeRun(layout, run, indexAfterRows(others, past)), { slide: true });
+      grip.focus();
+    });
+  }
+
+  for (const entry of layout) {
+    const tile = tileFor(entry.slot);
+    const title = tile.querySelector('h2').textContent.trim();
+    const tools = document.createElement('div');
+    tools.className = 'tile-tools';
+    // The title is the page's own heading, but it goes in through an
+    // attribute rather than markup so nothing here ever parses text as HTML.
+    const tool = (kind, label, hint, onClick) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `tile-tool ${kind}`;
+      button.setAttribute('aria-label', label);
+      button.title = hint;
+      button.innerHTML = SVG[kind];
+      button.addEventListener('click', onClick);
+      tools.appendChild(button);
+    };
+    tool('fold', 'Collapse tile', 'Collapse or expand', () => setLayout(toggleSlot(layout, entry.slot), { slide: true }));
+    const grip = document.createElement('button');
+    grip.type = 'button';
+    grip.className = 'tile-grip';
+    grip.setAttribute('aria-label', `Move ${title}: drag, or arrow keys`);
+    grip.title = 'Drag to move';
+    grip.innerHTML = SVG.grip;
+    dragFrom(grip, entry.slot);
+    const head = tile.querySelector('.tile-head');
+    head.prepend(grip);
+    head.appendChild(tools);
+  }
+  document.getElementById('layoutReset').addEventListener('click', (e) => {
+    e.preventDefault();
+    try { localStorage.removeItem(LAYOUT_KEY); } catch {}
+    setLayout(defaultLayout(), { slide: true });
+  });
+  let savedLayout = null;
+  try { savedLayout = localStorage.getItem(LAYOUT_KEY); } catch {}
+  layout = layoutFromText(savedLayout);
+  applyLayout();
 
   function paint() {
     if (!latest) return;
