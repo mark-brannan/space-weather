@@ -19,15 +19,20 @@
 // No dependencies -- only node:child_process, node:os -- matching the rest
 // of scripts/.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readlinkSync } from 'node:fs'
+import { existsSync, readlinkSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 
 const SIGNATURE = 'mock-webapp.mjs'
 const DEFAULT_PORT = 8731
 
+// stderr is dropped: lsof warns about every filesystem it can't stat (WSL's
+// 9p mounts, for one), once per call, and this script calls it per rig.
 function run(cmd, args) {
   try {
-    return execFileSync(cmd, args, { encoding: 'utf8' })
+    return execFileSync(cmd, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
   } catch {
     return ''
   }
@@ -97,16 +102,29 @@ function cmdList() {
   }
 }
 
-// Is `cwd` one of the worktrees of the repo it sits in? Ask that repo, not
+// Is `cwd` inside a live worktree of the repo it sits in? Ask that repo, not
 // the repo this script happens to run from -- a rig started from a
-// different checkout answers against its own `git worktree list`.
+// different checkout answers against its own `git worktree list`. Both
+// sides are resolved through realpath: /proc reports the canonical path,
+// git reports the path the worktree was registered under, and a symlink in
+// either would otherwise read as an orphan and get the rig killed.
 function isLiveWorktree(cwd) {
-  const out = run('git', ['-C', cwd, 'worktree', 'list', '--porcelain'])
+  const top = run('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).trim()
+  if (!top) return false
+  const real = (p) => {
+    try {
+      return realpathSync(p)
+    } catch {
+      return null
+    }
+  }
+  const out = run('git', ['-C', top, 'worktree', 'list', '--porcelain'])
   return out
     .split('\n\n')
     .map((block) => block.match(/^worktree (.+)$/m)?.[1])
     .filter(Boolean)
-    .includes(cwd)
+    .map(real)
+    .includes(real(top))
 }
 
 function cmdOrphans() {
