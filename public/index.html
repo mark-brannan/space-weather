@@ -450,6 +450,36 @@
   }
   .info:hover .bubble, .info:focus-visible .bubble { opacity: 1; visibility: visible; }
 
+  /* Move and fold controls, on the dashboard tiles only. They sit at the far
+     end of the head row so the title, its refresh button and the info icon
+     keep their places whether or not a tile has them. A folded tile keeps
+     the whole head row and nothing below it: the title is what says which
+     tile it is, and the controls are what bring it back. */
+  .tile-tools { margin-left: auto; display: inline-flex; gap: 2px; flex: none; }
+  .tile-tool {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: 4px;
+    background: transparent; color: var(--text-dim); cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .tile-tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tile-tool:hover, .tile-tool:focus-visible { color: var(--amber); border-color: var(--amber); }
+  .tile-tool:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .tile-tool:disabled { opacity: 0.3; cursor: default; }
+  .tile-tool:disabled:hover { color: var(--text-dim); border-color: transparent; }
+  .tile-tool.fold svg { transition: transform 0.2s; }
+  .tile.collapsed .tile-tool.fold svg { transform: rotate(-90deg); }
+  .tile.collapsed > :not(.tile-head) { display: none; }
+  .tile.collapsed .tile-head { margin-bottom: 0; }
+  .layout-reset { margin-top: 12px; font-size: 0.72rem; }
+  .layout-reset a { color: var(--text-dim); text-decoration: none; border-bottom: 1px dotted var(--grid); }
+  .layout-reset a:hover { color: var(--amber); border-bottom-color: var(--amber); }
+  @media (max-width: 760px) {
+    /* A thumb target on the phone; the row has room now that the tools are
+       the only thing at its far end. */
+    .tile-tool { width: 32px; height: 32px; }
+  }
+
   /* The HF window, on the same 0-35 MHz axis NOAA's D-RAP colorbar and this
      webapp's map legend are drawn against. It replaced nine equal-width band
      chips: those were a ladder of names, so the gap from 2 to 4 MHz drew as
@@ -1016,7 +1046,7 @@
       </div>
 
 
-      <div class="tile span-12">
+      <div class="tile span-12" data-tile="scales">
         <div class="tile-head">
           <h2>NOAA Storm Scales</h2>
           <a class="info" href="https://www.spaceweather.gov/noaa-scales-explanation"
@@ -1037,7 +1067,7 @@
            the numbers, not a different question -- a reader who had the scales
            and wanted Kp had to change tab to get it. Severity-first, so a
            phone scrolling down leaves the least urgent for last. -->
-      <div class="tile span-12">
+      <div class="tile span-12" data-tile="kp">
         <div class="tile-head">
           <h2>Planetary K-Index</h2>
           <a class="info" href="https://www.swpc.noaa.gov/products/planetary-k-index"
@@ -1051,7 +1081,7 @@
         </div>
       </div>
 
-      <div class="tile span-4">
+      <div class="tile span-4" data-tile="solar">
         <div class="tile-head">
           <h2>Solar Activity</h2>
           <a class="info" href="https://www.swpc.noaa.gov/products/real-time-solar-wind"
@@ -1065,7 +1095,7 @@
         </div>
       </div>
 
-      <div class="tile span-8" id="hfTile">
+      <div class="tile span-8" id="hfTile" data-tile="hf">
         <div class="tile-head">
           <h2>HF Radio</h2>
           <button type="button" id="hfRefresh" class="btn-outline">Refresh</button>
@@ -1084,6 +1114,13 @@
           <div class="empty-state">Waiting for data&hellip;</div>
         </div>
       </div>
+    </div>
+
+    <!-- The tiles above can be moved and folded, and the arrangement is kept
+         in this browser. One link undoes all of it; there is no per-tile
+         undo because the default is one click away either way. -->
+    <div class="layout-reset">
+      <a href="#" id="layoutReset">Reset layout</a>
     </div>
 
     <div class="learn-more">
@@ -1192,6 +1229,7 @@ import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics
 import { auroraCardState, refreshFailure } from './aurora.js';
 import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
+import { LAYOUT_KEY, defaultLayout, layoutFromText, moveSlot, toggleSlot } from './layout.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
@@ -1211,10 +1249,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   const VIEWS = ['dashboard', 'advisories', 'map', 'diagnostics'];
   let currentView = null;
 
-  /** Every container for a slot that is on screen. A hidden view has none. */
+  /** Every container for a slot that is on screen. A hidden view has none,
+   *  and neither does a folded tile: both are redrawn from the last poll the
+   *  moment they open, so nothing is drawn into a box with no size. */
   function visibleSlots(name) {
     return [...document.querySelectorAll(`[data-slot="${name}"]`)]
-      .filter((el) => !el.closest('.view[hidden]'));
+      .filter((el) => !el.closest('.view[hidden]') && !el.closest('.tile.collapsed'));
   }
   const kpCanvas = () => visibleSlots('kp')[0]?.querySelector('#kpChart') || null;
 
@@ -1272,6 +1312,78 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // showing a placeholder until the next one, and a reading that appears in
   // two views is drawn from the same numbers both times.
   let latest = null;
+
+  // --- dashboard layout ----------------------------------------------------
+  //
+  // The dashboard tiles can be moved and folded, and the arrangement is kept
+  // per browser. The hero and the Learn more strip are fixed: the verdict is
+  // not a tile to put below the numbers, and the links are not a reading.
+  // What is saved is the list, never the DOM; layout.js decides what a saved
+  // list means and this only applies one.
+  const dashboardGrid = document.querySelector('#view-dashboard .grid');
+  const tileFor = (slot) => dashboardGrid.querySelector(`.tile[data-tile="${slot}"]`);
+  const SVG = {
+    up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg>',
+    down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>',
+    fold: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>'
+  };
+  let layout = defaultLayout();
+
+  function saveLayout() {
+    // Storage can be full, disabled or a private window's; the layout still
+    // holds for this page, it just does not survive it.
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch {}
+  }
+
+  function setLayout(next) {
+    const wasFolded = new Set(layout.filter((entry) => entry.collapsed).map((entry) => entry.slot));
+    const opened = next.some((entry) => !entry.collapsed && wasFolded.has(entry.slot));
+    layout = next;
+    applyLayout();
+    saveLayout();
+    // A tile that just unfolded drew nothing while it was folded.
+    if (opened) paint();
+  }
+
+  function applyLayout() {
+    layout.forEach(({ slot, collapsed }, index) => {
+      const tile = tileFor(slot);
+      // Appending in list order walks every tile to the end in turn, which
+      // leaves the hero -- never in the list -- where it was, at the top.
+      dashboardGrid.appendChild(tile);
+      tile.classList.toggle('collapsed', collapsed);
+      const tools = tile.querySelector('.tile-tools');
+      tools.querySelector('.up').disabled = index === 0;
+      tools.querySelector('.down').disabled = index === layout.length - 1;
+      const fold = tools.querySelector('.fold');
+      fold.setAttribute('aria-expanded', String(!collapsed));
+      fold.setAttribute('aria-label', collapsed ? 'Expand tile' : 'Collapse tile');
+    });
+  }
+
+  for (const entry of layout) {
+    const tile = tileFor(entry.slot);
+    const title = tile.querySelector('h2').textContent.trim();
+    const tools = document.createElement('div');
+    tools.className = 'tile-tools';
+    tools.innerHTML = `
+      <button type="button" class="tile-tool up" aria-label="Move ${title} up" title="Move up">${SVG.up}</button>
+      <button type="button" class="tile-tool down" aria-label="Move ${title} down" title="Move down">${SVG.down}</button>
+      <button type="button" class="tile-tool fold" aria-label="Collapse tile" title="Collapse or expand">${SVG.fold}</button>`;
+    tools.querySelector('.up').addEventListener('click', () => setLayout(moveSlot(layout, entry.slot, -1)));
+    tools.querySelector('.down').addEventListener('click', () => setLayout(moveSlot(layout, entry.slot, 1)));
+    tools.querySelector('.fold').addEventListener('click', () => setLayout(toggleSlot(layout, entry.slot)));
+    tile.querySelector('.tile-head').appendChild(tools);
+  }
+  document.getElementById('layoutReset').addEventListener('click', (e) => {
+    e.preventDefault();
+    try { localStorage.removeItem(LAYOUT_KEY); } catch {}
+    setLayout(defaultLayout());
+  });
+  let savedLayout = null;
+  try { savedLayout = localStorage.getItem(LAYOUT_KEY); } catch {}
+  layout = layoutFromText(savedLayout);
+  applyLayout();
 
   function paint() {
     if (!latest) return;
