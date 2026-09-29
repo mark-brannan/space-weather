@@ -124,3 +124,6 @@ dist
 # one into examples/ with `mv` and then `git add` it (these are untracked, so
 # `git mv` refuses them); the rest are raw material.
 /examples/captures/
+
+# PR pictures from scripts/shots.mjs; they go on the PR, not in the tree.
+/shots/
