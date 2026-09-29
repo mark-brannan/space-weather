@@ -36,6 +36,14 @@ const ENDPOINT_BAND = 2.0
  * that forces the band above wide.
  */
 const TOTAL_BAND = 1.25
+/**
+ * Below this, the ratio band does not apply. The bulletins are a few hundred
+ * bytes and move with their content: advisory-outlook.txt went 768 B -> 1.9 KB
+ * -> 399 B across three runs (#4), a ratio no band would hold and a change
+ * no bill would notice. A row this small only matters if it grows past the
+ * floor, and then the band sees it.
+ */
+const ENDPOINT_FLOOR = 4 * 1024
 
 const doc = fileURLToPath(
   new URL('../docs/noaa-products.md', import.meta.url)
@@ -160,9 +168,15 @@ function verdicts(results, expected) {
     } else {
       const ratio = result.wire / doc.wire
       change = `${ratio >= 1 ? '+' : ''}${((ratio - 1) * 100).toFixed(0)}%`
-      const out = ratio > ENDPOINT_BAND || ratio < 1 / ENDPOINT_BAND
+      const small = Math.max(result.wire, doc.wire) < ENDPOINT_FLOOR
+      const out =
+        !small && (ratio > ENDPOINT_BAND || ratio < 1 / ENDPOINT_BAND)
       if (out) drift = true
-      verdict = out ? `DRIFT: outside ±${ENDPOINT_BAND}x` : 'in band'
+      verdict = out
+        ? `DRIFT: outside ±${ENDPOINT_BAND}x`
+        : small
+          ? `in band (under ${show(ENDPOINT_FLOOR)})`
+          : 'in band'
     }
 
     rows.push({
@@ -245,7 +259,8 @@ const lines = [
   `## NOAA wire sizes, ${new Date().toISOString().slice(0, 10)}`,
   '',
   `Against \`docs/noaa-products.md\`, measured ${expected.date}. ` +
-    `Endpoint band ±${ENDPOINT_BAND}x, per-poll total ±${TOTAL_BAND}x.`,
+    `Endpoint band ±${ENDPOINT_BAND}x above ${show(ENDPOINT_FLOOR)}, ` +
+    `per-poll total ±${TOTAL_BAND}x.`,
   '',
   '| Endpoint | Product | HTTP | Wire now | In docs | Change | Verdict |',
   '| --- | --- | --- | --- | --- | --- | --- |'
@@ -286,8 +301,9 @@ if (drift) {
   lines.push(
     '',
     'Re-run `node scripts/measure-noaa.mjs`, update the payload-size table ' +
-      'in `docs/noaa-products.md` and the `updateInterval` description in ' +
-      '`src/config.ts`, then close this. See ' +
+      'in `docs/noaa-products.md`, `wireBytes` in `src/endpoints.ts` and ' +
+      '`public/config-panel.js` (`test/endpoints.test.ts` pins all three), ' +
+      'then close this. See ' +
       'https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112.'
   )
 }

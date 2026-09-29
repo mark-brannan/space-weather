@@ -61,17 +61,17 @@ export const SCALE_NAMES = Object.freeze([
 export const ENDPOINTS = Object.freeze([
   {
     subPath: '/products/noaa-scales.json',
-    wireBytes: 211,
+    wireBytes: 195,
     cadence: { follows: 'updateInterval' }
   },
   {
     subPath: '/json/goes/primary/xray-flares-latest.json',
-    wireBytes: 452,
+    wireBytes: 450,
     cadence: { follows: 'updateInterval' }
   },
   {
     subPath: '/json/goes/primary/xray-flares-7-day.json',
-    wireBytes: 3277,
+    wireBytes: 2675,
     cadence: { follows: 'updateInterval' }
   },
   {
@@ -81,7 +81,7 @@ export const ENDPOINTS = Object.freeze([
   },
   {
     subPath: '/text/27-day-outlook.txt',
-    wireBytes: 442,
+    wireBytes: 476,
     cadence: { fetchesPerDay: 1 }
   },
   {
@@ -91,51 +91,51 @@ export const ENDPOINTS = Object.freeze([
   },
   {
     subPath: '/products/summary/solar-wind-mag-field.json',
-    wireBytes: 60,
+    wireBytes: 61,
     cadence: { follows: 'updateInterval' }
   },
   {
     subPath: '/json/f107_cm_flux.json',
-    wireBytes: 1229,
+    wireBytes: 1300,
     cadence: { fetchesPerDay: 6 }
   },
   {
     subPath: '/json/goes/primary/xrays-6-hour.json',
-    wireBytes: 24986,
+    wireBytes: 25823,
     cadence: { follows: 'goesFluxInterval' },
     requires: 'goesFluxEnabled'
   },
   {
     subPath: '/json/goes/primary/integral-protons-6-hour.json',
-    wireBytes: 8090,
+    wireBytes: 7933,
     cadence: { follows: 'goesFluxInterval' },
     requires: 'goesFluxEnabled'
   },
   {
     subPath: '/text/wwv.txt',
-    wireBytes: 346,
+    wireBytes: 302,
     cadence: { fetchesPerDay: 8 }
   },
   {
     subPath: '/text/daily-solar-indices.txt',
-    wireBytes: 845,
+    wireBytes: 799,
     cadence: { fetchesPerDay: 6 }
   },
   {
     subPath: '/json/ovation_aurora_latest.json',
-    wireBytes: 147149,
+    wireBytes: 144878,
     cadence: { follows: 'auroraInterval' },
     requires: 'auroraEnabled'
   },
   {
     subPath: '/text/drap_global_frequencies.txt',
-    wireBytes: 2150,
+    wireBytes: 1888,
     cadence: { follows: 'drapInterval' },
     requires: 'drapEnabled'
   },
   {
     subPath: '/text/advisory-outlook.txt',
-    wireBytes: 768,
+    wireBytes: 399,
     // No `requires`: sendAdvisoryOutlook governs the notification, not
     // the fetch -- src/products/advisory.ts has no `enabled`, so the
     // bulletin is always part of the bill.
@@ -143,7 +143,7 @@ export const ENDPOINTS = Object.freeze([
   },
   {
     subPath: '/products/alerts.json',
-    wireBytes: 5427,
+    wireBytes: 3920,
     cadence: { follows: 'updateInterval' }
   }
 ])

@@ -665,6 +665,14 @@
   .seg button:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
   .map-toolbar input[type="range"] { width: 110px; accent-color: var(--amber); cursor: pointer; }
   .map-toolbar .reading { font-variant-numeric: tabular-nums; color: var(--text); min-width: 5.5em; }
+  /* Where the readings are for. A text field rather than a picker: a position
+     is two numbers the reader already has in hand. */
+  .map-toolbar .viewpoint input[type="text"] {
+    width: 11em; font: inherit; font-variant-numeric: tabular-nums; color: var(--text);
+    background: transparent; border: 1px solid var(--grid); border-radius: 4px; padding: 4px 6px;
+  }
+  .map-toolbar .viewpoint input[aria-invalid="true"] { border-color: var(--sev-4); }
+  .map-toolbar .viewpoint .btn-outline { padding: 3px 9px; font-size: 0.6rem; }
   /* Sized in JS: the viewport follows the projection and the expand state, so
      an azimuthal disc is not squeezed into a letterbox. */
   /* The ground is painted by spaceMap.js, not by CSS -- see MAP_GROUND there
@@ -1204,8 +1212,10 @@ import { fluxOverlay } from './flux.js';
 import { AuthRequiredError, distanceUnitPreference, fetchGridCache, fetchTelemetry, forceRefresh, getJson, leafTime, leafValue, readAll } from './signalk.js';
 import { diagnosticsMarkup, diagnosticsView, footstripNote } from './diagnostics.js';
 import { auroraCardState, refreshFailure } from './aurora.js';
-import { gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
+import { cutoffAt, gridSummary, legendMhzTicks, legendStops, pathAbsorption } from './drapMap.js';
 import { DEFAULT_PROJECTION, PROJECTIONS } from './projection.js';
+import { auroraSampler } from './mapRaster.js';
+import { SOURCE_LABEL, canLocate, formatCoords, parseCoords, readChosen, resolveViewpoint, writeChosen } from './viewpoint.js';
 import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG, RADIUS_STEP_DEG, drawSpaceMap, fmtLat, fmtLon, formatDistanceNm, positionAt } from './spaceMap.js';
 (() => {
   'use strict';
@@ -1289,7 +1299,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
 
   function paint() {
     if (!latest) return;
-    const { data, kp, status, pos } = latest;
+    const { data, kp, status } = latest;
     const card = scalesCard(data);
     const said = verdict(data, kp, status, data.alerts);
     // Chrome: the chip, the countdown and the footstrip are on screen for
@@ -1309,10 +1319,11 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     for (const el of visibleSlots('advisory')) renderAdvisory(el, data.advisory);
     for (const el of visibleSlots('scales')) renderScales(el, card);
     for (const el of visibleSlots('aurora')) {
-      renderAurora(el, data.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, pos);
+      const reading = auroraReading(data.aurora);
+      renderAurora(el, reading.aurora, auroraScheduled, status?.settings?.auroraInterval, !!status, reading.pos, reading.source);
     }
     for (const el of visibleSlots('solar')) renderSolar(el, solarCard(data));
-    for (const el of visibleSlots('hf')) renderHf(el, hfCard(data));
+    for (const el of visibleSlots('hf')) renderHf(el, hfCard(hfAtViewpoint(data)));
     for (const el of visibleSlots('kp')) renderKp(el, kp, fluxOverlay(data));
     labelAuroraButtons();
   }
@@ -1582,7 +1593,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     setLetter(body.querySelector('#letterR'), card.observed.R);
   }
 
-  function renderAurora(body, aurora, scheduled, intervalMinutes, running, pos) {
+  function renderAurora(body, aurora, scheduled, intervalMinutes, running, pos, source) {
     const p = leafValue(aurora?.probability);
     const state = auroraCardState({ probability: p, scheduled, running });
     if (state !== 'value') {
@@ -1616,7 +1627,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         </svg>
         <div class="pct"><span class="n">${pct}%</span><span class="u">Probability</span></div>
       </div>
-      <div class="aurora-position">${pos ? `${pos.latitude.toFixed(4)}&deg;, ${pos.longitude.toFixed(4)}&deg;` : 'Position unknown'}</div>
+      <div class="aurora-position">${pos ? `${pos.latitude.toFixed(4)}&deg;, ${pos.longitude.toFixed(4)}&deg; &middot; ${SOURCE_LABEL[source]}` : 'Position unknown'}</div>
       <div class="aurora-detail">
         <span>Observed <b>${fmtTime(leafValue(aurora?.observationTime))}</b></span>
         <span>Forecast <b>${fmtTime(leafValue(aurora?.forecastTime))}</b></span>
@@ -2655,7 +2666,15 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
   // preference leaves in place.
   let distanceFormat = formatDistanceNm
 
+  // The place the page reads for: whatever the reader chose (viewpoint.js),
+  // else the vessel. The vessel's last good fix is kept apart, and across a
+  // poll that came back empty -- right after a server restart the position
+  // source may not have published yet, and that must not throw away a
+  // position the map is already centred on.
   let lastPosition = null
+  let viewpointSource = null
+  let vesselPosition = null
+  let chosenPosition = readChosen(location.search, safeStorage())
   let mapState = 'idle' // idle | loading | ready | error
   // Bumped on every loadMap() call; a load whose id no longer matches when
   // its fetch resolves was for controls the reader has already left.
@@ -2831,7 +2850,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         <span class="verdict">The map is blank because the model is quiet, not because it failed to load.</span></div>`
     }
     if (!lastPosition) {
-      return `<div class="drap-probe${off}">No vessel position yet, so there is nothing to draw a path from. The map above is the whole grid.</div>`
+      return `<div class="drap-probe${off}">No position yet, so there is nothing to draw a path from. The map above is the whole grid; enter a position in the toolbar to score paths from it.</div>`
     }
     if (!drapProbe) return ''
     return `<div class="drap-probe${off}">${absorbedWording(drapProbe.worstMHz)}</div>`
@@ -2891,6 +2910,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       radiusDeg: mapControls.radiusDeg,
       inset: chromeInset(canvas),
       position: lastPosition,
+      // Drawn as well when the reader is looking from somewhere else: on a
+      // boat, the boat vanishing from the map would read as a lost fix.
+      vessel: viewpointSource === 'vessel' ? null : vesselPosition,
       probe: layerOn('drap') ? drapProbe : null,
       bandContours: mapControls.bandEdges,
       distanceFormat
@@ -2978,6 +3000,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     return `<div class="map-toolbar">
       <div class="group" role="group" aria-label="Map layers">${layerBoxes}</div>
       <span class="seg" role="group" aria-label="Map projection">${projButtons}</span>
+      <div class="group viewpoint" role="group" aria-label="Viewpoint">${viewpointHtml()}</div>
       <div class="group zoom" role="group" aria-label="Map extent">
         <input type="range" id="mapZoom" min="${MIN_RADIUS_DEG}" max="${MAX_RADIUS_DEG}" step="${RADIUS_STEP_DEG}"
           list="mapZoomStops" value="${mapControls.radiusDeg}"
@@ -2990,6 +3013,24 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
       </div>
       ${mapHelpHtml()}
     </div>`
+  }
+
+  // Where the readings are for, and the two ways to change it. "Use my
+  // location" is offered only where it can work, and asks only when pressed:
+  // a permission prompt on load is a question nobody has been given a reason
+  // to answer yet.
+  function viewpointHtml() {
+    const locate = canLocate(window)
+      ? `<button type="button" class="btn-outline" data-viewpoint="device"
+          title="Ask this browser where it is. The position stays in this page.">Use my location</button>`
+      : ''
+    const back = chosenPosition
+      ? `<button type="button" class="btn-outline" data-viewpoint="vessel">${vesselPosition ? 'Back to vessel' : 'Clear'}</button>`
+      : ''
+    return `<input type="text" data-viewpoint="entry" value="${lastPosition ? formatCoords(lastPosition) : ''}"
+        placeholder="lat, lon" spellcheck="false" autocomplete="off" aria-label="Viewpoint, latitude and longitude"
+        title="Where the readings on this page are for -- e.g. 60.4, 5.3 or 33.9S 151.2E. Remembered in this browser. The plugin's own values and notifications stay at the vessel.">${locate}${back}
+      <span class="reading" data-viewpoint="source">${viewpointSource ? SOURCE_LABEL[viewpointSource] : 'no position'}</span>`
   }
 
   // In the toolbar, not floating on its own over the picture: the reader needs
@@ -3139,6 +3180,7 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     }
     const zoom = document.getElementById('mapZoom')
     if (zoom) zoom.addEventListener('input', () => setRadius(Number(zoom.value), { snap: true }))
+    wireViewpoint(body)
     const bandEdges = document.getElementById('mapBandEdges')
     if (bandEdges) {
       bandEdges.addEventListener('change', () => {
@@ -3146,6 +3188,52 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
         renderMap()
       })
     }
+  }
+
+  function wireViewpoint(body) {
+    const entry = body.querySelector('input[data-viewpoint="entry"]')
+    const said = body.querySelector('[data-viewpoint="source"]')
+    // `change` is Enter or leaving the field. Emptying it is the same as
+    // asking for the vessel back.
+    entry?.addEventListener('change', () => {
+      if (!entry.value.trim()) return chooseViewpoint(null)
+      const place = parseCoords(entry.value)
+      entry.setAttribute('aria-invalid', place ? 'false' : 'true')
+      if (place) chooseViewpoint({ ...place, source: 'entered' })
+      else said.textContent = 'not a position'
+    })
+    body.querySelector('button[data-viewpoint="vessel"]')?.addEventListener('click', () => chooseViewpoint(null))
+    const locate = body.querySelector('button[data-viewpoint="device"]')
+    locate?.addEventListener('click', () => {
+      locate.disabled = true
+      said.textContent = 'locating…'
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => chooseViewpoint({ latitude: coords.latitude, longitude: coords.longitude, source: 'device' }),
+        (err) => {
+          locate.disabled = false
+          said.textContent = err.code === err.PERMISSION_DENIED ? 'location refused' : 'location unavailable'
+        },
+        { maximumAge: 10 * 60 * 1000, timeout: 15000 }
+      )
+    })
+  }
+
+  function chooseViewpoint(place) {
+    chosenPosition = place
+    writeChosen(safeStorage(), place)
+    // ?at= outranks what was remembered, so a link that carried one would
+    // otherwise bring its place back on the next reload over whatever the
+    // reader has chosen since.
+    if (new URLSearchParams(location.search).has('at')) {
+      const url = new URL(location.href)
+      url.searchParams.delete('at')
+      history.replaceState(null, '', url)
+    }
+    applyViewpoint()
+    // renderMap rebuilds the toolbar and repaints; before the map has ever
+    // been shown there is no toolbar, only the tiles.
+    if (mapState === 'ready' || mapState === 'error') renderMap()
+    else paint()
   }
 
   // The body of a single layer's read-back, shared by loadMap (which only
@@ -3391,37 +3479,100 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     // the pair. The card takes only the 24-hour maximum, and picks that path
     // itself -- see scales.js.
     renderMessages(data.alerts);
-    latest = { data, kp, status, pos };
+    if (pos) vesselPosition = pos;
+    applyViewpoint();
+    latest = { data, kp, status };
     paint();
     // Not awaited: a slow or missing telemetry route must not hold up the
     // readings on the page. Forced while the tab is open, so what a reader
     // is looking at keeps up with the poll; on its own ten-minute cadence
     // otherwise, which is plenty for a figure measured over 24 hours.
     readTelemetry(currentView === 'diagnostics').catch(() => {});
+  }
 
-    // A single failed/empty poll (e.g. the position source hasn't published
-    // yet right after a server restart) must not erase a good position the
-    // map is already centered on -- only overwrite it with an actual value.
-    if (pos) {
-      const moved =
-        !lastPosition ||
-        lastPosition.latitude !== pos.latitude ||
-        lastPosition.longitude !== pos.longitude;
-      lastPosition = pos;
-      // The absorption map's paths all start at the boat, so a boat that has
-      // moved makes the drawn path and its numbers stale.
-      // The map is centred on the boat and every scored path starts there, so
-      // a boat that has moved makes both the picture and its numbers stale.
-      if (moved && mapState === 'ready') {
-        if (drapProbe && mapEntries.drap) {
-          const end = drapProbe.points[drapProbe.points.length - 1];
-          drapProbe = pathAbsorption(mapEntries.drap.grid, pos, end);
-        }
-        // Both no-op while the map view is hidden, and the observer redraws
-        // it the moment it is shown again.
-        drawMapCanvas();
-        drawProbeReadout();
+  function safeStorage() {
+    try {
+      return window.localStorage
+    } catch {
+      return null
+    }
+  }
+
+  // Re-resolved whenever the vessel moves or the reader chooses. The map is
+  // centred on the viewpoint and every scored path starts there, so a
+  // viewpoint that has moved makes both the picture and its numbers stale.
+  function applyViewpoint() {
+    const next = resolveViewpoint(chosenPosition, vesselPosition)
+    const relabel = viewpointSource !== (next?.source ?? null)
+    viewpointSource = next?.source ?? null
+    const moved =
+      lastPosition?.latitude !== next?.latitude ||
+      lastPosition?.longitude !== next?.longitude
+    lastPosition = next ? { latitude: next.latitude, longitude: next.longitude } : null
+    // The toolbar is drawn with the map, which can be before the first poll
+    // has said where the vessel is. Never under a reader's cursor, though:
+    // rewriting a field mid-typing would throw their input away.
+    const controls = mapRoot()?.querySelector('.map-toolbar .viewpoint')
+    if ((moved || relabel) && controls && !controls.contains(document.activeElement)) {
+      controls.innerHTML = viewpointHtml()
+      wireViewpoint(controls)
+    }
+    if (moved && mapState === 'ready') {
+      if (drapProbe && mapEntries.drap && lastPosition) {
+        const end = drapProbe.points[drapProbe.points.length - 1];
+        drapProbe = pathAbsorption(mapEntries.drap.grid, lastPosition, end);
+      } else if (!lastPosition) {
+        drapProbe = null;
       }
+      // Both no-op while the map view is hidden, and the observer redraws
+      // it the moment it is shown again.
+      drawMapCanvas();
+      drawProbeReadout();
+    }
+  }
+
+  // The HF gauge sets the D-RAP cutoff against the MUF estimate, and both are
+  // "at this position": the plugin publishes the cutoff at the vessel's cell,
+  // so away from the vessel it is read off the grid the page holds, by the
+  // same nearest cell the plugin uses. With no grid loaded the whole tile
+  // stays at the vessel rather than scoring one place against another.
+  function hfAtViewpoint(data) {
+    if (!lastPosition || viewpointSource === 'vessel') return data
+    const grid = mapEntries.drap?.grid
+    const mhz = cutoffAt(grid, lastPosition.latitude, lastPosition.longitude)
+    if (mhz === null) return data
+    return {
+      ...data,
+      position: { value: lastPosition },
+      drap: {
+        ...data.drap,
+        highest_affected_frequency: { value: mhz * 1e6, timestamp: grid.validTime }
+      }
+    }
+  }
+
+  // The plugin publishes the aurora reading at the vessel. Anywhere else the
+  // page samples the grid it already holds -- bilinear, as the plugin's own
+  // auroraProbabilityAt does, so the two agree where they overlap. With no
+  // grid loaded yet the vessel's reading is shown, labelled as the vessel's,
+  // rather than a number for somewhere it is not.
+  let auroraSampled = { grid: null, sample: null }
+  function auroraReading(published) {
+    const vessel = { aurora: published, pos: vesselPosition, source: 'vessel' }
+    if (!lastPosition || viewpointSource === 'vessel') return vessel
+    const grid = mapEntries.aurora?.grid
+    if (!grid) return vessel
+    if (auroraSampled.grid !== grid) auroraSampled = { grid, sample: auroraSampler(grid) }
+    const percent = auroraSampled.sample?.(lastPosition.latitude, lastPosition.longitude)
+    if (!Number.isFinite(percent)) return vessel
+    return {
+      aurora: {
+        probability: Math.min(100, Math.max(0, percent)) / 100,
+        observationTime: grid['Observation Time'],
+        forecastTime: grid['Forecast Time']
+      },
+      pos: lastPosition,
+      source: viewpointSource
     }
   }
 
