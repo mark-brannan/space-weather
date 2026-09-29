@@ -1380,13 +1380,21 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAX_RADIUS_DEG, MIN_RADIUS_DEG
     const title = tile.querySelector('h2').textContent.trim();
     const tools = document.createElement('div');
     tools.className = 'tile-tools';
-    tools.innerHTML = `
-      <button type="button" class="tile-tool up" aria-label="Move ${title} up" title="Move up">${SVG.up}</button>
-      <button type="button" class="tile-tool down" aria-label="Move ${title} down" title="Move down">${SVG.down}</button>
-      <button type="button" class="tile-tool fold" aria-label="Collapse tile" title="Collapse or expand">${SVG.fold}</button>`;
-    tools.querySelector('.up').addEventListener('click', () => setLayout(moveSlot(layout, entry.slot, -1)));
-    tools.querySelector('.down').addEventListener('click', () => setLayout(moveSlot(layout, entry.slot, 1)));
-    tools.querySelector('.fold').addEventListener('click', () => setLayout(toggleSlot(layout, entry.slot)));
+    // The title is the page's own heading, but it goes in through an
+    // attribute rather than markup so nothing here ever parses text as HTML.
+    const tool = (kind, label, hint, onClick) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `tile-tool ${kind}`;
+      button.setAttribute('aria-label', label);
+      button.title = hint;
+      button.innerHTML = SVG[kind];
+      button.addEventListener('click', onClick);
+      tools.appendChild(button);
+    };
+    tool('up', `Move ${title} up`, 'Move up', () => setLayout(moveSlot(layout, entry.slot, -1)));
+    tool('down', `Move ${title} down`, 'Move down', () => setLayout(moveSlot(layout, entry.slot, 1)));
+    tool('fold', 'Collapse tile', 'Collapse or expand', () => setLayout(toggleSlot(layout, entry.slot)));
     tile.querySelector('.tile-head').appendChild(tools);
   }
   document.getElementById('layoutReset').addEventListener('click', (e) => {
