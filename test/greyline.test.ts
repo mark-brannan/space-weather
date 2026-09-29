@@ -50,6 +50,20 @@ describe('solarElevationDeg', () => {
 })
 
 describe('subsolarPoint', () => {
+  it('matches the almanac at the equinox and both solstices', () => {
+    // 12:00 UTC: the declination is the season, the longitude is the equation
+    // of time (-7.5 min in March puts the sun ~1.9 degrees east of Greenwich).
+    const march = subsolarPoint(EQUINOX_NOON_UTC)
+    expect(Math.abs(march.latitude)).toBeLessThan(0.1)
+    expect(march.longitude).toBeCloseTo(1.9, 0)
+    const june = subsolarPoint(new Date('2026-06-21T12:00:00Z'))
+    expect(june.latitude).toBeCloseTo(23.44, 1)
+    expect(Math.abs(june.longitude)).toBeLessThan(1)
+    const december = subsolarPoint(new Date('2026-12-21T12:00:00Z'))
+    expect(december.latitude).toBeCloseTo(-23.44, 1)
+    expect(Math.abs(december.longitude)).toBeLessThan(1)
+  })
+
   it('is still importable from drapMap.js, and is the same function', () => {
     expect(fromDrapMap).toBe(subsolarPoint)
   })
