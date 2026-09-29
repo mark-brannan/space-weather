@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/rig-hook.mjs\" stop || printf '%s\\n' '{\"systemMessage\":\"rig  hook crashed -- run: node scripts/rig-hook.mjs stop\"}'",
+            "timeout": 20,
+            "statusMessage": "Checking the mock rig for this worktree"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/rig-hook.mjs\" edit || true",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

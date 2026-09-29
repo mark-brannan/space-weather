@@ -47,6 +47,22 @@ Share it before re-running the test suite, not after. Start it the way this
 file documents, with the flags this file documents -- a port or `--upstream`
 when the situation calls for one, never an ad hoc proxy or wrapper.
 
+Two hooks in `.claude/settings.json` make this mechanical
+(`scripts/rig-hook.mjs`). On every Stop the user sees one fixed line,
+repeats included:
+
+```
+rig  http://localhost:8731/  http://192.168.x.x:8731/  http://100.x.x.x:8731/
+stop: node scripts/webapp-ctl.mjs stop 8731
+```
+
+or `rig  none for this worktree`, or `rig  unreachable from here (cloud VM)`.
+While `public/`, `src/browser/` or `scripts/mock-webapp.mjs` is touched and
+no rig serves the worktree, the Stop is blocked until one does; the first
+edit under those paths asks for the rig before anyone has to. `node
+scripts/webapp-ctl.mjs urls` is the same probe by hand: the URLs of the rigs
+whose cwd is this checkout, exit 1 when there are none.
+
 ## Working on the webapp ("rig") without a server
 
 ```shell
