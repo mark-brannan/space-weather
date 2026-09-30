@@ -1,0 +1,56 @@
+name: site-pages
+
+# Publishes the browser site -- the demo and the installable app, one site --
+# to GitHub Pages: public/index.html against this repo's compiled products
+# fetching NOAA from the visitor's browser, and on ?snapshot the saved capture
+# in site/. Assembled by scripts/build-site.mjs. Requires Pages to be set to
+# "GitHub Actions" in the repo settings, once.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'public/**'
+      - 'src/**'
+      - 'tsconfig.json'
+      - 'scripts/build-site.mjs'
+      - 'scripts/sync-coastline.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      # npm ci's prepare step vendors the coastline into public/.
+      - run: npm ci
+      # The live layer is dist/, loaded unbundled: tsc emits ES modules a
+      # browser resolves as they are.
+      - run: npm run build
+      - run: npm run site:build
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site-dist
+      - id: deployment
+        uses: actions/deploy-pages@v5

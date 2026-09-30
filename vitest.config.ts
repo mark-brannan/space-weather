@@ -1,6 +1,18 @@
+import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // site/signalk.js imports the core as './plugin/...', the prefix the site
+  // build copies dist/ under. The suite resolves it to the sources instead, so
+  // the site's seam is tested against the same modules as everything else.
+  resolve: {
+    alias: [
+      {
+        find: /^\.\/plugin\//,
+        replacement: fileURLToPath(new URL('./src/', import.meta.url))
+      }
+    ]
+  },
   test: {
     // Git worktrees live under .claude/ and each holds a full copy of this
     // repo, so the default globs collect their test files too: `npm test`

@@ -4,7 +4,7 @@
  * `public/signalk.js` is the only module the shipping page reaches the server
  * through. Two other things now sit behind that same seam -- the GitHub Pages
  * demo and the standalone app -- and both answer the page out of the same
- * `{values, tree, grids, routes}` document: the shape `demo/snapshot.json`
+ * `{values, tree, grids, routes}` document: the shape `site/snapshot.json`
  * holds on disk and `src/browser/live.ts` assembles in memory. That the two
  * are one shape is the whole reason the page needs no branch of its own.
  *

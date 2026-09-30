@@ -52,6 +52,8 @@
     "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
     "dev:webapp:orphans": "node scripts/webapp-ctl.mjs orphans",
     "shots": "node scripts/shots.mjs",
+    "site:build": "node scripts/build-site.mjs",
+    "site:capture": "node scripts/capture-snapshot.mjs",
     "prepublishOnly": "npm run build && npm test",
     "prepare": "node scripts/sync-coastline.mjs"
   },

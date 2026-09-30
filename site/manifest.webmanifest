@@ -1,0 +1,20 @@
+{
+  "name": "NOAA Space Weather",
+  "short_name": "Space Weather",
+  "description": "Solar storm conditions, HF radio propagation and the aurora oval, from NOAA's Space Weather Prediction Center, drawn at your own position.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "categories": ["weather", "navigation", "utilities"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
