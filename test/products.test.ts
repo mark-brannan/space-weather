@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from '../src/settings'
 import { harness } from './harness'
 import { aIndex } from '../src/products/aIndex'
 import { f107 } from '../src/products/f107'

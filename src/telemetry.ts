@@ -14,7 +14,7 @@
  * Pure: no `app`, no network, no filesystem, and the clock is a parameter --
  * so it stays inside the browser closure `test/browser-closure.test.ts` walks.
  */
-import type { Settings } from './config.js'
+import type { Settings } from './settings.js'
 import { ENDPOINTS, fetchesPerDay, predictedBytesPerDay } from './endpoints.js'
 import { Meter, meterSnapshot } from './meter.js'
 import { PRODUCTS } from './products/registry.js'

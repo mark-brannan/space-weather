@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from '../src/settings'
 import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../src/paths'
 import {
   ALERT_HISTORY_MS,

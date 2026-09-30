@@ -110,7 +110,7 @@ async function loadPredicted() {
   }
   const [{ predictedTable }, { settingsFrom }] = await Promise.all([
     import(distTelemetry),
-    import(path.join(REPO_ROOT, 'dist', 'config.js'))
+    import(path.join(REPO_ROOT, 'dist', 'settings.js'))
   ])
   const settings = settingsFrom(TELEMETRY_PROPS)
   predicted = { settings, table: predictedTable(settings) }

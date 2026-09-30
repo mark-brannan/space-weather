@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { schema, settingsFrom } from '../src/config'
+import { readdirSync, readFileSync } from 'fs'
+import { join, resolve, sep } from 'path'
+import { schema } from '../src/schema'
+import { settingsFrom } from '../src/settings'
 import { ALARM_NEVER } from '../src/parse'
 
 describe('alarmLevel', () => {
@@ -434,5 +437,26 @@ describe('goesFluxInterval', () => {
   it('rejects junk and falls back to 60', () => {
     expect(settingsFrom({ goesFluxInterval: 'soon' }).goesFluxInterval).toBe(60)
     expect(settingsFrom({ goesFluxInterval: 0 }).goesFluxInterval).toBe(60)
+  })
+})
+
+describe('the schema is the plugin form, not a core dependency', () => {
+  // The core reads settings through settings.ts. The schema is here only
+  // until it moves to the plugin, so the two modules that re-export it for
+  // the package's public surface are the only ones allowed to reach it --
+  // anything else would be one more thing to untangle when it goes.
+  const SRC = resolve(__dirname, '../src')
+  const IMPORTS_SCHEMA = /from\s*['"](?:\.\.?\/)+schema\.js['"]/
+
+  it('is imported only by config.ts and index.ts', () => {
+    const importers = readdirSync(SRC, { recursive: true })
+      .map(String)
+      .filter((file) => file.endsWith('.ts'))
+      .filter((file) =>
+        IMPORTS_SCHEMA.test(readFileSync(join(SRC, file), 'utf8'))
+      )
+      .map((file) => file.split(sep).join('/'))
+      .sort()
+    expect(importers).toEqual(['config.ts', 'index.ts'])
   })
 })

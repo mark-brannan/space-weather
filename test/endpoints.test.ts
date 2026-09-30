@@ -5,7 +5,7 @@ import {
   ENDPOINTS as PANEL_ENDPOINTS,
   dailyKb
 } from '../public/config-panel.js'
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from '../src/settings'
 import {
   ADVISORY,
   ENDPOINTS,

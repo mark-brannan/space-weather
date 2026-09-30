@@ -7,7 +7,8 @@
  */
 export * from './parse.js'
 export * from './paths.js'
-export * from './config.js'
+export * from './settings.js'
+export { schema } from './schema.js'
 export * from './endpoints.js'
 export * from './publisher.js'
 export * from './meter.js'

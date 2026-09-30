@@ -10,6 +10,8 @@
     "./parse": "./dist/parse.js",
     "./paths": "./dist/paths.js",
     "./config": "./dist/config.js",
+    "./settings": "./dist/settings.js",
+    "./schema": "./dist/schema.js",
     "./endpoints": "./dist/endpoints.js",
     "./publisher": "./dist/publisher.js",
     "./meter": "./dist/meter.js",
