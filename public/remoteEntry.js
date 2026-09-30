@@ -3,7 +3,7 @@
 // Signal K opts a package in with the `signalk-plugin-configurator` keyword;
 // signalk-server's Configuration.tsx reads it and then renders *only* this
 // component, so every setting has to be here or it becomes unreachable. The
-// JSON schema in src/config.ts stays as it is: a server that predates the
+// JSON schema in src/schema.ts stays as it is: a server that predates the
 // keyword, or one where this fails to load, still gets a working form out of
 // it, and it remains where defaults and the migration of superseded keys live.
 //

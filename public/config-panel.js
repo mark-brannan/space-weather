@@ -12,7 +12,7 @@
 
 /**
  * What an absent key means, mirroring the `default` on each property of
- * `schema` in src/config.ts.
+ * `schema` in src/schema.ts.
  *
  * The saved configuration is shown as-is with these filled in, which is what
  * the generated form did: migration of the superseded keys belongs to
@@ -154,7 +154,7 @@ export const DAYS_PER_MONTH = 30
 
 /**
  * A minute interval as the plugin will read it. Same rule as `minutes` in
- * src/config.ts, because a half-typed or cleared number field must cost what
+ * src/settings.ts, because a half-typed or cleared number field must cost what
  * the plugin will actually spend, not NaN and not zero.
  */
 export function minutes(raw, fallback) {
@@ -275,7 +275,7 @@ export const ALARM_NEVER = 6
 
 /**
  * The choices offered for both thresholds, mirroring `levelOptions` in
- * src/config.ts. Quietest first, so reading down the list turns the plugin
+ * src/schema.ts. Quietest first, so reading down the list turns the plugin
  * up, which puts "Never" at the top. It carries no rate: it has no frequency.
  */
 export const LEVEL_OPTIONS = Object.freeze([
@@ -477,7 +477,7 @@ export function levelOptionLabel(option) {
 
 /**
  * A NOAA scale value is one of five integers; mirrors `scaleValue` in
- * src/config.ts so the panel cannot offer a level the plugin would discard.
+ * src/settings.ts so the panel cannot offer a level the plugin would discard.
  */
 export function scaleValue(raw, fallback) {
   const parsed = Number(raw)
@@ -492,19 +492,19 @@ export function scaleValue(raw, fallback) {
  * alone rather than translated here; `settingsDiffer` is where the panel finds
  * out what they turned into.
  */
-/** Mirrors `popupBand` in src/config.ts. */
+/** Mirrors `popupBand` in src/settings.ts. */
 function popupBand(raw, alarmLevel) {
   const level = scaleValue(raw, Math.max(1, alarmLevel - 1))
   return level === ALARM_NEVER ? level : Math.min(level, alarmLevel)
 }
 
-/** Mirrors `listBand` in src/config.ts. */
+/** Mirrors `listBand` in src/settings.ts. */
 function listBand(raw, popupLevel) {
   const level = scaleValue(raw, Math.max(1, popupLevel - 1))
   return level === ALARM_NEVER ? level : Math.min(level, popupLevel)
 }
 
-/** The lower of two possibly-absent minute values. Mirrors `smaller` in src/config.ts. */
+/** The lower of two possibly-absent minute values. Mirrors `smaller` in src/settings.ts. */
 function smaller(a, b) {
   const values = [a, b].map(Number).filter((n) => Number.isFinite(n) && n > 0)
   return values.length > 0 ? Math.min(...values) : undefined

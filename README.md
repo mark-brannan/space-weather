@@ -24,7 +24,9 @@ plugin still carries its own copy of this code until it is repointed here.
 src/
   parse.ts        pure parsing and transformation; no I/O
   paths.ts        every Signal K path the products own, plus the scale tables
-  config.ts       JSON schema, typed Settings, normalisation of raw props
+  settings.ts     typed Settings, normalisation of raw props
+  schema.ts       the Signal K plugin's JSON schema, priced from endpoints.ts
+  config.ts       re-exports both: the ./config subpath the plugin imports
   endpoints.ts    every NOAA endpoint a product may fetch, with its wire size
   publisher.ts    the publisher contract, and a file-backed store for caches
   noaa/client.ts  the ONLY outbound network I/O
