@@ -76,7 +76,10 @@ const POSITION_KEY = 'noaa-space-weather:position'
 /** One place is a tenth of a degree: ~11 km, coarser than any grid we index. */
 const POSITION_PLACES = 1
 
-/** Why coarsening rather than encryption: docs/design-decisions.md. */
+/**
+ * Why coarsening rather than encryption: the plugin's
+ * docs/design-decisions.md (signalk-noaa-space-weather).
+ */
 export function coarsenPosition(position) {
   if (!position) return null
   // toFixed, not multiply-round-divide: the latter leaves binary-float dust.

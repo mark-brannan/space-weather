@@ -20,7 +20,6 @@ import {
   readLastPosition
 } from '../site/store.js'
 import { DEMO_PROPS } from '../src/browser/live'
-import { settingsFrom } from '../src/config'
 import {
   DIST,
   PLUGIN_MODULES,
@@ -115,6 +114,8 @@ describe('the assembled site', () => {
 })
 
 describe('site/signalk.js stands in for the whole of public/signalk.js', () => {
+  const source = read('site', 'signalk.js')
+
   it('exports every name the real module does', () => {
     for (const name of Object.keys(real))
       expect(site[name as keyof typeof site], name).toBeDefined()
@@ -186,12 +187,13 @@ describe('site/signalk.js stands in for the whole of public/signalk.js', () => {
     expect(await sk.snapshot()).toBeTypeOf('object')
   })
 
-  // Carried as-is; this pins the live layer and the capture to one answer.
-  it('runs live with the props the snapshot was captured under', () => {
-    expect(site.SITE_PROPS).toEqual(DEMO_PROPS)
-    expect(snapshot.routes.status.settings).toEqual(
-      settingsFrom(site.SITE_PROPS)
-    )
+  // The live layer runs on the core's DEMO_PROPS by default, so the site
+  // passes none; the capture ran under the same three. Pinned by key rather
+  // than as the whole settings object: a new default in config.ts must not
+  // turn into a recapture nobody without a network can make.
+  it('was captured with the grids on, as the live layer runs them', () => {
+    expect(source).not.toMatch(/props:/)
+    expect(snapshot.routes.status.settings).toMatchObject(DEMO_PROPS)
   })
 })
 

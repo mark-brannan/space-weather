@@ -3,7 +3,7 @@
  *
  * The server's Publisher writes deltas into a Signal K server and JSON files
  * into a data directory. This one writes both into memory, and hands the
- * result back in exactly the shape demo/snapshot.json already has -- so the
+ * result back in exactly the shape site/snapshot.json already has -- so the
  * demo page's data layer reads a live plugin the same way it reads a saved
  * capture, and neither the page nor the products know which they are on.
  *

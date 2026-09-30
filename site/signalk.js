@@ -43,14 +43,6 @@ export const LIVE =
   typeof location !== 'undefined' &&
   !new URLSearchParams(location.search).has('snapshot')
 
-// Carried as-is from the app's APP_PROPS and the core's DEMO_PROPS, which
-// agree; whether the site forces these on is an open ruling, not settled here.
-export const SITE_PROPS = {
-  auroraEnabled: true,
-  drapEnabled: true,
-  goesFluxEnabled: true
-}
-
 // --- The snapshot's clock --------------------------------------------------
 //
 // The page decides for itself whether what it is showing is current: STALE_MS
@@ -130,11 +122,9 @@ export function snapshot() {
 
 const listeners = new Set()
 let current = readLastPosition()
-let denied = false
 
 /** The device's (coarsened) fix, or null while on the stand-in. */
 export const position = () => current
-export const positionDenied = () => denied
 export function onPosition(listener) {
   listeners.add(listener)
   return () => listeners.delete(listener)
@@ -144,7 +134,6 @@ export function onPosition(listener) {
 // cannot be two answers.
 function adopt(fix) {
   const next = coarsenPosition(fix)
-  denied = false
   // `watchPosition` fires about once a second while moving and coarsening
   // makes most of those identical; each one re-parses both cached grids.
   if (
@@ -164,10 +153,7 @@ function adopt(fix) {
 // `watchPosition` because `setPosition` redraws out of cache, never from NOAA.
 let watch = null
 export function requestPosition() {
-  if (!('geolocation' in navigator)) {
-    denied = true
-    return
-  }
+  if (!('geolocation' in navigator)) return
   if (watch !== null) navigator.geolocation.clearWatch(watch)
   watch = navigator.geolocation.watchPosition(
     ({ coords }) =>
@@ -175,7 +161,6 @@ export function requestPosition() {
     () => {
       // Keep whatever the page already stands on: a stored fix, or the
       // stand-in. A refusal is not a reason to draw nothing.
-      denied = true
       for (const listener of listeners) listener(current)
     },
     { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
@@ -195,8 +180,10 @@ function live() {
       .then(({ startLivePlugin }) =>
         startLivePlugin({
           // undefined, not null: undefined is what selects DEMO_POSITION.
+          // Without props the core's DEMO_PROPS apply, the settings the
+          // snapshot is captured under too. Whether the site should force
+          // the grids on is an open ruling; one copy of the answer, not two.
           position: current ?? undefined,
-          props: SITE_PROPS,
           store: createLocalStore()
         })
       )

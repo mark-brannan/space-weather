@@ -37,7 +37,7 @@ import { BrowserPublisher, Leaf, createBrowserPublisher } from './publisher.js'
  * the aurora oval and D-RAP's polar absorption within reach rather than flat
  * zero most of the year. A stated viewpoint, not a boat.
  *
- * One definition for both demos -- scripts/capture-demo-snapshot.mjs imports
+ * One definition for both demos -- scripts/capture-snapshot.mjs imports
  * this too. The live page and the saved capture claiming different positions
  * would make the two modes disagree about where their own numbers are from.
  */
@@ -57,7 +57,7 @@ export const DEMO_PROPS = {
   goesFluxEnabled: true
 }
 
-/** The same document demo/snapshot.json holds, assembled live instead of saved. */
+/** The same document site/snapshot.json holds, assembled live instead of saved. */
 export interface LiveDocument {
   values: Record<string, Leaf>
   /** The same values as a nested tree -- what the page's path reads walk. */
