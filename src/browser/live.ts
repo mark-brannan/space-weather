@@ -31,15 +31,17 @@ import type { Product, ProductContext } from '../products/types.js'
 import { BrowserPublisher, Leaf, createBrowserPublisher } from './publisher.js'
 
 /**
- * Where the demo says it is: real cruising water, and far enough north that
- * both the aurora oval and D-RAP's polar absorption are legible rather than
- * flat zero most of the year. A stated viewpoint, not a boat.
+ * Where the demo says it is: Samsing Cove, an anchorage off Sitka Sound. Real
+ * cruising water, and -- the geomagnetic pole leaning toward North America --
+ * further north magnetically than its 57 degrees suggest, which is what puts
+ * the aurora oval and D-RAP's polar absorption within reach rather than flat
+ * zero most of the year. A stated viewpoint, not a boat.
  *
  * One definition for both demos -- scripts/capture-demo-snapshot.mjs imports
  * this too. The live page and the saved capture claiming different positions
  * would make the two modes disagree about where their own numbers are from.
  */
-export const DEMO_POSITION = { latitude: 60.4, longitude: 5.3 }
+export const DEMO_POSITION = { latitude: 56.98, longitude: -135.35 }
 
 /**
  * How the demo runs the plugin: the two grids and the GOES flux tiles on, all
@@ -109,7 +111,7 @@ export interface LiveOptions {
    * Where the reader is. Omitted means the demo's stated viewpoint; `null`
    * means "nobody knows yet" -- what a standalone app opens with while the
    * device is still deciding, and what `setPosition` later answers. The two
-   * are deliberately different: a demo that silently fell back to Bergen
+   * are deliberately different: a demo that silently fell back to Sitka
    * because a phone was slow would draw a confident map of the wrong place.
    */
   position?: { latitude: number; longitude: number } | null
