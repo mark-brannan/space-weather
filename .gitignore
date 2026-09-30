@@ -127,3 +127,7 @@ dist
 
 # PR pictures from scripts/shots.mjs; they go on the PR, not in the tree.
 /shots/
+
+# The assembled browser site from scripts/build-site.mjs: a copy of public/,
+# dist/ and site/, rebuilt by the Pages workflow on every deploy.
+/site-dist/

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+<defs><clipPath id="pswiM"><rect width="200" height="200" rx="26"></rect></clipPath>
+  <linearGradient id="wswiM_0" gradientUnits="userSpaceOnUse" x1="0" y1="74" x2="0" y2="140"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_1" gradientUnits="userSpaceOnUse" x1="0" y1="53" x2="0" y2="121"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_2" gradientUnits="userSpaceOnUse" x1="0" y1="54" x2="0" y2="100"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_3" gradientUnits="userSpaceOnUse" x1="0" y1="49" x2="0" y2="85"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_4" gradientUnits="userSpaceOnUse" x1="0" y1="51" x2="0" y2="103"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_5" gradientUnits="userSpaceOnUse" x1="0" y1="49" x2="0" y2="83"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_6" gradientUnits="userSpaceOnUse" x1="0" y1="66" x2="0" y2="118"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+  <linearGradient id="wswiM_7" gradientUnits="userSpaceOnUse" x1="0" y1="86" x2="0" y2="146"><stop offset="0" stop-color="#C86FE0" stop-opacity="0"></stop>
+    <stop offset="0.22" stop-color="#9B6FE0" stop-opacity="0.55"></stop>
+    <stop offset="0.5" stop-color="#3FC7C0" stop-opacity="0.85"></stop>
+    <stop offset="0.8" stop-color="#8AF0A0" stop-opacity="1"></stop>
+    <stop offset="1" stop-color="#D7FBB0" stop-opacity="0.55"></stop>
+  </linearGradient>
+</defs>
+<rect width="200" height="200" rx="26" fill="#0A0F14"></rect>
+<g stroke-linecap="round">
+  <path d="M24 74 L24 140" stroke="url(#wswiM_0)" stroke-width="13"></path>
+  <path d="M44 53 L44 121" stroke="url(#wswiM_1)" stroke-width="9"></path>
+  <path d="M62 54 L62 100" stroke="url(#wswiM_2)" stroke-width="17"></path>
+  <path d="M82 49 L82 85" stroke="url(#wswiM_3)" stroke-width="11"></path>
+  <path d="M102 51 L102 103" stroke="url(#wswiM_4)" stroke-width="15"></path>
+  <path d="M122 49 L122 83" stroke="url(#wswiM_5)" stroke-width="10"></path>
+  <path d="M142 66 L142 118" stroke="url(#wswiM_6)" stroke-width="16"></path>
+  <path d="M164 86 L164 146" stroke="url(#wswiM_7)" stroke-width="11"></path>
+</g>
+<path d="M12 54 Q100 30 188 54" fill="none" stroke="#4CC9F0" stroke-width="3.5" stroke-dasharray="9 7"></path>
+<g transform="translate(9 -14) rotate(-14 37 30)">
+  <rect x="-2" y="26" width="12" height="10" rx="1.5" fill="#CBD8E0"></rect>
+  <rect x="12" y="26" width="12" height="10" rx="1.5" fill="#CBD8E0"></rect>
+  <rect x="50" y="26" width="12" height="10" rx="1.5" fill="#CBD8E0"></rect>
+  <rect x="64" y="26" width="12" height="10" rx="1.5" fill="#CBD8E0"></rect>
+  <rect x="-2" y="30.2" width="78" height="1.8" fill="#CBD8E0"></rect>
+  <rect x="27" y="21" width="20" height="19" rx="3" fill="#CBD8E0"></rect>
+  <rect x="36" y="40" width="2" height="5" fill="#CBD8E0"></rect>
+  <circle cx="37" cy="49" r="6" fill="#CBD8E0"></circle>
+  <g stroke="#243642" stroke-width="1.4" fill="none" stroke-linecap="round">
+    <path d="M6 27.4 L6 34.6"></path><path d="M20 27.4 L20 34.6"></path>
+    <path d="M58 27.4 L58 34.6"></path><path d="M72 27.4 L72 34.6"></path>
+    <path d="M29.5 25 L44.5 25"></path><path d="M29.5 36.5 L44.5 36.5"></path>
+    <path d="M33.5 49 L40.5 49"></path>
+  </g>
+</g>
+<path d="M49 36 L99 138" fill="none" stroke="#D9E2EC" stroke-width="2.6" stroke-dasharray="6 7"></path>
+<path d="M152 58 L106 136" fill="none" stroke="#FFB703" stroke-width="4" stroke-linecap="round"></path>
+<path d="M160 56 L186 92" fill="none" stroke="#FFB703" stroke-width="5" stroke-linecap="round" stroke-dasharray="7 8" opacity="0.35"></path>
+<g stroke="#E4572E" stroke-width="5.5" stroke-linecap="round">
+  <path d="M146 38 L164 56"></path><path d="M164 38 L146 56"></path>
+  <path d="M77.5 103.5 L94.5 120.5"></path><path d="M94.5 103.5 L77.5 120.5"></path>
+</g>
+<g transform="translate(0 -9) rotate(0)">
+<g transform="translate(176.6 32) scale(1) translate(-176.6 -32)">
+  <path d="M169 22 A7.6 7.6 0 1 1 176.6 30 L176.6 34.5" fill="none" stroke="#2E9E4F" stroke-width="4.6" stroke-linecap="round"></path>
+  <circle cx="176.6" cy="41.5" r="2.7" fill="#2E9E4F"></circle>
+</g>
+</g>
+<path clip-path="url(#pswiM)" d="M0 174 Q100 126 200 174 L200 200 L0 200 Z" fill="#1B4965"></path>
+<g fill="#F2F5F7" transform="translate(100 174) scale(0.25) translate(-100 -126)">
+  <circle cx="100" cy="0" r="5"></circle>
+  <rect x="98" y="0" width="4" height="130"></rect>
+  <path d="M96 12 L96 120 L46 120 Z"></path>
+  <path d="M105 4 L105 120 L158 120 C140 92 118 44 105 4 Z"></path>
+  <path d="M40 126 L160 126 C152 142 132 152 106 152 L74 152 C56 152 46 138 40 126 Z"></path>
+  <path d="M156 127 L198 114 L200 120 L158 133 Z"></path>
+  <path d="M197 117 L101 2" stroke="#F2F5F7" stroke-width="6" fill="none"></path>
+</g>
+</svg>
