@@ -1,4 +1,4 @@
-import type { Settings } from '../config.js'
+import type { Settings } from '../settings.js'
 import { Endpoint } from '../endpoints.js'
 import type { Client } from '../noaa/client.js'
 import type { Meta, Publisher } from '../publisher.js'

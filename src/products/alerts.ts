@@ -17,7 +17,7 @@ import {
   stormTransition
 } from '../parse.js'
 import { readStormCache, writeStormCache } from '../cache/stormCache.js'
-import type { Settings } from '../config.js'
+import type { Settings } from '../settings.js'
 import type { Meta, Publisher } from '../publisher.js'
 import { Product } from './types.js'
 import { ALERTS } from '../endpoints.js'

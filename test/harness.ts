@@ -1,4 +1,4 @@
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from '../src/settings'
 import { Client } from '../src/noaa/client'
 import { createMeter } from '../src/meter'
 import { ValueUpdate } from '../src/parse'

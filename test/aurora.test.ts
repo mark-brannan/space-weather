@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { settingsFrom } from '../src/config'
+import { settingsFrom } from '../src/settings'
 import {
   auroraProbabilityAt,
   parseAuroraPayload,

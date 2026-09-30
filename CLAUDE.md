@@ -12,7 +12,9 @@ numbers come from.
 ```
 src/
   index.ts        the package root: re-exports, nothing of its own
-  config.ts       JSON schema, typed Settings, normalisation of raw props
+  settings.ts     typed Settings, normalisation of raw props
+  schema.ts       the Signal K plugin's JSON schema, priced from endpoints.ts
+  config.ts       re-exports both: the ./config subpath the plugin imports
   publisher.ts    the publisher contract; the ONLY module that touches fs
   noaa/client.ts  the ONLY outbound network I/O
   paths.ts        every Signal K path a product owns, plus the scale tables
@@ -31,7 +33,7 @@ public/
   spaceMap.js     the drawing: raster, contours, graticule, coastline, marks
   drap-colors.js  NOAA's D-RAP colorbar
   geo.js          the coastline, decoded and drawn
-  config-panel.js the plugin's configuration form; pinned to config.ts
+  config-panel.js the plugin's form; mirrors settings.ts and schema.ts
 ```
 
 The package root is server-side (`publisher.ts` imports `fs`). `src/browser/`
@@ -46,7 +48,7 @@ a consumer to serve.
 
 **Every endpoint a product fetches is declared in `src/endpoints.ts`, with its
 measured wire size**, and the client refuses to fetch anything else. That table
-is what `config.ts`'s form descriptions and `public/config-panel.js`'s daily
+is what `schema.ts`'s form descriptions and `public/config-panel.js`'s daily
 bill are computed from, so a new endpoint is priced by adding it and nothing
 else -- and an undeclared one is a test failure rather than traffic nobody was
 told about. `test/endpoints.test.ts` holds the declarations against

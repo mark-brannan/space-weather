@@ -1,5 +1,5 @@
 // https://services.swpc.noaa.gov/products/noaa-scales.json
-import type { Settings } from '../config.js'
+import type { Settings } from '../settings.js'
 import {
   NOAA_SCALE_RANGES,
   SCALES_BASE,

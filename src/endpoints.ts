@@ -3,7 +3,7 @@
  * often a scheduled run asks for it.
  *
  * This table is the one place those numbers exist. `src/noaa/client.ts` will
- * not fetch a path that is not in it, `src/config.ts` and
+ * not fetch a path that is not in it, `src/schema.ts` and
  * `public/config-panel.js` price the user's settings out of it, and
  * `test/endpoints.test.ts` holds it against `docs/noaa-products.md`. What this
  * replaces was a sentence in a form description, which kept its original
@@ -14,7 +14,7 @@
  * an endpoint without one is a build failure rather than a sentence going
  * quietly stale.
  *
- * It imports nothing. `config.ts` reads it to build its descriptions and the
+ * It imports nothing. `schema.ts` reads it to build its descriptions and the
  * products reference it to declare themselves, so anything it imported would
  * be a cycle.
  */
@@ -41,7 +41,7 @@ export interface Endpoint {
 
 /**
  * The settings the bill depends on. Structural rather than `Settings` from
- * config.ts, which imports this file.
+ * settings.ts, because this file imports nothing.
  */
 export interface CostSettings {
   auroraEnabled: boolean
@@ -220,7 +220,7 @@ export const ENDPOINTS: readonly Endpoint[] = Object.freeze([
   ALERTS
 ])
 
-/** Same rule as `minutes` in config.ts: a cleared field costs what the plugin will actually spend. */
+/** Same rule as `minutes` in settings.ts: a cleared field costs what the plugin will actually spend. */
 function minutes(raw: number, fallback: number): number {
   return Number.isFinite(raw) && raw > 0 ? raw : fallback
 }
@@ -233,7 +233,7 @@ export function fetchesPerDay(
   if (endpoint.requires && !settings[endpoint.requires]) return 0
   const cadence = endpoint.cadence
   if ('fetchesPerDay' in cadence) return cadence.fetchesPerDay
-  // The defaults in config.ts, so a cleared field costs what the plugin will
+  // The defaults in settings.ts, so a cleared field costs what the plugin will
   // actually spend on it.
   const fallback = cadence.follows === 'auroraInterval' ? 120 : 60
   return MINUTES_PER_DAY / minutes(settings[cadence.follows], fallback)

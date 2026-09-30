@@ -21,7 +21,8 @@ import {
   verdictFor,
   withLevel
 } from '../public/config-panel.js'
-import { schema, settingsFrom } from '../src/config'
+import { schema } from '../src/schema'
+import { settingsFrom } from '../src/settings'
 import {
   ADVISORY,
   AURORA,

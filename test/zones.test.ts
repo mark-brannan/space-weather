@@ -86,7 +86,7 @@ describe('stateForScaleValue', () => {
 
   it('can silence the list band entirely, same as the other two', () => {
     // `ALARM_NEVER` is exempt from the same clamp on `listLevel` as it is on
-    // `popupLevel` -- see `listBand` in src/config.ts.
+    // `popupLevel` -- see `listBand` in src/settings.ts.
     expect(
       [1, 2, 3, 4, 5].map((v) =>
         stateForScaleValue(v, ALARM_NEVER, ALARM_NEVER, ALARM_NEVER)
