@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { LETTERS, scalesCard } from '../public/scales.js'
 import { hfCard, solarCard } from '../public/hf.js'
+import { AURORA, KP_FORECAST } from '../src/endpoints'
 import {
   A_INDEX_BASE,
+  AURORA_BASE,
   DRAP_BASE,
   F107_BASE,
+  KP_BASE,
   PROTON_FLUX_BASE,
   SOLAR_WIND_BASE,
   SUNSPOT_BASE,
@@ -12,18 +15,22 @@ import {
   XRAY_FLUX_BASE
 } from '../src/paths'
 import { aIndex } from '../src/products/aIndex'
+import { aurora } from '../src/products/aurora'
 import { drap } from '../src/products/drap'
 import { f107 } from '../src/products/f107'
 import { goesFlux } from '../src/products/goesFlux'
+import { kp } from '../src/products/kp'
 import { scales } from '../src/products/scales'
 import { solarWind } from '../src/products/solarWind'
 import { sunspot } from '../src/products/sunspot'
 import {
+  AURORA_FIXTURES,
   DAILY_SOLAR_FIXTURES,
   FLARE_ENDPOINT,
   FLARE_FIXTURES,
   FLARE_WEEK_FIXTURES,
   F107_FIXTURES,
+  KP_FORECAST_FIXTURES,
   SCALES_FIXTURES,
   SOLAR_WIND_FIXTURES,
   SYNTHETIC_FLARE_FIXTURES,
@@ -52,19 +59,12 @@ import { harness } from './harness'
  * Asking the card rather than the Signal K path is the whole point. #120 was
  * a correct value on a correct path, read from the wrong one a layer above,
  * so a sweep that stops at the path proves only the half that was never
- * broken. Solar wind is the exception below, and says why.
+ * broken. Solar wind, Kp and aurora are the exceptions below, and say why.
  *
  * It is only ever as good as the corpus. Against an all-quiet one it would
  * pass a card wired to nothing, which is why `scales-render.test.ts` still
  * pins the two storm days by name against NOAA's own words. What this buys is
  * the fields nobody thought to pin individually.
- *
- * `kp` and `aurora` are not swept here. `kp` windows its output against the
- * real clock (see `parseKpForecast`'s `now` argument), so a generic sweep
- * would need a different pinned system time per fixture; `aurora` needs a
- * vessel position and a grid cache neither `examples/` nor this harness
- * carries. Both are candidates for the same treatment, not exempt from it --
- * follow-up work rather than a fit for this harness as it stands.
  */
 
 // The torn-payload pair is deliberately absent: neither holds a complete JSON
@@ -88,6 +88,25 @@ const ANY_SCALES_FIXTURE = 'noaa-scales.2026_08_01.json'
 
 const isDead = (values: unknown[]) =>
   values.every((v) => v === null || v === undefined || v === 0)
+
+/**
+ * The instant a Kp capture describes: the close of its last measured bin.
+ * `kp` windows everything against the clock, so a bare filename would
+ * answer differently every day it is run; this pins each fixture to its own
+ * moment. Both of NOAA's layouts are in the corpus -- a header row then
+ * arrays, and records -- with `time_tag` in UTC either way.
+ */
+function kpCaptureTime(json: any): Date {
+  const rows = Array.isArray(json[0])
+    ? json.slice(1).map(([time_tag, , observed]: string[]) => ({
+        time_tag,
+        observed
+      }))
+    : json
+  const last = rows.filter((r: any) => r.observed === 'observed').at(-1)
+  const start = Date.parse(`${last.time_tag.replace(' ', 'T')}Z`)
+  return new Date(start + 3 * 60 * 60 * 1000)
+}
 
 describe('no field a webapp surface draws is dead across the whole fixture corpus', () => {
   it('finds a non-zero Storm Scales reading somewhere in examples/', async () => {
@@ -264,6 +283,58 @@ describe('no field a webapp surface draws is dead across the whole fixture corpu
         'solar.sunspotNumber',
         solarCard({ sunspotNumber: h.valueAt(SUNSPOT_BASE) }).sunspotNumber
       )
+    }
+
+    const dead = Object.entries(drawn)
+      .filter(([, values]) => isDead(values))
+      .map(([label]) => label)
+    expect(dead).toEqual([])
+  })
+
+  it('finds a non-zero Kp reading somewhere in examples/', async () => {
+    // Solar wind's reason again: the Kp tile is drawn inline in index.html,
+    // which flattens these leaves and reads them directly, so the path is the
+    // last layer there is to ask. These four are what it draws -- the three
+    // bars and the timeline; an empty series is as dead as a zero.
+    const drawn: Record<string, unknown[]> = {}
+    for (const f of KP_FORECAST_FIXTURES) {
+      const json = fixtureJson(f)
+      const h = harness({ [KP_FORECAST.subPath]: json })
+      vi.useFakeTimers({ now: kpCaptureTime(json), toFake: ['Date'] })
+      try {
+        await kp.refresh(h.ctx)
+      } finally {
+        vi.useRealTimers()
+      }
+      for (const field of ['observed', 'forecast.max24h', 'forecast.max72h'])
+        (drawn[field] ??= []).push(h.valueAt(`${KP_BASE}.${field}`))
+      ;(drawn['forecast.series'] ??= []).push(
+        h.valueAt(`${KP_BASE}.forecast.series`)?.length
+      )
+    }
+
+    const dead = Object.entries(drawn)
+      .filter(([, values]) => isDead(values))
+      .map(([label]) => label)
+    expect(dead).toEqual([])
+  })
+
+  it('finds a non-zero aurora reading somewhere in examples/', async () => {
+    // The aurora tile also reads its three leaves straight out of index.html;
+    // auroraCardState only decides whether to draw them. The reading is at a
+    // position, so one is supplied where the OVATION oval sits, and a cache
+    // is handed in because the product persists the grid it fetched.
+    const drawn: Record<string, unknown[]> = {}
+    for (const f of AURORA_FIXTURES) {
+      const h = harness({ [AURORA.subPath]: fixtureJson(f) }, {})
+      const publish = h.publisher.selfPath
+      h.publisher.selfPath = (path: string) =>
+        path === 'navigation.position.value'
+          ? { latitude: 70, longitude: 20 }
+          : publish(path)
+      await aurora.refresh(h.ctx)
+      for (const field of ['probability', 'observationTime', 'forecastTime'])
+        (drawn[field] ??= []).push(h.valueAt(`${AURORA_BASE}.${field}`))
     }
 
     const dead = Object.entries(drawn)
