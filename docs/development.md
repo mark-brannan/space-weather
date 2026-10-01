@@ -12,7 +12,7 @@ it with Playwright, and saves a full-page picture of the dashboard to
 another view; `--tile <slot>`, repeatable, shoots just those tiles of it
 instead (an unknown one lists the view's slots); `--span <72h|27d>` sets the
 Kp chart first. `--state` is one of the mock rig's `STATES` keys
-(`npm run dev:webapp` prints the list). An unknown state or view is an
+(`npm run dev:webapp:mock` prints the list); shots always run under `--mock`. An unknown state or view is an
 error rather than a plausible picture of the wrong thing. It hardcodes
 `colorScheme: 'dark'` -- dark is the only theme a PR's pictures carry, so
 there is no `--theme` flag. Once per machine, `npx playwright install
@@ -69,8 +69,14 @@ whose cwd is this checkout, exit 1 when there are none.
 ## Working on the webapp ("rig") without a server
 
 ```shell
-npm run dev:webapp        # http://127.0.0.1:8731, or pass a port
+npm run dev:webapp        # live: data from the dev server on 127.0.0.1:3010
+npm run dev:webapp:mock   # fabricated states, no server needed
 ```
+
+Both serve http://127.0.0.1:8731; pass a port to change it. Live is the
+default because fabricated data proves rendering and never data. When no
+server answers, the rig still starts and says so on stderr; pass
+`--upstream <base-url>` or use `:mock`.
 
 It binds every interface, and prints one URL per address it can be reached
 at -- loopback, LAN, Tailscale. Showing a change on another device is a
@@ -91,8 +97,8 @@ that runs it can take the whole chain down, including a freshly backgrounded
 server. `pgrep -f mock-webapp` to find the pid and plain `kill` to stop it
 both work fine; so do `npm run dev:webapp:list` and `npm run dev:webapp:stop`.
 
-`scripts/mock-webapp.mjs` serves `public/` with a state switcher appended and
-answers the Signal K paths it understands with fabricated data, so the real
+Under `--mock`, `scripts/mock-webapp.mjs` serves `public/` with a state
+switcher appended and answers the Signal K paths it understands with fabricated data, so the real
 `heroState`/`renderTimer`/`renderKp` decide what renders. A strip at the
 bottom of the page switches between the states in `STATES`: quiet, an R2 in
 the past 24h, a G3 forecast, a G3 eased to G1 and still in force, a G4+S4 in
@@ -117,29 +123,28 @@ aurora or D-RAP grid would be mocking the tile renderer rather than the
 webapp. The four routes behind them -- `aurora-grid`, `drap-grid`,
 `aurora-refresh`, `drap-refresh` -- fall through to the real products, loaded
 out of `dist/`, so pressing **Fetch** on the map does a real NOAA request and
-caches a real grid on disk under the OS temp dir, with or without
-`--upstream`. Those buttons are therefore the one part of this that needs
-`npm run build` first and needs the network; everything else stays
-fabricated and offline. Until a real fetch has landed, the map renders its
+caches a real grid on disk under the OS temp dir, live or `--mock`. Those buttons are therefore the one part of this that needs
+`npm run build` first and needs the network; under `--mock` everything
+else stays fabricated and offline. Until a real fetch has landed, the map renders its
 own empty state and the aurora and D-RAP readings come from `payload()` like
 every other path. A real `refresh()` also publishes the point value at the
 vessel, which the mock captures in place of an `app` object and serves back
 on those paths.
 
-`--upstream <base-url>` trades the fabricated states for a running Signal K
-server's real numbers: the same paths are proxied there verbatim instead of
-going through `payload()`, so a branch's `public/` -- a changed card, new
+Live mode, the default, uses a running Signal K server's real numbers
+(`http://127.0.0.1:3010` unless `--upstream <base-url>` names another): the
+same paths are proxied there verbatim instead of going through `payload()`, so a branch's `public/` -- a changed card, new
 copy -- can be checked against genuine data without repointing that server's
 plugin at anything.
 
 ```shell
-node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010
+node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3000
 ```
 
 Check the server's lock file (the plugin repo's `docs/development.md`
 describes the shared instances and `~/.signalk/locks/`) before relying on it
-being idle. `--upstream` and the state switcher are mutually exclusive;
-passing it replaces the switcher strip with one naming the upstream instead.
+being idle. `--upstream` and `--mock` are mutually exclusive; live mode
+replaces the switcher strip with one naming the upstream instead.
 
 ## Fixtures and measurements
 

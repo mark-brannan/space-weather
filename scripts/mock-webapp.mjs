@@ -1,9 +1,15 @@
-// Serves public/ against fabricated Signal K data, so the webapp's UI can be
-// worked on without a server, a plugin, or NOAA.
+// Serves public/ against a running Signal K server's real data by default,
+// or, with --mock, against fabricated data, so the webapp's UI can be worked
+// on without a server, a plugin, or NOAA.
 //
-//   node scripts/mock-webapp.mjs [port]     # default 8731
-//   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
+//   node scripts/mock-webapp.mjs [port]     # live, 127.0.0.1:3010; port 8731
+//   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3000 [port]
+//   node scripts/mock-webapp.mjs --mock [port]             # fabricated states
 //   node scripts/mock-webapp.mjs --host 127.0.0.1 [port]   # loopback only
+//
+// Live is the default because fabricated data proves rendering and never
+// data: a rig that only ever shows payload() cannot catch a path the plugin
+// stopped publishing or a shape it changed.
 //
 // index.html ships unmodified except for a strip appended to it. Everything
 // fake is on the wire: every path ROUTES understands is answered here (and
@@ -18,7 +24,7 @@
 // Its four routes (aurora-grid, drap-grid, aurora-refresh, drap-refresh) fall
 // through to the real products instead -- see loadRealProducts below -- so
 // clicking Fetch does a real NOAA request and caches a real grid on disk,
-// with or without --upstream.
+// live or --mock.
 //
 // The states are the things the header has to be able to say. They exist
 // because most of them are awkward to reach against a live server -- a real
@@ -27,14 +33,14 @@
 // hand-editing the DOM in devtools: the point is that the app's own code
 // decides what to render.
 //
-// --upstream trades the fabricated states for a real one: the same ROUTES
-// are proxied verbatim to a running Signal K server instead of going
+// Live mode (the default, or --upstream <url> to pick the server) proxies
+// the same ROUTES verbatim to a running Signal K server instead of going
 // through payload(), so a branch's public/ (new markup, new copy, a changed
 // card) can be viewed against genuine data without repointing
 // ~/.signalk/node_modules/signalk-noaa-space-weather at this worktree --
 // which would move every other session on that shared server onto this
-// branch's build too. The mock states and --upstream are mutually exclusive:
-// there is nothing to switch when the numbers are real.
+// branch's build too. --mock and --upstream are mutually exclusive: there
+// is nothing to switch when the numbers are real.
 //
 // No dependencies, and nothing here is imported by src/ or test/ -- `npm ci
 // && npm run build && npm test` runs under `firejail --net=none` with a 60
@@ -62,7 +68,8 @@ const REPO_ROOT = path.resolve(ROOT, '..')
 // aurora-grid/drap-grid/aurora-refresh/drap-refresh fall through to a real
 // NOAA fetch, cached on disk exactly the way the real plugin caches it. This
 // is why dev:webapp needs a `npm run build` first and needs the network for
-// these two buttons -- everything else here stays fabricated and offline.
+// these two buttons -- under --mock, everything else stays fabricated and
+// offline.
 //
 // A real refresh() also publishes the point value at the vessel (probability
 // at position, highest affected frequency) via publisher.values() -- the
@@ -379,14 +386,20 @@ const argv = process.argv.slice(2)
 let upstreamArg = null
 let portArg = null
 let hostArg = null
+let mockArg = false
 for (let i = 0; i < argv.length; i++) {
-  if (argv[i] === '--upstream') upstreamArg = argv[++i]
+  if (argv[i] === '--mock') mockArg = true
+  else if (argv[i] === '--upstream') upstreamArg = argv[++i]
   else if (argv[i].startsWith('--upstream='))
     upstreamArg = argv[i].slice('--upstream='.length)
   else if (argv[i] === '--host') hostArg = argv[++i]
   else if (argv[i].startsWith('--host='))
     hostArg = argv[i].slice('--host='.length)
   else if (portArg === null) portArg = argv[i]
+}
+if (mockArg && upstreamArg) {
+  console.error('--mock and --upstream are mutually exclusive: pick one')
+  process.exit(2)
 }
 const PORT = Number(portArg || 8731)
 // Binds every interface by default: the point of this rig is to put a change in
@@ -423,9 +436,13 @@ function listenUrls() {
     ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
   ]
 }
-// Trailing slash stripped once here so every proxied request can just concatenate
-// base + path without re-checking for a double slash.
-const UPSTREAM = upstreamArg ? upstreamArg.replace(/\/+$/, '') : null
+// The shared dev server (the plugin repo's docs/development.md) unless told
+// otherwise; null only under --mock. Trailing slash stripped once here so every
+// proxied request can just concatenate base + path.
+const DEFAULT_UPSTREAM = 'http://127.0.0.1:3010'
+const UPSTREAM = mockArg
+  ? null
+  : (upstreamArg || DEFAULT_UPSTREAM).replace(/\/+$/, '')
 
 const iso = (offsetMin) =>
   new Date(Date.now() + offsetMin * 60000).toISOString()
@@ -1160,7 +1177,7 @@ const SWITCHER = (current) => `
 </div>
 <div data-mock-strip style="height:44px"></div>`
 
-// --upstream's equivalent of SWITCHER: there is no state to pick, so this says
+// Live mode's equivalent of SWITCHER: there is no state to pick, so this says
 // instead which half of what's on screen is this branch's and which is the live
 // server's -- the confusion the state switcher never has to guard against, since
 // every state there is equally fake.
@@ -1234,7 +1251,7 @@ http
     // fetch and a real on-disk cache (see loadRealProducts above) rather than
     // going through payload() or the upstream proxy -- so a branch's public/
     // can be checked against a real fetch with no running plugin and no
-    // --upstream server at all. Everything else stays proxied/fabricated.
+    // Signal K server at all. Everything else stays proxied/fabricated.
     if (/aurora-grid$/.test(url.pathname)) return handleGrid('aurora', res)
     if (/drap-grid$/.test(url.pathname)) return handleGrid('drap', res)
     if (/aurora-refresh$/.test(url.pathname))
@@ -1242,8 +1259,8 @@ http
     if (/drap-refresh$/.test(url.pathname)) return handleRefresh('drap', res)
 
     // Its own branch rather than a ROUTES row: the body is assembled
-    // asynchronously out of dist/, and payload() is synchronous. Under
-    // --upstream it falls through to the proxy like every other route.
+    // asynchronously out of dist/, and payload() is synchronous. In live
+    // mode it falls through to the proxy like every other route.
     if (/space-weather\/telemetry$/.test(url.pathname) && !UPSTREAM) {
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -1302,7 +1319,16 @@ http
   .listen(PORT, HOST, () => {
     for (const url of listenUrls())
       console.log(`mock signalk + webapp on ${url}`)
-    if (UPSTREAM)
-      console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
-    else console.log(`states: ${Object.keys(STATES).join(', ')}`)
+    if (!UPSTREAM) {
+      console.log(`states: ${Object.keys(STATES).join(', ')}`)
+      return
+    }
+    console.log(`proxying ${ROUTES.length} data paths to ${UPSTREAM}`)
+    // Say so at startup rather than leave every tile to fail with a 502: the
+    // rig still serves public/, but nothing behind it is answering.
+    fetch(UPSTREAM + '/signalk').catch(() =>
+      console.error(
+        `no Signal K server answered at ${UPSTREAM}: start one, pass --upstream <url>, or --mock for fabricated states`
+      )
+    )
   })

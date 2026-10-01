@@ -55,7 +55,7 @@ async function waitForServer() {
 
 const server = spawn(
   'node',
-  ['scripts/mock-webapp.mjs', String(port), '--host', '127.0.0.1'],
+  ['scripts/mock-webapp.mjs', String(port), '--mock', '--host', '127.0.0.1'],
   { stdio: 'inherit' }
 )
 
