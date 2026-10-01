@@ -96,15 +96,14 @@ request and release rules.
 
 ## Licence
 
-[AGPL-3.0-or-later](LICENSE), plain. Copyright (c) 2025-2026 Mark Brannan.
+[AGPL-3.0-or-later](LICENSE), with an additional permission under section 7
+of the AGPL, stated at the end of LICENSE. Copyright (c) 2025-2026 Mark Brannan.
 
-The plugin this was extracted from carries an additional permission under
-section 7 of the AGPL for programs that merely load it. This package
-deliberately does not, yet: what the permission should say for a library
-that is loaded by a plugin, an app and a static site is a live question, and
-starting strict is the safe direction -- the copyright is held in one place,
-so a permission can be added to a later version, while one given in a
-published version cannot be withdrawn from it.
+The permission is transitive only. A program that has this package in its
+process because a plugin it runs depends on it -- Signal K server running
+signalk-noaa-space-weather, or an image shipping that combination -- does not
+become subject to the AGPL by doing so. A program that imports this package
+directly gets the plain AGPL, section 13 included.
 
 Patches are welcome and are licensed the same way, with one extra step: the
 [CLA](CLA.md) is a one-line statement in your first pull request. It keeps

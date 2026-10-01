@@ -660,3 +660,38 @@ if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
 
+
+================================================================================
+
+                  ADDITIONAL PERMISSION UNDER AGPL-3.0 SECTION 7
+
+  This program is space-weather.
+  Copyright (C) 2025-2026 Mark Brannan.
+
+  As a special exception, the copyright holders of this program give you
+  permission to combine it with a Host Program, and to convey the resulting
+  combination, without the Host Program -- or any other work aggregated or
+  conveyed with it -- becoming subject to the requirements of the GNU Affero
+  General Public License by reason of that combination alone.
+
+  A "Host Program" is a program that has this program in its process only
+  because a separate program it loads and runs declares this program as a
+  dependency, and loads it by `require()`, `import`, or an equivalent
+  mechanism. Signal K server running a plugin that depends on this program,
+  and a distribution or disk image that ships the server, such a plugin and
+  this program together, are Host Programs.
+
+  This permission runs to the Host Program and to nothing else. A program
+  that loads this program for its own use -- that imports it and calls the
+  interfaces it publishes -- is not a Host Program, whatever loads that
+  program in turn, and gets no permission from this paragraph; whether and
+  how it may combine with this program is governed by the GNU Affero General
+  Public License unmodified. This program itself -- copying it, modifying
+  it, propagating it, conveying it, and making it available to users over a
+  network as described in section 13 -- also remains governed in full by the
+  GNU Affero General Public License.
+
+  You may remove this additional permission from any copy of this program,
+  or from any copy you convey, as provided in section 7 of the GNU Affero
+  General Public License. The GNU Affero General Public License above is
+  otherwise unmodified.

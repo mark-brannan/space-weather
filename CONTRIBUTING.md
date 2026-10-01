@@ -120,9 +120,9 @@ the org-wide default now that this repo doesn't carry its own copy.
 
 ## Licence and the CLA
 
-Contributions are licensed under the plain [AGPL-3.0-or-later licence](LICENSE)
-that covers this project. README.md's *Licence* section says why there is no
-section 7 permission here yet.
+Contributions are licensed under the [AGPL-3.0-or-later licence](LICENSE) that
+covers this project, with the section 7 additional permission stated at the end
+of that file.
 
 They also need the [contributor licence agreement](CLA.md), which is one line
 in the description of your first pull request:
