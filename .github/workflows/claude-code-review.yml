@@ -65,7 +65,7 @@ jobs:
         build/test/format all pass." when clean. Do not push commits
         or edit code; you review, the author fixes.
       allowed-tools: mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run build),Bash(npm test),Bash(npm run format:check)
-      # release-please opens its "chore: release" PR as this repo's own GitHub
-      # App, not a human, and claude-code-action refuses non-human actors by
-      # default (https://github.com/mark-brannan/signalk-noaa-space-weather/actions/runs/33234479071).
-      allowed-bots: signalk-noaa-space-weather-release
+      # release-please opens its "chore: release" PR as the shared
+      # mark-brannan-release-please App, not a human, and claude-code-action
+      # refuses non-human actors by default (#24's review run failed on it).
+      allowed-bots: mark-brannan-release-please
