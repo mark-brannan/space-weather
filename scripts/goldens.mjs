@@ -66,6 +66,7 @@ if (!base) {
     [
       'scripts/mock-webapp.mjs',
       String(port),
+      '--mock',
       '--host',
       '127.0.0.1',
       '--now',
