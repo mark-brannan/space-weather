@@ -77,8 +77,9 @@ Nothing here serves HTTP. Signal K serves a webapp out of the plugin package's
 own `public/` directory, so the plugin copies this package's `public/` into
 its own at build time -- the same idiom as its `sync-icon.mjs`: generated,
 gitignored, run on `prebuild` and `prepare`. Two files in `public/` are
-themselves generated here, from the `coastlines` and `coast-wright`
-packages, by `scripts/sync-coastline.mjs`; they ship in the tarball because
+themselves generated here, from Natural Earth's coastline GeoJSON (vendored
+unmodified in `data/`) and the `coast-wright` package, by
+`scripts/sync-coastline.mjs`; they ship in the tarball because
 a browser loads the page unbundled and cannot reach `node_modules`.
 
 ## Development

@@ -6,26 +6,23 @@
 // It is drawn here rather than borrowed from the boat's own charts because
 // every chart source Signal K can offer is Web Mercator, which cannot show a
 // pole -- and polar absorption is half of what these maps exist to show. The
-// coastline's size, and the argument against the alternatives, are on
+// argument against the alternatives is on
 // https://github.com/mark-brannan/signalk-noaa-space-weather/issues/32
 //
-// The decoding and drawing used to live here by hand; they are now
-// "coast-wright" and "coastlines", extracted so other projects can draw a
-// coastline without also being a Signal K plugin. scripts/sync-coastline.mjs
-// vendors both into public/ on prebuild and prepare, the same way
-// scripts/sync-icon.mjs vendors the icon.
-import { limn, rings } from './vendor/coast-wright/index.js'
+// The geography is Natural Earth's 50m coastline as published -- nothing
+// simplified, every island kept -- and "coast-wright" turns it into rings
+// and draws them. scripts/sync-coastline.mjs vendors both into public/ on
+// prebuild and prepare, the same way scripts/sync-icon.mjs vendors the icon.
+import { geojsonRings, limn } from './vendor/coast-wright/index.js'
 import COASTLINE from './coastline.js'
 
-let decoded = null
-
 /**
- * The coastline as rings of [lon, lat]. Decoded once and kept: it is the
- * same few thousand points on every redraw, and both maps redraw on resize.
+ * The coastline as rings of [lon, lat]. coast-wright keeps them per
+ * document: it is the same tens of thousands of points on every redraw, and
+ * both maps redraw on resize.
  */
 export function coastlineRings() {
-  if (!decoded) decoded = rings(COASTLINE)
-  return decoded
+  return geojsonRings(COASTLINE)
 }
 
 /**
