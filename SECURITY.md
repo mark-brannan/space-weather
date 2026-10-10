@@ -62,10 +62,11 @@ boat, often with no reliable connectivity, so the interesting surfaces are:
 
 ## Notes on how this package is built
 
-- The two runtime dependencies, `coastlines` and `coast-wright`, are data
-  and a renderer for the map's coastline, vendored into `public/` at build
-  time; nothing else in `node_modules` ships. Dependabot moves dependencies
-  monthly (`.github/dependabot.yml`).
+- The one runtime dependency, `coast-wright`, draws the map's coastline;
+  it and the Natural Earth GeoJSON in `data/` (checked against a pinned
+  sha256) are vendored into `public/` at build time; nothing else in
+  `node_modules` ships. Dependabot moves dependencies monthly
+  (`.github/dependabot.yml`).
 - Releases are published from CI using npm OIDC trusted publishing. No npm
   token exists on a developer machine, so a stolen laptop cannot publish a
   release.

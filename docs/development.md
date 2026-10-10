@@ -157,7 +157,8 @@ service, so a new payload shape is fixtured before it is parsed.
 - `scripts/measure-kp.mjs` and `scripts/watch-drap.mjs` are the longer
   observations behind the Kp and D-RAP cadence notes in the same document.
 - `scripts/sync-coastline.mjs` regenerates `public/coastline.js` and
-  `public/vendor/` from the `coastlines` and `coast-wright` packages; it
+  `public/vendor/` from `data/ne_50m_coastline.geojson` (Natural Earth,
+  checked against its pinned sha256) and the `coast-wright` package; it
   runs on `prebuild` and `prepare`, so a clone is complete after
   `npm install`.
 
