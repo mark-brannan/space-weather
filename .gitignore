@@ -111,8 +111,8 @@ dist
 # commit a second copy of the tree.
 .claude/worktrees/
 
-# Generated from the "coastlines" and "coast-wright" npm packages by
-# scripts/sync-coastline.mjs: build output that ships (public/ is in
+# Generated from data/ne_50m_coastline.geojson and the "coast-wright" npm
+# package by scripts/sync-coastline.mjs: build output that ships (public/ is in
 # package.json's "files") but has no business being a second copy under
 # version control, same as dist/.
 /public/coastline.js

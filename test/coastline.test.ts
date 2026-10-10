@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -31,21 +32,34 @@ function recordingContext() {
 describe('the coastline asset', () => {
   const rings = coastlineRings()
 
-  it('stays small enough that its size is never the argument', () => {
-    // The whole case for shipping geography at all is that it costs a
-    // rounding error against a tarball carrying a megabyte of screenshots
-    // (issue #32). A coarser fidelity profile from the "coastlines" package,
-    // or a raw Natural Earth file dropped in here by hand, would quietly
-    // spend that argument -- this is the number that has to hold, not the
-    // tolerance the "portolani" generator was tuned with.
-    const asset = fileURLToPath(
-      new URL('../public/coastline.js', import.meta.url)
+  const source = readFileSync(
+    fileURLToPath(new URL('../data/ne_50m_coastline.geojson', import.meta.url))
+  )
+
+  it('is Natural Earth v5.1.2 50m, byte for byte', () => {
+    // The pin scripts/sync-coastline.mjs checks at build. Swapping in 10m
+    // or a newer release is a choice to measure parse and draw on a Pi
+    // again (issue #44), not a file to drop in.
+    expect(createHash('sha256').update(source).digest('hex')).toBe(
+      '271f1c4c1908312bac6b29d158ea1356544beafc129f260005300913aa5ea283'
     )
-    expect(readFileSync(asset).byteLength).toBeLessThan(12_000)
   })
 
-  it('decodes to whole rings of plottable coordinates', () => {
-    expect(rings.length).toBeGreaterThan(100)
+  it('ships the published file unmodified', () => {
+    const asset = readFileSync(
+      fileURLToPath(new URL('../public/coastline.js', import.meta.url)),
+      'utf8'
+    )
+    expect(asset).toContain(`export default ${source.toString('utf8').trim()}`)
+  })
+
+  it('keeps every line Natural Earth publishes', () => {
+    // Nothing simplified, no island dropped: the count the 50m file has.
+    expect(rings.length).toBe(1429)
+    expect(rings.reduce((n, ring) => n + ring.length, 0)).toBe(60416)
+  })
+
+  it('flattens to whole rings of plottable coordinates', () => {
     for (const ring of rings) {
       expect(ring.length).toBeGreaterThanOrEqual(2)
       for (const [lon, lat] of ring) {
@@ -53,18 +67,6 @@ describe('the coastline asset', () => {
         expect(lon).toBeLessThanOrEqual(180)
         expect(lat).toBeGreaterThanOrEqual(-90)
         expect(lat).toBeLessThanOrEqual(90)
-      }
-    }
-  })
-
-  it('quantises to a tenth of a degree', () => {
-    // A coordinate off the lattice means the encoder and the decoder disagree
-    // about the scale, which draws a plausible-looking coastline in the wrong
-    // place -- the failure that has no visible symptom.
-    for (const ring of rings) {
-      for (const [lon, lat] of ring) {
-        expect(Math.round(lon * 10)).toBeCloseTo(lon * 10, 9)
-        expect(Math.round(lat * 10)).toBeCloseTo(lat * 10, 9)
       }
     }
   })
@@ -93,9 +95,9 @@ describe('drawCoastline', () => {
 
       expect(ctx.segments.length).toBeGreaterThan(1000)
       for (const [from, to] of ctx.segments) {
-        // Half the canvas is 180 degrees of longitude. Nothing on a 0.25
-        // degree coastline moves that far in one step; anything that does is
-        // the seam being drawn rather than broken.
+        // Half the canvas is 180 degrees of longitude. No coastline moves
+        // that far in one step; anything that does is the seam being drawn
+        // rather than broken.
         expect(Math.abs(to[0] - from[0])).toBeLessThan(width / 2)
       }
     })

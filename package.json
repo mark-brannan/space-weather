@@ -76,8 +76,7 @@
   "author": "mark-brannan",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "coast-wright": "^0.0.1-alpha.0",
-    "coastlines": "^0.0.1-alpha.0"
+    "coast-wright": "git+https://github.com/mark-brannan/coast-wright.git#main"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
