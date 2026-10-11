@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/mark-brannan/space-weather/compare/v0.1.2...v0.1.3) (2026-10-11)
+
+
+### Fixed
+
+* **ci:** hold publish on npm 11, not latest ([#48](https://github.com/mark-brannan/space-weather/issues/48)) ([84d80a8](https://github.com/mark-brannan/space-weather/commit/84d80a8c93f4451773572b8d8101acad0d89f228))
+
 ## [0.1.2](https://github.com/mark-brannan/space-weather/compare/v0.1.1...v0.1.2) (2026-10-11)
 
 
