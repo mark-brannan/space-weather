@@ -3319,17 +3319,12 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAP_GROUND, MAX_RADIUS_DEG, MI
         `<button type="button" data-projection="${entry.id}" title="${entry.hint}"
           aria-pressed="${mapControls.projection === entry.id}">${entry.label}</button>`)
       .join('')
-    // The last checked layer can't just switch off -- an empty map is a
-    // legitimate picture, but "Nothing selected" as an offered choice is not
-    // (Mark's test-rig punch list): either something is drawn, or the
-    // control to draw nothing isn't offered. It stays clickable rather than
-    // `disabled`, though: clicking it swaps to the other layer, XOR-style,
-    // instead of no-op'ing (Mark's round-3 review).
-    const layerBoxes = LAYER_IDS.map((id) => {
-      const last = layerOn(id) && mapControls.layers.size === 1
-      return `<label class="check${last ? ' off' : ''}" title="${last ? 'Switches to the other layer -- at least one stays on.' : ''}"><input
+    // Each layer is its own switch: any combination may be on, including none
+    // (the map then shows the ground, coastline and vessel alone).
+    const layerBoxes = LAYER_IDS.map((id) =>
+      `<label class="check"><input
         type="checkbox" data-layer="${id}" ${layerOn(id) ? 'checked' : ''}> ${LAYER_META[id].label}</label>`
-    }).join('') +
+    ).join('') +
       // Beside the products, but outside their at-least-one-stays-on rule:
       // it draws from the clock rather than a grid, so on its own it would
       // still leave nothing of NOAA's on the map.
@@ -3507,16 +3502,6 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAP_GROUND, MAX_RADIUS_DEG, MI
     for (const box of body.querySelectorAll('input[data-layer]')) {
       box.addEventListener('change', () => {
         const id = box.dataset.layer
-        // The browser has already unchecked this box by the time `change`
-        // fires. If it was the last layer on, that would leave zero -- swap
-        // to the other layer instead of allowing it, so the "disabled-
-        // looking" checkbox reads as a switch rather than a no-op (Mark's
-        // round-3 review).
-        if (!box.checked && mapControls.layers.size === 1 && mapControls.layers.has(id)) {
-          for (const other of LAYER_IDS) {
-            if (other !== id) mapControls.layers.add(other)
-          }
-        }
         if (box.checked) mapControls.layers.add(id)
         else mapControls.layers.delete(id)
         loadMap()
@@ -3671,7 +3656,9 @@ import { DEFAULT_RADIUS_DEG, KM_TO_NM, LAYER_IDS, MAP_GROUND, MAX_RADIUS_DEG, MI
       await Promise.all(wanted.map((id) => loadLayer(id, loadId)))
     }
     if (loadId !== mapLoadId) return
-    mapState = LAYER_IDS.filter(layerOn).some((id) => mapEntries[id]) ? 'ready' : 'error'
+    // Zero layers on is a ready map, not an error: there is simply nothing to read.
+    const shown = LAYER_IDS.filter(layerOn)
+    mapState = !shown.length || shown.some((id) => mapEntries[id]) ? 'ready' : 'error'
     renderMap()
   }
 
