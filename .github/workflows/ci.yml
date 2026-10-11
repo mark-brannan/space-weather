@@ -73,6 +73,14 @@ jobs:
     with:
       require-config: false
 
+  # A measurement, not a gate, so it stays out of ci-gate's needs. Writes the
+  # sticky PR comment, hence pull-requests: write.
+  complexity:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: mark-brannan/.github/.github/workflows/complexity.yml@main
+
   # The single required status check, shared across repositories: the `gate`
   # job of mark-brannan/.github's reusable ci-gate workflow, which fails
   # unless every result in `needs` is green. The reported context is
