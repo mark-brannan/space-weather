@@ -32,9 +32,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-      # coast-wright floats on its main; the lockfile pin only keeps npm ci
-      # working, so move it to the tip before testing.
-      - run: npm update coast-wright
       - run: npm run build
       - run: npm test
 
@@ -52,9 +49,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-      # coast-wright floats on its main; the lockfile pin only keeps npm ci
-      # working, so move it to the tip before testing.
-      - run: npm update coast-wright
       - run: npm run typecheck
 
       # CLAUDE.md orders `npm run format`; this is what enforces it, so a
