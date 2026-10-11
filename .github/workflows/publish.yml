@@ -42,8 +42,9 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing requires npm >= 11.5.1, newer than what ships with
-      # Node 22.
-      - run: npm install -g npm@latest
+      # Node 22. Held on 11: npm 12 refuses git dependencies by default
+      # (EALLOWGIT), and coast-wright is one.
+      - run: npm install -g npm@11
 
       - name: Refuse to publish a tag that disagrees with package.json
         run: |
