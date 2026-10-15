@@ -36,11 +36,11 @@ export async function* coastlineSource() {
 
 /**
  * Draws the coastline through a map's own projection. See coast-wright's
- * `limn` for what `x`, `y` and `lonCenter` mean and why the seam guard tests
- * against `lonCenter` rather than the antimeridian.
+ * `limn` for what `project` and `centralMeridian` mean and why the seam guard
+ * tests against `centralMeridian` rather than the antimeridian.
  */
-export function drawCoastline(ctx, x, y, options) {
-  return limn(ctx, coastlineSource(), x, y, options)
+export function drawCoastline(ctx, project, options) {
+  return limn(ctx, coastlineSource(), project, options)
 }
 
 export { limn }
