@@ -315,13 +315,13 @@ async function drawCoast(ctx, view, ink) {
 /**
  * Strokes rings of `[lon, lat]` through the view, by way of coast-wright's
  * `limn`: the one routine every line on the map goes through. The view says
- * where its projection's discontinuity is (`lonCenter`, `visible`); `limn`
+ * where its projection's discontinuity is (`centralMeridian`, `visible`); `limn`
  * lifts the pen there.
  */
 function strokeLines(ctx, rings, view, options = {}) {
-  return limn(ctx, rings, view.x, view.y, {
+  return limn(ctx, rings, view.project, {
     ...options,
-    lonCenter: view.lonCenter,
+    centralMeridian: view.lonCenter,
     visible: view.visible
   })
 }

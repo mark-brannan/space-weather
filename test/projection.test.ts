@@ -362,10 +362,10 @@ describe('mapView', () => {
     }
   })
 
-  it('agrees with toPixel through the separable x/y accessors', () => {
-    // coast-wright's `limn` and the graticule call x() and y() one
-    // coordinate at a time rather than toPixel's paired call; they must
-    // land on the same pixel or the coastline and the map disagree.
+  it('agrees with toPixel through the project accessor', () => {
+    // coast-wright's `limn` and the graticule call project() rather than
+    // toPixel; they must land on the same pixel or the coastline and the map
+    // disagree.
     const view = mapView({
       projection: 'cylindrical',
       center: { latitude: 47.6, longitude: -122.3 },
@@ -379,8 +379,9 @@ describe('mapView', () => {
       [10, -20]
     ]) {
       const [px, py] = view.toPixel(lon, lat)!
-      expect(view.x(lon)).toBeCloseTo(px, 6)
-      expect(view.y(lat)).toBeCloseTo(py, 6)
+      const [qx, qy] = view.project([lon, lat])
+      expect(qx).toBeCloseTo(px, 6)
+      expect(qy).toBeCloseTo(py, 6)
     }
   })
 

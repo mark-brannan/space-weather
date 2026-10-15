@@ -319,11 +319,12 @@ export function mapView({
     cy,
     scale,
     toPixel,
-    // The accessors coast-wright's `limn` takes: `x(lon, lat)` and
-    // `y(lat, lon)`. A separable projection ignores the second argument, which
-    // then defaults to the centre's.
-    x: (lon_, lat_ = centerLat) => cx + proj.forward(lon_, lat_)[0] * scale,
-    y: (lat_, lon_ = lon) => cy - proj.forward(lon_, lat_)[1] * scale,
+    // The projection coast-wright's `limn` takes: `project([lon, lat])`, the
+    // pixel as `[px, py]`.
+    project: ([lon_, lat_]) => {
+      const world = proj.forward(lon_, lat_)
+      return [cx + world[0] * scale, cy - world[1] * scale]
+    },
     // The meridian `limn` lifts the pen across, 180 degrees from it. The flat
     // map has that seam; the azimuthal one has none, so it gets NaN, which
     // no jump compares greater than.
