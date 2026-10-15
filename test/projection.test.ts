@@ -383,4 +383,24 @@ describe('mapView', () => {
       expect(view.y(lat)).toBeCloseTo(py, 6)
     }
   })
+
+  it('masks a cap around the azimuthal antipode, and only there', () => {
+    const view = mapView({
+      center: { latitude: 47.6, longitude: -122.3 },
+      radiusDeg: 180,
+      width: 900,
+      height: 900
+    })
+    expect(view.visible!(-122.3, 47.6)).toBe(true)
+    expect(view.visible!(57.7, -47.6)).toBe(false)
+    expect(view.visible!(57.7, -40)).toBe(true)
+    expect(view.lonCenter).toBeNaN()
+    const close = mapView({
+      center: { latitude: 47.6, longitude: -122.3 },
+      radiusDeg: 20,
+      width: 900,
+      height: 900
+    })
+    expect(close.visible!(57.7, -47.6)).toBe(true)
+  })
 })
