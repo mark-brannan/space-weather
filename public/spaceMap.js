@@ -18,7 +18,7 @@
 // would measure against -- the coastline, the graticule, the markers, the
 // probed path -- is drawn vectorially at full resolution over the top.
 
-import { coastlineRings, limn } from './geo.js'
+import { coastlineRings, coastlineSource, limn } from './geo.js'
 import { auroraCellColor } from './aurora.js'
 import { drapNoaaColor } from './drap-colors.js'
 import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
@@ -126,6 +126,22 @@ export function viewFor(canvas, options = {}) {
  * `layers` is which of them the reader has switched on.
  */
 export function drawSpaceMap(canvas, options = {}) {
+  // The coastline arrives through an async port, so a draw outlives its call.
+  // Two draws on one canvas (a resize during a redraw) would interleave their
+  // saved state; each waits for the one before it.
+  const run = (drawing.get(canvas) || Promise.resolve()).then(() =>
+    drawNow(canvas, options)
+  )
+  drawing.set(
+    canvas,
+    run.catch(() => {})
+  )
+  return run
+}
+
+const drawing = new WeakMap()
+
+async function drawNow(canvas, options) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
   const {
@@ -187,7 +203,7 @@ export function drawSpaceMap(canvas, options = {}) {
   if (drap && bandContours) drawBandContours(ctx, view, drap.sample, ink)
 
   drawGraticule(ctx, view, ink)
-  drawCoast(ctx, view, ink)
+  await drawCoast(ctx, view, ink)
   ctx.restore()
 
   if (disc) {
@@ -292,7 +308,7 @@ function discPath(view) {
  * pixels -- and the azimuthal case is stroked here, against a different
  * discontinuity.
  */
-function drawCoast(ctx, view, ink) {
+async function drawCoast(ctx, view, ink) {
   // Twice: a dark wide stroke, then the light one over it. A single light
   // line vanishes wherever the absorption ramp reaches its yellow end, which
   // is exactly the part of the map somebody is looking hardest at.
@@ -302,7 +318,7 @@ function drawCoast(ctx, view, ink) {
   ]
   for (const pass of passes) {
     if (view.proj.separable) {
-      limn(ctx, coastlineRings(), view.x, view.y, {
+      await limn(ctx, coastlineSource(), view.x, view.y, {
         ...pass,
         lonCenter: view.center.longitude
       })
