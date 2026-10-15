@@ -88,10 +88,10 @@ describe('drawCoastline', () => {
   // centred near Fiji meets it at Greenwich. Both have to survive it, and the
   // second is the case a dateline-only guard gets wrong.
   for (const lonCenter of [0, 178, -122.3]) {
-    it(`joins no two points across the seam at ${lonCenter}`, () => {
+    it(`joins no two points across the seam at ${lonCenter}`, async () => {
       const { x, y } = project(lonCenter)
       const ctx = recordingContext()
-      drawCoastline(ctx as never, x, y, { color: '#fff', lonCenter })
+      await drawCoastline(ctx as never, x, y, { color: '#fff', lonCenter })
 
       expect(ctx.segments.length).toBeGreaterThan(1000)
       for (const [from, to] of ctx.segments) {
