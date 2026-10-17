@@ -1,0 +1,12 @@
+name: Show, don't tell
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  show-dont-tell:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/show-dont-tell.yml@main
