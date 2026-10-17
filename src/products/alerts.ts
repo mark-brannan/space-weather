@@ -1,6 +1,11 @@
 // https://services.swpc.noaa.gov/products/alerts.json
 // Message codes: http://www.spaceweather.org/ISES/code/fmt/exam.html
-import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../paths.js'
+import {
+  ALERTS_BASE,
+  NOTIFICATIONS_BASE,
+  STORM_BASE,
+  STORM_BASE_RETIRED
+} from '../paths.js'
 import {
   ALERT_MAX_AGE_MS,
   AlertNotification,
@@ -237,6 +242,12 @@ function publishStorm(
   settings: Settings,
   now: Date
 ): void {
+  // Regardless of the toggle: the retired copy is not this feature's to keep.
+  const retired = publisher.selfPath(`${STORM_BASE_RETIRED}.value`)
+  if (retired && isRaised(retired)) {
+    standDown(publisher, STORM_BASE_RETIRED, retired, now)
+  }
+
   const cached = readStormCache(publisher)
   const existing = publisher.selfPath(`${STORM_BASE}.value`)
 
