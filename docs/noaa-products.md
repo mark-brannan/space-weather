@@ -234,11 +234,88 @@ bytes for same-morning pickup of a product whose value is at the far end of
 its window, and it would not have caught either off-cadence issue anyway —
 one arrived 15 hours after the chased window, the other 83 hours after. The
 one case with real (if low-stakes) exposure is the 1151 misfire: it is not
-caught by validation, but `outlook27` raises no notification and carries no
-`zones`, so the cost of a visibly anomalous single-day flux value living for
-up to a day is a display artifact, not a wrong alarm — and it beats neither
+caught by validation, but no flux value on `outlook27` carries `zones` or can
+raise a notification, so the cost of a visibly anomalous single-day flux value
+living for up to a day is a display artifact, not a wrong alarm — and it beats neither
 that bar nor "the first three days are already covered better by `kp` and
 `scales`." Nothing here argues for a code change.
+
+## `/text/27-day-outlook.txt` does forecast Kp 7+, but only on its first two days
+
+Measured 2026-10-10, from the Wayback Machine's captures of
+`https://services.swpc.noaa.gov/text/27-day-outlook.txt` plus the five local
+`examples/27-day-outlook.*.txt` files and the live issue of 2026-10-05. It
+answers [signalk-noaa-space-weather#57](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/57):
+is a `zones` ladder on the peak decoration, because a recurrence forecast never
+reaches G3?
+
+**Method.** The CDX index lists 287 HTTP 200 captures from 2014-12-28 to
+2026-09-25, 203 distinct bodies by digest. Each was fetched raw (the
+`web/<timestamp>id_/` form), one request at a time, and read for its `:Issued:`
+line and the `Largest Kp` column. Deduped by `:Issued:` that is **194 distinct
+issues, 2014-12-22 to 2026-10-05, 27 rows each (5,238 rows)**. The archive is a
+sample: those issues fall in 191 of the 616 weeks in the span, about a third, so
+every count below is a floor on what NOAA issued, not a census.
+
+**Peak Kp per issue** (the `maxKp` the product would publish):
+
+| Peak Kp | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Issues | 1 | 6 | 41 | 103 | 35 | 5 | 3 | 0 |
+
+Rows over all 5,238 days: Kp 5 on 402, Kp 6 on 58, Kp 7 on 5, Kp 8 on 3.
+
+**The outlook does reach G3 and G4.** Eight issues peak at Kp 7 or 8, all from
+2023 on (3 in 2023, 2 in 2024, 2 in 2025, 1 in 2026), none before:
+
+| Issued (UTC) | Peak | Day of the peak | Offset from issue date |
+| --- | --- | --- | --- |
+| 2023-02-27 0250 | 7 | 2023-02-27 | 0 |
+| 2023-04-24 0342 | 8 | 2023-04-24 | 0 |
+| 2023-04-24 1316 | 8 | 2023-04-24 | 0 |
+| 2024-07-29 0218 | 7 | 2024-07-30 | 1 |
+| 2024-09-16 0227 | 7 | 2024-09-16 | 0 |
+| 2025-06-02 0216 | 8 | 2025-06-02 | 0 |
+| 2025-12-08 0210 | 7 | 2025-12-09 | 1 |
+| 2026-06-08 0244 | 7 | 2026-06-08 | 0 |
+
+(The two 2023-04-24 rows are an issue and its same-day reissue. The 2026-06-08
+issue is `examples/27-day-outlook.2026_06_08.txt`.)
+
+**Every one of them is on day 0 or day 1 of the window.** No issue in the
+sample has a Kp 7 or higher day at offset 2 or later. Kp 6 does appear at the
+far end (31 of the 3,877 rows at offset 7 or later, out to offset 25), so the
+recurrence forecast reaches G2 late in the window but has not been seen
+reaching G3. The first row is the issue date itself in 192 of 194 issues; that
+the Kp 7+ days all sit there suggests the head of the window is closer to a
+nowcast than to a recurrence (inference, not measured).
+
+**It did not forecast the Gannon storm.** The issue standing through the
+10–12 May 2024 storm is 2024-05-06 0628 UTC, captured on 05-10, 05-11 and
+05-12 with the same table: Kp 6 (G2) on 05-06 itself, then Kp 2 on both 05-10
+and 05-11. A recurrence estimate has nothing to say about a CME-driven storm
+that has not yet launched.
+
+**How often the quiet end turns up**, which is what the earlier no-zones
+reasoning leaned on: 146 of 194 issues (75%) contain at least one Kp 5 or
+higher day, and 468 of 5,238 rows (8.9%) are Kp 5 or higher, 2.4 days per
+27-day window. That is not "roughly monthly". It also does not matter for
+loudness: at the default `alarmLevel` of 5, G1 and G2 are `normal` and
+interrupt nobody. What reaches a notification is G3 and above, which is 8 of
+194 issues (4.1%, none before 2023).
+
+**Consequence: `maxKp` and `maxNoaaScale` carry zones, nothing else on
+`outlook27` does.** The premise for leaving them off — that a recurrence
+forecast never reaches G3 — is false, so the same ladder as `kp` applies and
+the user's own thresholds decide what interrupts. Two things the sample also
+says, which the zones do not change:
+
+- A G3 or higher outlook comes from the first two days of the window, which
+  `kp` and `scales` already cover, with a 3-hourly series and higher skill.
+  The outlook's zone is a second path to the same event, not early warning.
+- `maxKp` is the peak of the whole 27-day issue and does not change until the
+  next issue replaces it, so it carries the head-of-window storm for as long as
+  the issue stands, not for as long as the storm does.
 
 ## Conditional GET never saves anything
 
