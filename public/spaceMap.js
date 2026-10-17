@@ -18,7 +18,7 @@
 // would measure against -- the coastline, the graticule, the markers, the
 // probed path -- is drawn vectorially at full resolution over the top.
 
-import { coastlineRings, coastlineSource, limn } from './geo.js'
+import { coastlineSource, limn } from './geo.js'
 import { auroraCellColor } from './aurora.js'
 import { drapNoaaColor } from './drap-colors.js'
 import { MARINE_SSB_BAND_EDGES_HZ } from './hf.js'
@@ -299,15 +299,6 @@ function discPath(view) {
 
 // --- the coastline ---------------------------------------------------------
 
-/**
- * Coast-wright's `limn` takes `x(lon)` and `y(lat)` as separate functions,
- * which is only expressible for a cylindrical projection: on an azimuthal one
- * the pixel column a point lands in depends on its latitude too. So the
- * separable case goes through the library -- its seam guard against
- * `lonCenter` is exactly right there and better than anything measured in
- * pixels -- and the azimuthal case is stroked here, against a different
- * discontinuity.
- */
 async function drawCoast(ctx, view, ink) {
   // Twice: a dark wide stroke, then the light one over it. A single light
   // line vanishes wherever the absorption ramp reaches its yellow end, which
@@ -317,60 +308,22 @@ async function drawCoast(ctx, view, ink) {
     { color: ink, alpha: 0.6, width: 1 }
   ]
   for (const pass of passes) {
-    if (view.proj.separable) {
-      await limn(ctx, coastlineSource(), view.x, view.y, {
-        ...pass,
-        lonCenter: view.center.longitude
-      })
-    } else {
-      strokeRings(ctx, coastlineRings(), view, pass)
-    }
+    await strokeLines(ctx, coastlineSource(), view, pass)
   }
 }
 
 /**
- * Rings of `[lon, lat]` through a projection that is not separable.
- *
- * An azimuthal equidistant map has no antimeridian to break at -- the whole
- * sphere is continuous inside the disc -- but it does have one singularity,
- * the antipode of the centre, where a segment that straddles it is drawn as a
- * chord straight across the map. A pixel-length cap catches that and nothing
- * else: neighbouring coastline points are a degree apart on the ground, so a
- * segment spanning a third of the viewport is not geography.
+ * Strokes rings of `[lon, lat]` through the view, by way of coast-wright's
+ * `limn`: the one routine every line on the map goes through. The view says
+ * where its projection's discontinuity is (`centralMeridian`, `visible`); `limn`
+ * lifts the pen there.
  */
-export function strokeRings(ctx, rings, view, options = {}) {
-  const { color, alpha = 0.45, width = 1 } = options
-  const cap = options.maxSegment || Math.max(view.width, view.height) / 3
-  ctx.save()
-  if (color) ctx.strokeStyle = color
-  ctx.globalAlpha = alpha
-  ctx.lineWidth = width
-  ctx.lineJoin = 'round'
-  for (const ring of rings) {
-    ctx.beginPath()
-    let pendown = false
-    let previous = null
-    for (const point of ring) {
-      const at = view.toPixel(point[0], point[1])
-      if (!at) {
-        pendown = false
-        previous = null
-        continue
-      }
-      if (
-        previous &&
-        Math.hypot(at[0] - previous[0], at[1] - previous[1]) > cap
-      ) {
-        pendown = false
-      }
-      if (pendown) ctx.lineTo(at[0], at[1])
-      else ctx.moveTo(at[0], at[1])
-      pendown = true
-      previous = at
-    }
-    ctx.stroke()
-  }
-  ctx.restore()
+function strokeLines(ctx, rings, view, options = {}) {
+  return limn(ctx, rings, view.project, {
+    ...options,
+    centralMeridian: view.lonCenter,
+    visible: view.visible
+  })
 }
 
 // --- the graticule ---------------------------------------------------------
@@ -397,10 +350,10 @@ function drawGraticule(ctx, view, ink) {
     for (let lat = -90; lat <= 90; lat += 2) ring.push([lon, lat])
     rings.push(ring)
   }
-  strokeRings(ctx, rings, view, { color: ink, alpha: 0.14 })
+  strokeLines(ctx, rings, view, { color: ink, alpha: 0.14 })
   const equator = []
   for (let lon = -180; lon <= 180; lon += 2) equator.push([lon, 0])
-  strokeRings(ctx, [equator], view, { color: ink, alpha: 0.28 })
+  strokeLines(ctx, [equator], view, { color: ink, alpha: 0.28 })
 }
 
 // --- band-edge contours ----------------------------------------------------
@@ -740,12 +693,12 @@ function drawProbe(
   // path crosses the whole ramp by construction, since scoring it is the
   // point. The line itself tries the same amber as the Kp line and the
   // band-edge ticks (Mark's round-3 review) -- the labels stay blue.
-  strokeRings(ctx, [path], view, {
+  strokeLines(ctx, [path], view, {
     color: 'rgba(0,0,0,0.5)',
     alpha: 1,
     width: 3.4
   })
-  strokeRings(ctx, [path], view, {
+  strokeLines(ctx, [path], view, {
     color: MAP_PROBE_LINE,
     alpha: 0.95,
     width: 1.8

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/mark-brannan/space-weather/compare/v0.1.3...v0.1.4) (2026-10-15)
+
+
+### Added
+
+* **map:** draw the coastline through coast-wright's async port ([#52](https://github.com/mark-brannan/space-weather/issues/52)) ([5d77cfc](https://github.com/mark-brannan/space-weather/commit/5d77cfcc23eee00b99131cf17f1888ee10c9e2b6))
+
 ## [0.1.3](https://github.com/mark-brannan/space-weather/compare/v0.1.2...v0.1.3) (2026-10-11)
 
 
