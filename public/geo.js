@@ -26,12 +26,21 @@ export function coastlineRings() {
 }
 
 /**
- * Draws the coastline through a map's own projection. See coast-wright's
- * `limn` for what `x`, `y` and `lonCenter` mean and why the seam guard tests
- * against `lonCenter` rather than the antimeridian.
+ * The coastline as coast-wright's port takes it: an async iterable of rings,
+ * so the day a provider hands rings over piece by piece this is the one
+ * function that changes and `limn`'s caller does not.
  */
-export function drawCoastline(ctx, x, y, options) {
-  limn(ctx, coastlineRings(), x, y, options)
+export async function* coastlineSource() {
+  yield* coastlineRings()
+}
+
+/**
+ * Draws the coastline through a map's own projection. See coast-wright's
+ * `limn` for what `project` and `centralMeridian` mean and why the seam guard
+ * tests against `centralMeridian` rather than the antimeridian.
+ */
+export function drawCoastline(ctx, project, options) {
+  return limn(ctx, coastlineSource(), project, options)
 }
 
 export { limn }

@@ -18,6 +18,13 @@ error rather than a plausible picture of the wrong thing. It hardcodes
 there is no `--theme` flag. Once per machine, `npx playwright install
 chromium` fetches the browser `npm ci` doesn't.
 
+`npm run goldens:check` renders a fixed set of states and views off the rig
+with its clock pinned (`--now`) and compares them with the PNGs committed
+under `screenshots/goldens/` (`scripts/goldens.mjs` lists the set and the
+tolerance); `goldens-out/` gets the renders and a diff mask per miss. CI runs
+it as a measurement. A deliberate change to the page re-runs
+`npm run goldens:update` and commits the result.
+
 ## What a session here can show
 
 Whenever a change could affect anything a reader sees, show it running, as

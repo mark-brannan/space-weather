@@ -74,24 +74,25 @@ describe('the coastline asset', () => {
 
 describe('drawCoastline', () => {
   const width = 800
-  const project = (lonCenter: number) => ({
-    x: (lon: number) => {
+  const projectFor =
+    (lonCenter: number) =>
+    ([lon, lat]: [number, number]): [number, number] => {
       let d = lon - lonCenter
       if (d > 180) d -= 360
       if (d < -180) d += 360
-      return width / 2 + (d / 180) * (width / 2)
-    },
-    y: (lat: number) => 160 - lat
-  })
+      return [width / 2 + (d / 180) * (width / 2), 160 - lat]
+    }
 
   // A window centred on Greenwich meets the seam at the antimeridian; one
   // centred near Fiji meets it at Greenwich. Both have to survive it, and the
   // second is the case a dateline-only guard gets wrong.
   for (const lonCenter of [0, 178, -122.3]) {
-    it(`joins no two points across the seam at ${lonCenter}`, () => {
-      const { x, y } = project(lonCenter)
+    it(`joins no two points across the seam at ${lonCenter}`, async () => {
       const ctx = recordingContext()
-      drawCoastline(ctx as never, x, y, { color: '#fff', lonCenter })
+      await drawCoastline(ctx as never, projectFor(lonCenter), {
+        color: '#fff',
+        centralMeridian: lonCenter
+      })
 
       expect(ctx.segments.length).toBeGreaterThan(1000)
       for (const [from, to] of ctx.segments) {

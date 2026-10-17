@@ -14,7 +14,13 @@
  * across the browsers this plugin runs in.
  */
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 export const COASTLINE_VERSION = 'v5.1.2'
@@ -43,7 +49,9 @@ if (digest !== COASTLINE_SHA256) {
 }
 
 mkdirSync(vendorDir, { recursive: true })
-for (const file of ['index.js', 'decode.js', 'geojson.js', 'limn.js']) {
+for (const file of readdirSync(
+  fileURLToPath(new URL('../node_modules/coast-wright/lib', import.meta.url))
+)) {
   copyFileSync(
     fileURLToPath(
       new URL(`../node_modules/coast-wright/lib/${file}`, import.meta.url)

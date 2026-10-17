@@ -1,6 +1,6 @@
 {
   "name": "space-weather",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "NOAA Space Weather Prediction Center products, fetched, parsed and published: geomagnetic storms, radio blackouts, aurora and HF absorption grids, and the map webapp that draws them.",
   "type": "module",
   "main": "./dist/index.js",
@@ -52,6 +52,8 @@
     "dev:webapp:list": "node scripts/webapp-ctl.mjs list",
     "dev:webapp:orphans": "node scripts/webapp-ctl.mjs orphans",
     "shots": "node scripts/shots.mjs",
+    "goldens:check": "node scripts/goldens.mjs check",
+    "goldens:update": "node scripts/goldens.mjs update",
     "site:build": "node scripts/build-site.mjs",
     "site:capture": "node scripts/capture-snapshot.mjs",
     "prepublishOnly": "npm run build && npm test",
@@ -76,7 +78,7 @@
   "author": "mark-brannan",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "coast-wright": "git+https://github.com/mark-brannan/coast-wright.git#main"
+    "coast-wright": "^0.0.5-alpha.1"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
