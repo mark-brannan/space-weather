@@ -25,6 +25,10 @@
 const D2R = Math.PI / 180
 const R2D = 180 / Math.PI
 
+// How wide the azimuthal view's antipode mask is: wider than the longest
+// segment any drawn line has (the graticule steps two degrees).
+const ANTIPODE_CAP_DEG = 3
+
 /** Normalises a longitude difference onto -180..180. */
 function wrapDelta(deg) {
   let d = deg % 360
@@ -58,7 +62,7 @@ function createAzimuthal(lat0, lon0) {
     id: 'azimuthal',
     // A segment between two neighbouring coastline points is only nonsense
     // when it straddles the antipode, which no meridian test can catch --
-    // see `strokeRings` in spaceMap.js.
+    // see `visible` below.
     separable: false,
     center: { latitude: lat0, longitude: lon0 },
     // Not capped at 180: the disc itself ends at the antipode whatever the
@@ -79,6 +83,28 @@ function createAzimuthal(lat0, lon0) {
     // A disc is centred wherever it is asked to be; there is no edge of the
     // world for it to overhang.
     clampCenter: (lat) => lat,
+    /**
+     * The predicate `limn` asks before each point: false inside a cap around
+     * the antipode, where `forward` clamps to the rim and a segment that
+     * straddles it would be drawn as a chord straight across the disc.
+     * Neighbouring points on a line are a few degrees apart on the ground,
+     * so a cap of that width swallows every such segment whole.
+     *
+     * `reachDeg` is how far from the centre the viewport reaches (its
+     * half-diagonal): a view that stops short of the cap never needs it, and
+     * gets a predicate that always says yes.
+     */
+    visible(reachDeg) {
+      if (reachDeg < 180 - ANTIPODE_CAP_DEG) return () => true
+      const limit = Math.cos((180 - ANTIPODE_CAP_DEG) * D2R)
+      return (lon, lat) => {
+        const phi = lat * D2R
+        const cosC =
+          sinPhi0 * Math.sin(phi) +
+          cosPhi0 * Math.cos(phi) * Math.cos((lon - lon0) * D2R)
+        return cosC > limit
+      }
+    },
     forward(lon, lat) {
       const phi = lat * D2R
       const dLambda = wrapDelta(lon - lon0) * D2R
@@ -293,11 +319,20 @@ export function mapView({
     cy,
     scale,
     toPixel,
-    // Separable accessors, for the callers (coast-wright's `limn`, the
-    // graticule) that hand a projection one coordinate at a time. Only
-    // meaningful when `proj.separable`; the renderer checks before using them.
-    x: (lon_) => cx + proj.forward(lon_, centerLat)[0] * scale,
-    y: (lat_) => cy - proj.forward(lon, lat_)[1] * scale,
+    // The projection coast-wright's `limn` takes: `project([lon, lat])`, the
+    // pixel as `[px, py]`.
+    project: ([lon_, lat_]) => {
+      const world = proj.forward(lon_, lat_)
+      return [cx + world[0] * scale, cy - world[1] * scale]
+    },
+    // The meridian `limn` lifts the pen across, 180 degrees from it. The flat
+    // map has that seam; the azimuthal one has none, so it gets NaN, which
+    // no jump compares greater than.
+    lonCenter: proj.separable ? lon : NaN,
+    // Undefined where every point is drawable (the flat map has no horizon).
+    visible: proj.visible?.(
+      Math.hypot(openWidth, openHeight) / 2 / scale / D2R
+    ),
     toLatLon: (px, py) => proj.inverse((px - cx) / scale, (cy - py) / scale)
   }
 }

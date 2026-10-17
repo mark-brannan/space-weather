@@ -4,6 +4,7 @@
 //   node scripts/mock-webapp.mjs [port]     # default 8731
 //   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
 //   node scripts/mock-webapp.mjs --host 127.0.0.1 [port]   # loopback only
+//   node scripts/mock-webapp.mjs --now 2026-03-20T12:00:00Z  # pinned clock
 //
 // index.html ships unmodified except for a strip appended to it. Everything
 // fake is on the wire: every path ROUTES understands is answered here (and
@@ -379,6 +380,7 @@ const argv = process.argv.slice(2)
 let upstreamArg = null
 let portArg = null
 let hostArg = null
+let nowArg = null
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--upstream') upstreamArg = argv[++i]
   else if (argv[i].startsWith('--upstream='))
@@ -386,7 +388,29 @@ for (let i = 0; i < argv.length; i++) {
   else if (argv[i] === '--host') hostArg = argv[++i]
   else if (argv[i].startsWith('--host='))
     hostArg = argv[i].slice('--host='.length)
+  else if (argv[i] === '--now') nowArg = argv[++i]
+  else if (argv[i].startsWith('--now=')) nowArg = argv[i].slice('--now='.length)
   else if (portArg === null) portArg = argv[i]
+}
+// --now pins the rig's clock, so every fabricated timestamp (plugin start,
+// the Kp series, the 27-day outlook's issue day) is the same on every run:
+// what scripts/goldens.mjs needs to compare two renders. Only this
+// process's Date is pinned; the page's clock is the screenshot driver's job.
+if (nowArg) {
+  const fixed = Date.parse(nowArg)
+  if (Number.isNaN(fixed)) {
+    console.error(`--now wants an ISO instant, not "${nowArg}"`)
+    process.exit(1)
+  }
+  const RealDate = Date
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [fixed]))
+    }
+    static now() {
+      return fixed
+    }
+  }
 }
 const PORT = Number(portArg || 8731)
 // Binds every interface by default: the point of this rig is to put a change in

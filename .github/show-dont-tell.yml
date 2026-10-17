@@ -1,0 +1,10 @@
+# Rendered paths: a PR touching any of these must show a picture or a preview
+# URL in its body (mark-brannan/.github show-dont-tell workflow), and carry a
+# "## Try it" block that serves the PR's head in one paste.
+paths:
+  - "public/**"       # the webapp served by the mock
+checkout: ~/space-weather                           # the user's local clone
+# The mock serves public/ but loads the built plugin from dist/ (see the
+# header of scripts/mock-webapp.mjs), so it needs a build, not just deps.
+install: npm ci && npm run build
+serve: npm run dev:webapp {port}                    # {port} = 10000 + PR number

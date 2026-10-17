@@ -56,6 +56,45 @@ jobs:
       # person's unrelated diff.
       - run: npm run format:check
 
+  # Screenshot goldens (scripts/goldens.mjs): the dashboard quiet and in a
+  # storm, the storm's other views and the empty page, off the mock rig with
+  # its clock pinned, dark at 1280 and 360 px plus light at 1280. Fails when a
+  # shot differs from screenshots/goldens by more than 0.1% of pixels.
+  # goldens-out/ (the actual renders, plus a red-mask diff-*.png per failure)
+  # is uploaded either way; on a deliberate change, `npm run goldens:update`
+  # and commit. A measurement, not a gate, so it stays out of ci-gate's needs
+  # until it has a track record. screenshots/goldens/** is what the shared
+  # golden-diff workflow (mark-brannan/.github) will score on a PR once it is
+  # called from here, in a follow-on.
+  goldens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # The rig's map routes load the products out of dist/.
+      - run: npm run build
+      - name: Start the mock rig and compare against the goldens
+        run: |
+          node scripts/mock-webapp.mjs 8731 --host 127.0.0.1 \
+            --now 2026-03-20T12:00:00Z > rig.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8731/ > /dev/null && break
+            sleep 1
+          done
+          node scripts/goldens.mjs check http://127.0.0.1:8731
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: goldens-out
+          path: goldens-out/
+          if-no-files-found: ignore
+
   # Refuses to call an empty PR green: a branch whose tree equals its base at
   # the merge base (a stray commit reverted it) merges cleanly and lands
   # nothing. Listed in ci-gate's needs, so it needs no ruleset entry.
