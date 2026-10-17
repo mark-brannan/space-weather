@@ -128,6 +128,10 @@ dist
 # PR pictures from scripts/shots.mjs; they go on the PR, not in the tree.
 /shots/
 
+# What `npm run goldens:check` rendered, and its diff masks; the committed
+# set it compares against is screenshots/goldens/.
+/goldens-out/
+
 # The assembled browser site from scripts/build-site.mjs: a copy of public/,
 # dist/ and site/, rebuilt by the Pages workflow on every deploy.
 /site-dist/
