@@ -76,14 +76,14 @@ whose cwd is this checkout, exit 1 when there are none.
 ## Working on the webapp ("rig") without a server
 
 ```shell
-npm run dev:webapp        # live: data from the dev server on 127.0.0.1:3010
+npm run dev:webapp        # live NOAA: the page fetches it itself, no server
 npm run dev:webapp:mock   # fabricated states, no server needed
 ```
 
-Both serve http://127.0.0.1:8731; pass a port to change it. Live is the
-default because fabricated data proves rendering and never data. When no
-server answers, the rig still starts and says so on stderr; pass
-`--upstream <base-url>` or use `:mock`.
+Both serve http://127.0.0.1:8731; pass a port to change it. Live NOAA is the
+default because fabricated data proves rendering and never data. The three
+sources the page can sit on are `--noaa` (the default), `--mock` and
+`--upstream <base-url>`; they are mutually exclusive.
 
 It binds every interface, and prints one URL per address it can be reached
 at -- loopback, LAN, Tailscale. Showing a change on another device is a
@@ -138,8 +138,12 @@ every other path. A real `refresh()` also publishes the point value at the
 vessel, which the mock captures in place of an `app` object and serves back
 on those paths.
 
-Live mode, the default, uses a running Signal K server's real numbers
-(`http://127.0.0.1:3010` unless `--upstream <base-url>` names another): the
+`--noaa`, the default, builds the site (`scripts/build-site.mjs`) once at
+startup and serves it: the shipping page with the in-tab live layer, fetching
+NOAA directly with no server behind it. It needs `npm run build` first and the
+network, and `public/` edits show on a restart.
+
+`--upstream <base-url>` uses a running Signal K server's real numbers: the
 same paths are proxied there verbatim instead of going through `payload()`, so a branch's `public/` -- a changed card, new
 copy -- can be checked against genuine data without repointing that server's
 plugin at anything.
@@ -150,8 +154,7 @@ node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3000
 
 Check the server's lock file (the plugin repo's `docs/development.md`
 describes the shared instances and `~/.signalk/locks/`) before relying on it
-being idle. `--upstream` and `--mock` are mutually exclusive; live mode
-replaces the switcher strip with one naming the upstream instead.
+being idle. Upstream mode replaces the switcher strip with one naming the upstream instead.
 
 ## Fixtures and measurements
 

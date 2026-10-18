@@ -1,9 +1,9 @@
-// Serves public/ against a running Signal K server's real data by default,
-// or, with --mock, against fabricated data, so the webapp's UI can be worked
-// on without a server, a plugin, or NOAA.
+// Serves the webapp from one of the three sources that can sit behind
+// public/signalk.js: live NOAA fetched by the page itself (the default),
+// fabricated data (--mock), or a running Signal K server (--upstream).
 //
-//   node scripts/mock-webapp.mjs [port]     # live, 127.0.0.1:3010; port 8731
-//   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3000 [port]
+//   node scripts/mock-webapp.mjs [port]     # live NOAA, no server; port 8731
+//   node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010 [port]
 //   node scripts/mock-webapp.mjs --mock [port]             # fabricated states
 //   node scripts/mock-webapp.mjs --host 127.0.0.1 [port]   # loopback only
 //   node scripts/mock-webapp.mjs --now 2026-03-20T12:00:00Z  # pinned clock
@@ -34,14 +34,14 @@
 // hand-editing the DOM in devtools: the point is that the app's own code
 // decides what to render.
 //
-// Live mode (the default, or --upstream <url> to pick the server) proxies
+// Upstream mode (--upstream <url>) proxies
 // the same ROUTES verbatim to a running Signal K server instead of going
 // through payload(), so a branch's public/ (new markup, new copy, a changed
 // card) can be viewed against genuine data without repointing
 // ~/.signalk/node_modules/signalk-noaa-space-weather at this worktree --
 // which would move every other session on that shared server onto this
-// branch's build too. --mock and --upstream are mutually exclusive: there
-// is nothing to switch when the numbers are real.
+// branch's build too. --mock, --noaa and --upstream are mutually exclusive:
+// there is nothing to switch when the numbers are real.
 //
 // No dependencies, and nothing here is imported by src/ or test/ -- `npm ci
 // && npm run build && npm test` runs under `firejail --net=none` with a 60
@@ -51,6 +51,7 @@ import fs from 'node:fs/promises'
 import fssync from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(
@@ -389,8 +390,10 @@ let portArg = null
 let hostArg = null
 let nowArg = null
 let mockArg = false
+let noaaArg = false
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--mock') mockArg = true
+  else if (argv[i] === '--noaa') noaaArg = true
   else if (argv[i] === '--upstream') upstreamArg = argv[++i]
   else if (argv[i].startsWith('--upstream='))
     upstreamArg = argv[i].slice('--upstream='.length)
@@ -421,10 +424,13 @@ if (nowArg) {
     }
   }
 }
-if (mockArg && upstreamArg) {
-  console.error('--mock and --upstream are mutually exclusive: pick one')
+if ([mockArg, noaaArg, Boolean(upstreamArg)].filter(Boolean).length > 1) {
+  console.error('--mock, --noaa and --upstream are mutually exclusive: pick one')
   process.exit(2)
 }
+// Where the page's data comes from: the three things that can sit behind
+// public/signalk.js. noaa is the default, since it needs nothing else running.
+const MODE = mockArg ? 'mock' : upstreamArg ? 'upstream' : 'noaa'
 const PORT = Number(portArg || 8731)
 // Binds every interface by default: the point of this rig is to put a change in
 // front of somebody on another device, and 127.0.0.1 only resolves on the
@@ -460,13 +466,10 @@ function listenUrls() {
     ...addrs.map((a) => `http://${authority(a)}:${PORT}/`)
   ]
 }
-// The shared dev server (the plugin repo's docs/development.md) unless told
-// otherwise; null only under --mock. Trailing slash stripped once here so every
+// Set only under --upstream. Trailing slash stripped once here so every
 // proxied request can just concatenate base + path.
-const DEFAULT_UPSTREAM = 'http://127.0.0.1:3010'
-const UPSTREAM = mockArg
-  ? null
-  : (upstreamArg || DEFAULT_UPSTREAM).replace(/\/+$/, '')
+const UPSTREAM =
+  MODE === 'upstream' ? upstreamArg.replace(/\/+$/, '') : null
 
 const iso = (offsetMin) =>
   new Date(Date.now() + offsetMin * 60000).toISOString()
@@ -1250,9 +1253,43 @@ const MIME = {
   '.svg': 'image/svg+xml'
 }
 
+// noaa mode serves the assembled site (the page with the in-tab live layer,
+// scripts/build-site.mjs), built once at startup from this checkout's public/
+// and dist/. Rebuild by restarting; there is no server behind it to ask.
+const SITE_OUT = path.join(REPO_ROOT, 'site-dist')
+if (MODE === 'noaa') {
+  if (!fssync.existsSync(path.join(REPO_ROOT, 'dist', 'browser', 'live.js'))) {
+    console.error('dist/ is not built: run npm run build first')
+    process.exit(1)
+  }
+  const built = spawnSync(
+    process.execPath,
+    [path.join(REPO_ROOT, 'scripts', 'build-site.mjs')],
+    { stdio: 'inherit' }
+  )
+  if (built.status !== 0) process.exit(built.status || 1)
+}
+
+async function serveSite(url, res) {
+  const rel = url.pathname === '/' ? 'index.html' : url.pathname.slice(1)
+  const file = path.join(SITE_OUT, rel)
+  if (!file.startsWith(SITE_OUT)) return void res.writeHead(403).end()
+  try {
+    const buf = await fs.readFile(file)
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
+      'Cache-Control': 'no-store'
+    })
+    res.end(buf)
+  } catch {
+    res.writeHead(404).end('not found')
+  }
+}
+
 http
   .createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x')
+    if (MODE === 'noaa') return serveSite(url, res)
     let state = 'quiet'
     if (!UPSTREAM) {
       const cookie = /mockstate=([a-z]+)/.exec(req.headers.cookie || '')
@@ -1342,8 +1379,12 @@ http
   })
   .listen(PORT, HOST, () => {
     for (const url of listenUrls())
-      console.log(`mock signalk + webapp on ${url}`)
-    if (!UPSTREAM) {
+      console.log(`${MODE} webapp on ${url}`)
+    if (MODE === 'noaa') {
+      console.log('data: NOAA, fetched by the page itself; no server behind it')
+      return
+    }
+    if (MODE === 'mock') {
       console.log(`states: ${Object.keys(STATES).join(', ')}`)
       return
     }
@@ -1352,7 +1393,7 @@ http
     // rig still serves public/, but nothing behind it is answering.
     fetch(UPSTREAM + '/signalk').catch(() =>
       console.error(
-        `no Signal K server answered at ${UPSTREAM}: start one, pass --upstream <url>, or --mock for fabricated states`
+        `no Signal K server answered at ${UPSTREAM}: start one, pass --upstream <url>, or --noaa for live NOAA with no server, --mock for fabricated states`
       )
     )
   })

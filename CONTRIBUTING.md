@@ -63,13 +63,14 @@ npm test
 Node 18 or newer. The two runtime dependencies are the coastline data and
 its renderer, vendored into `public/` at build time.
 
-To see the webapp against the shared dev server's live data, or without a
-server at all, including the states that are impractical to reproduce live
-such as a G4 storm:
+To see the webapp against live NOAA data, against fabricated states
+(including the ones impractical to reproduce live, such as a G4 storm), or
+against a Signal K server:
 
 ```shell
-npm run dev:webapp        # live, from http://127.0.0.1:3010
-npm run dev:webapp:mock   # fabricated states
+npm run dev:webapp                  # live NOAA, no server needed
+npm run dev:webapp:mock             # fabricated states
+node scripts/mock-webapp.mjs --upstream http://127.0.0.1:3010   # a Signal K server
 ```
 
 Running against a real Signal K server means running the plugin; see its
