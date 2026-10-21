@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/mark-brannan/space-weather/compare/v0.1.4...v0.1.5) (2026-10-21)
+
+
+### Fixed
+
+* **goldens:** start the CI rig with --mock ([#62](https://github.com/mark-brannan/space-weather/issues/62)) ([5d5981d](https://github.com/mark-brannan/space-weather/commit/5d5981d9a0feccff5e3ed8847c4afefdc788959d))
+
 ## [0.1.4](https://github.com/mark-brannan/space-weather/compare/v0.1.3...v0.1.4) (2026-10-15)
 
 
