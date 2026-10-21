@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settingsFrom } from '../src/settings'
-import { ALERTS_BASE, NOTIFICATIONS_BASE, STORM_BASE } from '../src/paths'
+import {
+  ALERTS_BASE,
+  NOTIFICATIONS_BASE,
+  STORM_BASE,
+  STORM_BASE_RETIRED
+} from '../src/paths'
 import {
   ALERT_HISTORY_MS,
   ALERT_MAX_AGE_MS,
@@ -699,7 +704,7 @@ describe('alerts product', () => {
     expect(meta).toHaveLength(2)
     expect(meta[0].path).toBe(ALERTS_BASE)
     expect(meta[0].value.timeout).toBe(ALERT_MAX_AGE_MS / 1000)
-    expect(meta[1].path).toBe(STORM_BASE)
+    expect(meta[1].path).toBe('notifications.noaa.swpc.storm')
     expect(meta[1].value.timeout).toBe(ALERT_MAX_AGE_MS / 1000)
   })
 
@@ -849,6 +854,28 @@ describe('collapsed storm notification', () => {
 
     // Off means off: nothing comes back while the storm continues.
     expect(await refreshAt(h, '2024-05-10T21:50:00Z')).toEqual([])
+  })
+
+  it('stands the retired placeholder path down once, and only once', async () => {
+    // Plugin 0.30.8-0.30.11 raised the storm under a placeholder name. Signal K
+    // cannot delete a path, so a copy still raised in the model is stood down.
+    const raised = {
+      id: 'noaa_swpc_storm',
+      level: 4,
+      state: 'warn',
+      method: ['visual']
+    }
+    const h = stormHarness('2024-05-10T17:30:00Z')
+    h.model[STORM_BASE_RETIRED] = raised
+
+    await refreshAt(h, '2024-05-10T17:30:00Z')
+    const retired = h.published.filter((p) => p.path === STORM_BASE_RETIRED)
+    expect(retired).toHaveLength(1)
+    expect(retired[0].value.state).toBe('normal')
+    expect(retired[0].value.method).toEqual([])
+
+    await refreshAt(h, '2024-05-10T17:40:00Z')
+    expect(h.published.filter((p) => p.path === STORM_BASE_RETIRED)).toEqual([])
   })
 
   it('loudness follows the two thresholds like every other notification', async () => {
