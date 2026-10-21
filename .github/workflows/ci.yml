@@ -101,6 +101,13 @@ jobs:
   nonempty:
     uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
 
+  # The squash title is the commit release-please reads, so it carries a
+  # type: `fix(area): ...`, not `area: ...`.
+  pr-title:
+    permissions:
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/pr-title.yml@main
+
   prose-budget:
     uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
     with:
@@ -123,7 +130,7 @@ jobs:
   # evaluate when a dependency failed, so it reports an explicit pass or fail
   # of its own rather than inheriting the skip.
   ci-gate:
-    needs: [test, typecheck, nonempty, prose-budget]
+    needs: [test, typecheck, nonempty, pr-title, prose-budget]
     if: always()
     # It reads nothing and writes nothing; the results go in as an input.
     permissions: {}
