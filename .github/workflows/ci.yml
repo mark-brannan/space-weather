@@ -81,7 +81,7 @@ jobs:
       - run: npm run build
       - name: Start the mock rig and compare against the goldens
         run: |
-          node scripts/mock-webapp.mjs 8731 --host 127.0.0.1 \
+          node scripts/mock-webapp.mjs 8731 --mock --host 127.0.0.1 \
             --now 2026-03-20T12:00:00Z > rig.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8731/ > /dev/null && break
