@@ -373,17 +373,102 @@ describe('outlook27 product', () => {
     expect(series[0].aIndex).toBeNull()
   })
 
-  it('raises no notification for any of it', async () => {
-    // The whole design decision of this product: 27-day data is a recurrence
-    // estimate, and the server raises a notification off any path carrying
-    // meta.zones. A G1 day falls inside the window roughly monthly -- this
-    // fixture has two -- so zoning it would fire on low-skill data and dilute
-    // the 3-day alerts. Nothing here gets zones, and nothing publishes under
-    // notifications.
-    for (const meta of outlook27.metadata!(settingsFrom({}))) {
-      expect(meta.value.zones, meta.path).toBeUndefined()
-    }
+  // The server's matcher: `lower <= value < upper`, an omitted bound open.
+  const zoneAt = (zones: any[], value: number) =>
+    zones.find(
+      (z) => value >= (z.lower ?? -Infinity) && value < (z.upper ?? Infinity)
+    )
 
+  const OUTLOOK27 = 'environment.noaa.swpc.kp.forecast.outlook27'
+  const metaFor = (path: string, settings = settingsFrom({})) =>
+    outlook27.metadata!(settings).find(
+      (m) => m.path === `${OUTLOOK27}.${path}`
+    )!
+
+  it('zones the peak Kp and its G scale on the same ladder as the 72-hour Kp', () => {
+    // The outlook does forecast Kp 7+ (docs/noaa-products.md), so a zone on
+    // the peak is not decoration. Same ladder as `kp`, so one set of
+    // alarm/popup/list settings decides what interrupts, and the two cannot
+    // drift apart.
+    for (const settings of [
+      settingsFrom({}),
+      settingsFrom({ alarmLevel: 4, popupLevel: 3 })
+    ]) {
+      const kpMeta = kp.metadata!(settings)
+      const kpAt = (suffix: string) =>
+        kpMeta.find((m) => m.path.endsWith(suffix))!.value
+
+      expect(metaFor('maxKp', settings).value.zones).toEqual(
+        kpAt('forecast.max72h').zones
+      )
+      expect(metaFor('maxNoaaScale', settings).value.zones).toEqual(
+        kpAt('forecast.maxNoaaScale').zones
+      )
+    }
+  })
+
+  it('leaves G1 and G2 silent at the default levels and raises G3 and above', () => {
+    // The issue's premise: at the default alarmLevel of 5, G1 and G2 are
+    // `normal` and interrupt nobody, so how often they turn up in the window
+    // says nothing about loudness. G3 is visible and silent, G4 visual, G5
+    // visual and sound. Whole-number Kp is what the outlook publishes.
+    const zones = metaFor('maxKp').value.zones
+    const states = [5, 6, 7, 8, 9].map(
+      (kpValue) => zoneAt(zones, kpValue).state
+    )
+    expect(states).toEqual(['normal', 'normal', 'alert', 'warn', 'alarm'])
+
+    const scaleZones = metaFor('maxNoaaScale').value.zones
+    const scaleStates = [1, 2, 3, 4, 5].map((g) => zoneAt(scaleZones, g).state)
+    expect(scaleStates).toEqual(['normal', 'normal', 'alert', 'warn', 'alarm'])
+  })
+
+  it('zones nothing else', () => {
+    // The time, the storm-onset pair and the series describe the forecast
+    // rather than a condition; a zone on `nextStormKp` would also fire on the
+    // first G1 day in the window, which is the quiet end the ladder exists to
+    // ignore.
+    const zoned = outlook27.metadata!(settingsFrom({}))
+      .filter((m) => m.value.zones !== undefined)
+      .map((m) => m.path)
+    expect(zoned.sort()).toEqual([
+      `${OUTLOOK27}.maxKp`,
+      `${OUTLOOK27}.maxNoaaScale`
+    ])
+  })
+
+  it('publishes a Kp 7 day as G3, which the default ladder raises', async () => {
+    // A real issue (2026-06-08 0244 UTC, from the Wayback Machine) whose first
+    // day is Kp 7. The peak path and the scale path must agree with each other
+    // and land in the zone that notifies.
+    const h = harness({
+      [OUTLOOK27_ENDPOINT]: fixture('27-day-outlook.2026_06_08.txt')
+    })
+    await outlook27.refresh(h.ctx)
+
+    expect(h.errors).toEqual([])
+    const peak: any = h.valueAt(`${OUTLOOK27}.maxKp`)
+    const scale: any = h.valueAt(`${OUTLOOK27}.maxNoaaScale`)
+    expect(peak).toBe(7)
+    expect(scale).toBe(3)
+    expect(zoneAt(metaFor('maxKp').value.zones, peak).state).toBe('alert')
+    expect(zoneAt(metaFor('maxNoaaScale').value.zones, scale).state).toBe(
+      'alert'
+    )
+  })
+
+  it('raises nothing at the default levels for a quiet-end G1 outlook', async () => {
+    // The 2026-08-10 issue peaks at Kp 5 (G1) and is the common case.
+    const h = stubbed()
+    await outlook27.refresh(h.ctx)
+    const peak: any = h.valueAt(`${OUTLOOK27}.maxKp`)
+    expect(peak).toBe(5)
+    expect(zoneAt(metaFor('maxKp').value.zones, peak).state).toBe('normal')
+  })
+
+  it('publishes no notification of its own', async () => {
+    // Notifications come from the server's zone watcher reading `meta.zones`;
+    // the product itself writes only values under the outlook27 node.
     const h = stubbed()
     await outlook27.refresh(h.ctx)
     for (const path of h.paths()) {
