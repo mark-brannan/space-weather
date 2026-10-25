@@ -1396,7 +1396,7 @@ export interface Outlook27 {
  *
  * One row per UTC day for a full solar rotation: Radio Flux 10.7cm, Planetary
  * A Index, and the largest Kp expected that day. See the outlook27 product for
- * what that horizon is worth and why nothing here raises a notification.
+ * what that horizon is worth and which of its values carry zones.
  */
 export function parse27DayOutlook(text: string): Outlook27 | null {
   const days: Outlook27Day[] = []
