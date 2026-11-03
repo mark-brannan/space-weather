@@ -1,86 +1,69 @@
 # space-weather
 
-NOAA [Space Weather Prediction Center](https://www.swpc.noaa.gov/) products,
-fetched, parsed and published: the G/S/R storm scales, alerts and warnings,
-the Kp index and its forecast, the 27-day outlook, solar wind, X-ray flares,
-the four numbers HF operators read conditions in, and the two global grids --
-D-region absorption (D-RAP) and aurora probability (OVATION) -- with the map
-webapp that draws them.
+**[Open the app](https://mark-brannan.github.io/space-weather/)** -- live
+NOAA data, fetched by your own browser, with no server behind it and
+nothing to install. Or the same page on
+**[a saved day](https://mark-brannan.github.io/space-weather/?snapshot)**.
 
-This is the core that
-[signalk-noaa-space-weather](https://github.com/mark-brannan/signalk-noaa-space-weather)
-is built on. The plugin adds the Signal K lifecycle, its HTTP routes and the
-chart-plotter tiles; the standalone app and the GitHub Pages demo add a data
-layer that runs the same products in a browser tab with no server under it.
-Everything the three share lives here, so a parser is written once and a
-NOAA payload change is fixed once.
+[![The map: the aurora oval and HF absorption on a globe centred on your position, with the greyline](screenshots/goldens/snapshot-map-dark-1280.png)](https://mark-brannan.github.io/space-weather/)
 
-**Status:** extracted from the plugin and not yet published to npm. The
-plugin still carries its own copy of this code until it is repointed here.
+Space weather is what the sun does to radio and navigation down here. A
+flare blacks out HF on the daylight side of Earth; a geomagnetic storm makes
+GPS wander, degrades satellite links and brings the aurora south. This page
+reads NOAA's [Space Weather Prediction Center](https://www.swpc.noaa.gov/)
+and answers the first question first: is anything happening right now?
 
-## What's here
+## What it shows
 
+- **Dashboard.** Storm scales now and three days out, the Kp chart, solar
+  wind, and which HF bands are open where you are.
+- **[Advisories](screenshots/goldens/snapshot-advisories-dark-1280.png).**
+  NOAA's weekly outlook and a week of alerts, watches and warnings, in
+  NOAA's words.
+- **Map.** Aurora and HF absorption on a globe centred on you, or the flat
+  world; the greyline; click to score a radio path.
+- **[Diagnostics](screenshots/goldens/storm-diagnostics-dark-1280.png).**
+  What the page fetched from NOAA, endpoint by endpoint, against what it
+  should have cost.
+
+![The dashboard in a G4 storm: the headline, the storm scales, the Kp chart and HF band conditions](screenshots/goldens/storm-dashboard-dark-1280.png)
+
+*A G4 storm. The real thing comes a few times a solar cycle, so this one is
+the test rig's; the page is the shipping page.*
+
+<img src="screenshots/goldens/snapshot-map-dark-360.png" width="360" alt="The map on a phone">
+
+*It fits a phone, and installs as an app from the browser menu.*
+
+## Three ways to run it
+
+- **In a browser.** The links above. The map centres on your position if
+  you allow it, else on a stand-in spot off Alaska.
+- **On a boat.**
+  [signalk-noaa-space-weather](https://github.com/mark-brannan/signalk-noaa-space-weather)
+  runs it inside Signal K: readings become paths, storms notifications, the
+  grids chart layers.
+- **In your own code.** `npm install space-weather`, the package the plugin
+  is built on: parsers, products, the page. [CLAUDE.md](CLAUDE.md) maps it.
+
+## What it publishes
+
+A few of the paths, with real values from a quiet day. Units are SI (m/s,
+tesla, hertz, probabilities from 0 to 1); the NOAA scales and Kp are bare
+numbers.
+
+```json
+{
+  "environment.noaa.swpc.scales.observations.latest.G": 0,
+  "environment.noaa.swpc.kp.observed": 1.67,
+  "environment.noaa.swpc.kp.forecast.max72h": 3.67,
+  "environment.noaa.swpc.solar_wind.speed": 340000,
+  "environment.noaa.swpc.solar_wind.Bt": 5e-9,
+  "environment.noaa.swpc.xray_flare.class": "B4.6",
+  "environment.noaa.swpc.aurora.probability": 0,
+  "environment.noaa.swpc.drap.highest_affected_frequency": 100000
+}
 ```
-src/
-  parse.ts        pure parsing and transformation; no I/O
-  paths.ts        every Signal K path the products own, plus the scale tables
-  settings.ts     typed Settings, normalisation of raw props
-  schema.ts       the Signal K plugin's JSON schema, priced from endpoints.ts
-  config.ts       re-exports both: the ./config subpath the plugin imports
-  endpoints.ts    every NOAA endpoint a product may fetch, with its wire size
-  publisher.ts    the publisher contract, and a file-backed store for caches
-  noaa/client.ts  the ONLY outbound network I/O
-  products/       one module per NOAA product; registry.ts lists them
-  cache/          the on-disk caches the grids and the outlook survive on
-  browser/        the products running in a tab: live.ts, and the seam that
-                  serves the page out of the document they publish
-public/
-  index.html      the page; the three shipping forms are copies of it
-  signalk.js      the ONLY module the page reaches a server through
-  projection.js   the two projections, and the viewport
-  mapRaster.js    grid samplers, and the destination-pixel rasteriser
-  spaceMap.js     the drawing: raster, contours, graticule, coastline, marks
-  geo.js          the coastline, decoded and drawn
-examples/         dated NOAA captures every parser is tested against
-docs/noaa-products.md
-                  measured behaviour of every endpoint: bytes, cadence, quirks
-```
-
-**To add a data source: write `src/products/<name>.ts` implementing
-`Product`, add it to `PRODUCTS` in `src/products/registry.ts`, declare its
-endpoint in `src/endpoints.ts`.** Nothing else.
-
-## Using it
-
-The package root is the server-side entry -- the parsers, the products and
-the publisher contract. The map modules and the browser layer are subpaths,
-so a consumer can take the page without the filesystem:
-
-```js
-import { PRODUCTS, parseKpForecast, settingsFrom } from 'space-weather'
-import { createDocumentSeam } from 'space-weather/browser/seam'
-import { drawSpaceMap } from 'space-weather/spaceMap'
-```
-
-| Subpath                     | What it is                                       |
-| --------------------------- | ------------------------------------------------ |
-| `.`                         | parsers, paths, config, endpoints, products      |
-| `./parse`, `./paths`, ...   | the individual server-side modules               |
-| `./products/*`, `./cache/*` | one product or cache module                      |
-| `./browser/*`               | the products running in a browser tab            |
-| `./projection`, `./mapRaster`, `./spaceMap`, `./geo` | the map stack |
-| `./public/*`                | the page and its assets, for a consumer to serve |
-
-### A consumer serves the page itself
-
-Nothing here serves HTTP. Signal K serves a webapp out of the plugin package's
-own `public/` directory, so the plugin copies this package's `public/` into
-its own at build time -- the same idiom as its `sync-icon.mjs`: generated,
-gitignored, run on `prebuild` and `prepare`. Two files in `public/` are
-themselves generated here, from Natural Earth's coastline GeoJSON (vendored
-unmodified in `data/`) and the `coast-wright` package, by
-`scripts/sync-coastline.mjs`; they ship in the tarball because
-a browser loads the page unbundled and cannot reach `node_modules`.
 
 ## Development
 
@@ -88,12 +71,11 @@ a browser loads the page unbundled and cannot reach `node_modules`.
 npm install && npm run build && npm test
 ```
 
-Tests run with no network, inside 60 seconds; every parser runs against a
-dated capture in `examples/`. [docs/development.md](docs/development.md) has
-the mock rig that stands the page up without a server, and the scripts that
-capture fixtures and re-measure NOAA. [CLAUDE.md](CLAUDE.md) is the
-contribution guide: the constraints that bite, the conventions, the pull
-request and release rules.
+Tests run with no network, against dated NOAA captures in `examples/`.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the setup and the rules,
+[docs/development.md](docs/development.md) the rig that shows the page
+without a server, and [CLAUDE.md](CLAUDE.md) the architecture and the
+constraints that bite.
 
 ## Licence
 
