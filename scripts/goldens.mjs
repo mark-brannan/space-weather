@@ -1,27 +1,36 @@
 #!/usr/bin/env node
-// Screenshot goldens: the page off the mock rig, pinned clock, compared pixel
-// for pixel against screenshots/goldens/. Modelled on searoom's.
+// Screenshot goldens: the page off the mock rig and the shipping site on its
+// saved capture, clocks pinned, compared pixel for pixel against
+// screenshots/goldens/. Modelled on searoom's.
 //
-//   node scripts/goldens.mjs update [baseUrl]   rewrite screenshots/goldens/
-//   node scripts/goldens.mjs check  [baseUrl]   compare; exit 1 if any shot
-//                                               differs by more than 0.1% of pixels
+//   node scripts/goldens.mjs update [--rig URL] [--site URL]  rewrite screenshots/goldens/
+//   node scripts/goldens.mjs check  [--rig URL] [--site URL]  compare; exit 1 if any shot
+//                                                             differs by more than 0.1% of pixels
 //
-// Without a baseUrl the script starts its own rig on a free port, with
-// `--now NOW` so that the fabricated data is the same every run; the page's
-// clock is pinned to the same instant. With one (CI starts the rig itself)
-// the rig must have been started with that flag, or every timer differs.
-// `check` writes the actual renders and a red-mask diff-*.png for each miss
-// to goldens-out/ (CI uploads it). Comparison runs in the browser on a
-// canvas, so no image dependency is added.
+// Two rigs. The mock (`--mock --now NOW`) fabricates its states, so a G4
+// storm is a picture anyone can take; the site (`--noaa`, the output of
+// scripts/build-site.mjs) is shot on ?snapshot, the one source with real
+// grids under the map, which the mock cannot fabricate. Without a URL the
+// script starts a rig itself on a free port. With one (CI starts them) the
+// mock rig must have been started with `--now NOW`, or every timer differs.
+// The page's clock is pinned to match: NOW on the mock, the capture's moment
+// on the site. `check` writes the actual renders and a red-mask diff-*.png
+// for each miss to goldens-out/ (CI uploads it). Comparison runs in the
+// browser on a canvas, so no image dependency is added.
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { parseArgs } from 'node:util'
 
-const mode = process.argv[2] ?? 'check'
-if (mode !== 'check' && mode !== 'update') {
-  console.error(`usage: goldens.mjs check|update [baseUrl]`)
+const { values: opts, positionals } = parseArgs({
+  options: { rig: { type: 'string' }, site: { type: 'string' } },
+  allowPositionals: true
+})
+const mode = positionals[0] ?? 'check'
+if ((mode !== 'check' && mode !== 'update') || positionals.length > 1) {
+  console.error('usage: goldens.mjs check|update [--rig URL] [--site URL]')
   process.exit(1)
 }
 const goldenDir = 'screenshots/goldens'
@@ -31,10 +40,16 @@ const MAX_DIFF_FRACTION = 0.001 // 0.1% of pixels
 const CHANNEL_TOLERANCE = 16 // per-channel delta below this is anti-aliasing noise
 const MAX_HEIGHT = 3000 // px; a long phone page stays a reviewable PNG
 
-// A quiet and a stormy dashboard, the other three views on the storm, and the
-// empty page; dark at both widths, light on the two dashboards only -- the
-// light theme is the same layout with other tokens, so one width shows it.
-const shots = [
+// ?snapshot runs the page on the capture's clock, so that is the instant to
+// pin it at: the countdown, the greyline and every "updated" stamp are then
+// the capture's own on every run.
+const { capturedAt } = JSON.parse(readFileSync('site/snapshot.json', 'utf8'))
+
+// Off the mock: a quiet and a stormy dashboard, the other three views on the
+// storm, and the empty page; dark at both widths, light on the two dashboards
+// only -- the light theme is the same layout with other tokens, so one width
+// shows it.
+const mockShots = [
   ['quiet', 'dashboard', ['dark', 'light']],
   ['storm', 'dashboard', ['dark', 'light']],
   ['storm', 'advisories', ['dark']],
@@ -42,16 +57,23 @@ const shots = [
   ['storm', 'diagnostics', ['dark']],
   ['nodata', 'dashboard', ['dark']]
 ]
+// Off the site on its saved capture: the map with real grids under it, and
+// the day the other two views show. README.md's pictures are files from here.
+const siteShots = [
+  ['snapshot', 'map', ['dark']],
+  ['snapshot', 'dashboard', ['dark']],
+  ['snapshot', 'advisories', ['dark']]
+]
 const widths = [
   [1280, 900],
   [360, 740]
 ]
 
-let base = process.argv[3]
-let server
-if (!base) {
-  // A free port rather than a fixed one, like shots.mjs: two worktrees
-  // shooting at once would otherwise screenshot each other's rig.
+const rigs = []
+// A free port rather than a fixed one, like shots.mjs: two worktrees shooting
+// at once would otherwise screenshot each other's rig. The site rig assembles
+// site-dist/ before it listens, which is most of the wait.
+async function startRig(args) {
   const port = await new Promise((resolve, reject) => {
     const probe = createServer()
     probe.once('error', reject)
@@ -60,50 +82,26 @@ if (!base) {
       probe.close(() => resolve(port))
     })
   })
-  base = `http://127.0.0.1:${port}`
-  server = spawn(
-    'node',
-    [
-      'scripts/mock-webapp.mjs',
-      String(port),
-      '--mock',
-      '--host',
-      '127.0.0.1',
-      '--now',
-      NOW
-    ],
-    { stdio: ['ignore', 'ignore', 'inherit'] }
+  const base = `http://127.0.0.1:${port}`
+  rigs.push(
+    spawn(
+      'node',
+      ['scripts/mock-webapp.mjs', String(port), '--host', '127.0.0.1', ...args],
+      { stdio: ['ignore', 'ignore', 'inherit'] }
+    )
   )
-  let up = false
-  for (let i = 0; i < 50 && !up; i++) {
+  for (let i = 0; i < 200; i++) {
     try {
-      up = (await fetch(base)).ok
+      if ((await fetch(base)).ok) return base
     } catch {
       await sleep(100)
     }
   }
-  if (!up) {
-    server.kill()
-    throw new Error(`mock rig did not answer at ${base}`)
-  }
+  throw new Error(`rig did not answer at ${base} (${args.join(' ')})`)
 }
-base = base.replace(/\/$/, '')
-
-mkdirSync(mode === 'update' ? goldenDir : outDir, { recursive: true })
-
-const browser = await chromium.launch()
-const context = await browser.newContext({
-  reducedMotion: 'reduce',
-  deviceScaleFactor: 1,
-  timezoneId: 'UTC',
-  locale: 'en-US'
-})
-const page = await context.newPage()
-const cmp = await context.newPage()
-await page.clock.setFixedTime(new Date(NOW))
 
 // Returns { fraction, diffPng (base64) } for two PNG buffers.
-async function compare(goldenPng, actualPng) {
+async function compare(cmp, goldenPng, actualPng) {
   return cmp.evaluate(
     async ([g, a, tol]) => {
       const load = (b64) =>
@@ -160,74 +158,112 @@ async function compare(goldenPng, actualPng) {
   )
 }
 
+let browser
 let failed = 0
 try {
-  for (const [w, h] of widths) {
-    await page.setViewportSize({ width: w, height: h })
-    for (const [state, view, themes] of shots) {
-      for (const theme of themes) {
-        if (theme === 'light' && w !== widths[0][0]) continue
-        const file = `${state}-${view}-${theme}-${w}.png`
-        await page.emulateMedia({ colorScheme: theme })
-        // /mock/<state> sets the rig's cookie and bounces to /; the hash
-        // rides along and picks the view. Both are checked the way
-        // shots.mjs does: a fallback would be a plausible picture of the
-        // wrong thing.
-        await page.goto(`${base}/mock/${state}#${view}`, {
-          waitUntil: 'networkidle'
-        })
-        const picked = await page.evaluate(
-          () => /mockstate=([a-z]+)/.exec(document.cookie)?.[1]
-        )
-        if (picked !== state)
-          throw new Error(`mock rig has no state "${state}"`)
-        if (!(await page.locator(`#view-${view}:not([hidden])`).count()))
-          throw new Error(`page did not show view "${view}"`)
-        // The rig's state switcher is fixed to the bottom edge; a golden is
-        // of the page, not the rig.
-        await page.addStyleTag({
-          content: '[data-mock-strip] { display: none !important }'
-        })
-        await page.waitForTimeout(600)
-        const height = await page.evaluate(
-          () => document.documentElement.scrollHeight
-        )
-        const shot = await page.screenshot({
-          fullPage: true,
-          clip: { x: 0, y: 0, width: w, height: Math.min(height, MAX_HEIGHT) }
-        })
-        if (mode === 'update') {
-          writeFileSync(`${goldenDir}/${file}`, shot)
-          console.log('wrote', file)
-          continue
-        }
-        writeFileSync(`${outDir}/${file}`, shot)
-        if (!existsSync(`${goldenDir}/${file}`)) {
-          console.log('MISSING', file)
-          failed++
-          continue
-        }
-        const { fraction, diffPng } = await compare(
-          readFileSync(`${goldenDir}/${file}`),
-          shot
-        )
-        const pct = (fraction * 100).toFixed(3)
-        if (fraction > MAX_DIFF_FRACTION) {
-          writeFileSync(
-            `${outDir}/diff-${file}`,
-            Buffer.from(diffPng, 'base64')
+  const rig = (opts.rig ?? (await startRig(['--mock', '--now', NOW]))).replace(
+    /\/$/,
+    ''
+  )
+  const site = (opts.site ?? (await startRig(['--noaa']))).replace(/\/$/, '')
+
+  mkdirSync(mode === 'update' ? goldenDir : outDir, { recursive: true })
+
+  browser = await chromium.launch()
+  const context = await browser.newContext({
+    reducedMotion: 'reduce',
+    deviceScaleFactor: 1,
+    timezoneId: 'UTC',
+    locale: 'en-US',
+    // The site's worker precaches its whole shell on first load: traffic
+    // that races networkidle and changes no pixel.
+    serviceWorkers: 'block'
+  })
+  const page = await context.newPage()
+  const cmp = await context.newPage()
+
+  // Each source is checked the way shots.mjs does, state and view both: a
+  // fallback would be a plausible picture of the wrong thing. /mock/<state>
+  // sets the mock's cookie and bounces to /; the hash rides along and picks
+  // the view. The site keeps ?snapshot in its URL.
+  const sources = [
+    {
+      name: 'mock rig',
+      shots: mockShots,
+      now: NOW,
+      url: (state, view) => `${rig}/mock/${state}#${view}`,
+      picked: () => /mockstate=([a-z]+)/.exec(document.cookie)?.[1]
+    },
+    {
+      name: 'site',
+      shots: siteShots,
+      now: capturedAt,
+      url: (state, view) => `${site}/?${state}#${view}`,
+      picked: () => new URLSearchParams(location.search).keys().next().value
+    }
+  ]
+
+  for (const { name, shots, now, url, picked } of sources) {
+    await page.clock.setFixedTime(new Date(now))
+    for (const [w, h] of widths) {
+      await page.setViewportSize({ width: w, height: h })
+      for (const [state, view, themes] of shots) {
+        for (const theme of themes) {
+          if (theme === 'light' && w !== widths[0][0]) continue
+          const file = `${state}-${view}-${theme}-${w}.png`
+          await page.emulateMedia({ colorScheme: theme })
+          await page.goto(url(state, view), { waitUntil: 'networkidle' })
+          if ((await page.evaluate(picked)) !== state)
+            throw new Error(`${name} did not show "${state}"`)
+          if (!(await page.locator(`#view-${view}:not([hidden])`).count()))
+            throw new Error(`page did not show view "${view}"`)
+          // The mock's state switcher is fixed to the bottom edge; a golden
+          // is of the page, not the rig.
+          await page.addStyleTag({
+            content: '[data-mock-strip] { display: none !important }'
+          })
+          await page.waitForTimeout(600)
+          const height = await page.evaluate(
+            () => document.documentElement.scrollHeight
           )
-          console.log(`FAIL ${file} ${pct}% differs`)
-          failed++
-        } else {
-          console.log(`ok   ${file} ${pct}%`)
+          const shot = await page.screenshot({
+            fullPage: true,
+            clip: { x: 0, y: 0, width: w, height: Math.min(height, MAX_HEIGHT) }
+          })
+          if (mode === 'update') {
+            writeFileSync(`${goldenDir}/${file}`, shot)
+            console.log('wrote', file)
+            continue
+          }
+          writeFileSync(`${outDir}/${file}`, shot)
+          if (!existsSync(`${goldenDir}/${file}`)) {
+            console.log('MISSING', file)
+            failed++
+            continue
+          }
+          const { fraction, diffPng } = await compare(
+            cmp,
+            readFileSync(`${goldenDir}/${file}`),
+            shot
+          )
+          const pct = (fraction * 100).toFixed(3)
+          if (fraction > MAX_DIFF_FRACTION) {
+            writeFileSync(
+              `${outDir}/diff-${file}`,
+              Buffer.from(diffPng, 'base64')
+            )
+            console.log(`FAIL ${file} ${pct}% differs`)
+            failed++
+          } else {
+            console.log(`ok   ${file} ${pct}%`)
+          }
         }
       }
     }
   }
 } finally {
-  await browser.close()
-  server?.kill()
+  await browser?.close()
+  for (const server of rigs) server.kill()
 }
 
 if (failed) {

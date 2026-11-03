@@ -58,8 +58,9 @@ jobs:
 
   # Screenshot goldens (scripts/goldens.mjs): the dashboard quiet and in a
   # storm, the storm's other views and the empty page, off the mock rig with
-  # its clock pinned, dark at 1280 and 360 px plus light at 1280. Fails when a
-  # shot differs from screenshots/goldens by more than 0.1% of pixels.
+  # its clock pinned, and the shipping site on its saved capture (the map with
+  # real grids under it); dark at 1280 and 360 px plus light at 1280. Fails
+  # when a shot differs from screenshots/goldens by more than 0.1% of pixels.
   # goldens-out/ (the actual renders, plus a red-mask diff-*.png per failure)
   # is uploaded either way; on a deliberate change, `npm run goldens:update`
   # and commit. A measurement, not a gate, so it stays out of ci-gate's needs
@@ -77,17 +78,23 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # The rig's map routes load the products out of dist/.
+      # The mock's map routes load the products out of dist/, and the site
+      # rig assembles site-dist/ from it.
       - run: npm run build
-      - name: Start the mock rig and compare against the goldens
+      - name: Start the two rigs and compare against the goldens
         run: |
           node scripts/mock-webapp.mjs 8731 --mock --host 127.0.0.1 \
             --now 2026-03-20T12:00:00Z > rig.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8731/ > /dev/null && break
-            sleep 1
+          node scripts/mock-webapp.mjs 8732 --noaa --host 127.0.0.1 \
+            > site.log 2>&1 &
+          for port in 8731 8732; do
+            for i in $(seq 1 30); do
+              curl -sf http://127.0.0.1:$port/ > /dev/null && break
+              sleep 1
+            done
           done
-          node scripts/goldens.mjs check http://127.0.0.1:8731
+          node scripts/goldens.mjs check --rig http://127.0.0.1:8731 \
+            --site http://127.0.0.1:8732
       - if: always()
         uses: actions/upload-artifact@v7
         with:
