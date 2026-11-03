@@ -310,12 +310,8 @@ forecast never reaches G3 — is false, so the same ladder as `kp` applies and
 the user's own thresholds decide what interrupts. Two things the sample also
 says, which the zones do not change:
 
-- A G3 or higher outlook comes from the first two days of the window, which
-  `kp` and `scales` already cover, with a 3-hourly series and higher skill.
-  The outlook's zone is a second path to the same event, not early warning.
-- `maxKp` is the peak of the whole 27-day issue and does not change until the
-  next issue replaces it, so it carries the head-of-window storm for as long as
-  the issue stands, not for as long as the storm does.
+- A G3+ outlook day is day 0 or 1, which `kp` and `scales` already cover: a second path, not early warning.
+- `maxKp` holds the issue's peak until the next issue, so it outlasts the storm it carries.
 
 ## Conditional GET never saves anything
 
