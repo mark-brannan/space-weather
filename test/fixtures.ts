@@ -85,7 +85,7 @@ export const FLARE_FIXTURES = [
  * The week of flares the 24-hour peak is picked out of, paired with the
  * instant to read them against. The window is measured back from a real
  * clock, so a bare filename would answer differently every day it is run --
- * the same reason `kp` is excluded from the dead-field sweep.
+ * the same reason the dead-field sweep pins each `kp` capture to its own clock.
  *
  * 2026-08-26 spans the M6.9 of the 25th that issue #122 names and the M8.1 of
  * the 20th, so the same file carries a 24-hour window with an M in it and one
