@@ -9,11 +9,16 @@
  * It buys that horizon by being a *recurrence* forecast: 27 days is the
  * rotation period, so the outlook is largely the last rotation repeated on the
  * assumption the same coronal holes come back around. Lower skill than the
- * 3-day products, and a daily maximum rather than a 3-hourly value. So nothing
- * here carries `zones` and nothing raises a notification -- a G1 day turns up
- * in the window roughly monthly, and alarming on that would dilute the 3-day
- * alerts that are worth interrupting for. This is data to look at, not to be
- * woken by.
+ * 3-day products, and a daily maximum rather than a 3-hourly value.
+ *
+ * `maxKp` and `maxNoaaScale` carry the same zones as the 72-hour Kp paths, so
+ * the user's `alarmLevel`/`popupLevel`/`listLevel` decide what interrupts
+ * them: at the defaults a G1 or G2 day is `normal` and says nothing, and only
+ * G3 and above is a notification. The outlook does forecast Kp 7+, so the zone
+ * is not decoration; what was measured, including where in the window those
+ * days fall, is in docs/noaa-products.md. Nothing else here carries `zones`:
+ * the time, the storm-onset pair and the series describe the forecast rather
+ * than a condition.
  *
  * Issued weekly, not daily: the table is part of NOAA's Weekly Highlights and
  * Forecasts bulletin and carries that bulletin's issue timestamp. So it takes
@@ -22,8 +27,15 @@
  * ever have cause to turn. See docs/noaa-products.md for the observed day and
  * time, and for how far that has actually been checked.
  */
+import type { Settings } from '../settings.js'
 import { OUTLOOK27_BASE } from '../paths.js'
-import { NoaaScaleValues, parse27DayOutlook } from '../parse.js'
+import {
+  NoaaScaleValues,
+  parse27DayOutlook,
+  zoneMethods,
+  zonesForKp,
+  zonesForScale
+} from '../parse.js'
 import type { Meta } from '../publisher.js'
 import { Product } from './types.js'
 import { OUTLOOK_27_DAY } from '../endpoints.js'
@@ -54,9 +66,11 @@ export const outlook27: Product = {
   endpoints: [OUTLOOK_27_DAY],
   intervalMinutes: () => INTERVAL_MINUTES,
 
-  metadata(): Meta[] {
-    // Kp is dimensionless, so no `units` -- and no `zones` either, on any
-    // path here; see the note at the top of the file.
+  metadata(settings: Settings): Meta[] {
+    const methods = zoneMethods()
+    const { alarmLevel, popupLevel, listLevel } = settings
+    // Kp is dimensionless, so no `units`. Zones go on the peak Kp and its G
+    // scale only; see the note at the top of the file.
     const kpScale = { displayScale: { lower: 0, upper: 9, type: 'linear' } }
     const recurrence =
       ' Recurrence forecast at daily resolution -- lower confidence than the' +
@@ -67,6 +81,8 @@ export const outlook27: Product = {
         path: `${OUTLOOK27_BASE}.maxKp`,
         value: {
           ...kpScale,
+          ...methods,
+          zones: zonesForKp(alarmLevel, popupLevel, listLevel),
           timeout: TIMEOUT_SECONDS,
           displayName: 'Peak Kp (27-day outlook)',
           shortName: 'Kp 27d',
@@ -88,6 +104,8 @@ export const outlook27: Product = {
       {
         path: `${OUTLOOK27_BASE}.maxNoaaScale`,
         value: {
+          ...methods,
+          zones: zonesForScale('G', alarmLevel, popupLevel, listLevel),
           timeout: TIMEOUT_SECONDS,
           displayName: 'Peak G scale (27-day outlook)',
           description:
