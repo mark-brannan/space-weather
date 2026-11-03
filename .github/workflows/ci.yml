@@ -81,7 +81,7 @@ jobs:
       - run: npm run build
       - name: Start the mock rig and compare against the goldens
         run: |
-          node scripts/mock-webapp.mjs 8731 --host 127.0.0.1 \
+          node scripts/mock-webapp.mjs 8731 --mock --host 127.0.0.1 \
             --now 2026-03-20T12:00:00Z > rig.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8731/ > /dev/null && break
@@ -100,6 +100,13 @@ jobs:
   # nothing. Listed in ci-gate's needs, so it needs no ruleset entry.
   nonempty:
     uses: mark-brannan/.github/.github/workflows/nonempty-diff.yml@main
+
+  # The squash title is the commit release-please reads, so it carries a
+  # type: `fix(area): ...`, not `area: ...`.
+  pr-title:
+    permissions:
+      pull-requests: read
+    uses: mark-brannan/.github/.github/workflows/pr-title.yml@main
 
   prose-budget:
     uses: mark-brannan/.github/.github/workflows/prose-budget.yml@main
@@ -123,7 +130,7 @@ jobs:
   # evaluate when a dependency failed, so it reports an explicit pass or fail
   # of its own rather than inheriting the skip.
   ci-gate:
-    needs: [test, typecheck, nonempty, prose-budget]
+    needs: [test, typecheck, nonempty, pr-title, prose-budget]
     if: always()
     # It reads nothing and writes nothing; the results go in as an input.
     permissions: {}
