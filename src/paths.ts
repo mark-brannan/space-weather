@@ -43,11 +43,15 @@ export const ALERTS_BASE = 'notifications.noaa.swpc.alerts'
  * while a Strong-or-greater storm is in force, whatever mix of message codes
  * is carrying it. `stormLevelInForce`/`stormTransition` in parse.ts own the
  * semantics.
- *
- * The leaf is a deliberately unshippable PLACEHOLDER: the real name is still
- * being decided in #298. Rename it there before this reaches a release.
  */
-export const STORM_BASE = 'notifications.noaa.swpc.stormPlaceholder'
+export const STORM_BASE = 'notifications.noaa.swpc.storm'
+/**
+ * The path STORM_BASE shipped under as a placeholder, in plugin 0.30.8 through
+ * 0.30.11. Never published to any more. Signal K cannot delete a path, so a
+ * copy left raised in a running server's model has to be stood down once, or
+ * it stays raised forever.
+ */
+export const STORM_BASE_RETIRED = 'notifications.noaa.swpc.stormPlaceholder'
 // A single "most recent Noon reading" value, not bucketed by observation
 // range like the scales -- there is only ever one current number.
 export const F107_BASE = 'environment.noaa.swpc.f107'
