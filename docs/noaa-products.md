@@ -439,28 +439,29 @@ the parser accept the old shape as well as the new one. `parseSolarWind` and
 
 ## `/products/alerts.json` is an archive, not current conditions
 
-118 to 200 messages per payload, nearly all describing events that ended weeks
+89 to 200 messages per payload, nearly all describing events that ended weeks
 ago, and NOAA mints a fresh serial number every time it extends or continues one
 condition — one ongoing K-index warning became 19 separate notification paths in
 a month. See [#45](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/45).
 
-Counted 2026-08-13 over the three captured fixtures — `alerts.2025_04_11.json`
-(180 messages), `alerts.2025_04_17.json` (200) and `alerts.2026_08_01.json`
-(118). Re-count when a fixture is added; every figure below moved the last time
-one was.
+Counted 2026-11-04 over the four captured fixtures — `alerts.2025_04_11.json`
+(180 messages), `alerts.2025_04_17.json` (200), `alerts.2026_08_01.json`
+(118) and `alerts.2026_11_04.json` (89, a quiet sky two days after a G2).
+Re-count when a fixture is added; every figure below moved the last time one
+was.
 
 | At the default alarm level | In force | Audible |
 | --- | --- | --- |
-| At each fixture's capture time | 4, in all three | 0 |
-| Peak over each fixture's whole span | 8 / 10 / 11 | 0 |
+| At each fixture's capture time | 4 / 6 / 4 / 1 | 0 |
+| Peak over each fixture's whole span | 8 / 10 / 11 / 12 | 0 |
 
 **Nothing in any captured payload is audible at the default**, including both
 April 2025 storms: they peaked at an observed G4, which is `warn` — visual only
 — until `alarmLevel` is lowered to 4. `test/alerts.test.ts` pins that at the
 16 April peak, where the default raises one visual notification and no sound.
 
-The busiest payload is `alerts.2026_08_01.json` at 11 simultaneous conditions,
-not either April storm; `MAX_ALERT_NOTIFICATIONS` is set well above it.
+The busiest payload is `alerts.2026_11_04.json` at 12 simultaneous conditions,
+reached on 10 October, not either April storm; `MAX_ALERT_NOTIFICATIONS` is set well above it.
 
 NOAA also writes a scale as `G3 or greater` when it will not say how bad a storm
 will get. That is the level it stated, and grading it as 5 makes an uncertain

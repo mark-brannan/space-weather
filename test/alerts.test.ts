@@ -135,7 +135,8 @@ describe('currentAlertNotifications', () => {
       const payload = fixtureJson(name)
       const { inForce } = select(name)
 
-      expect(payload.length, name).toBeGreaterThan(100)
+      // A quiet month still archives dozens.
+      expect(payload.length, name).toBeGreaterThan(50)
       expect(inForce.length, name).toBeGreaterThan(0)
       expect(inForce.length, name).toBeLessThanOrEqual(10)
     }
@@ -205,7 +206,8 @@ describe('currentAlertNotifications', () => {
     const peaks: Record<string, number> = {
       'alerts.2025_04_11.json': 8,
       'alerts.2025_04_17.json': 10,
-      'alerts.2026_08_01.json': 11
+      'alerts.2026_08_01.json': 11,
+      'alerts.2026_11_04.json': 12
     }
 
     for (const name of ALERT_FIXTURES) {

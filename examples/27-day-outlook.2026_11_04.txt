@@ -1,0 +1,39 @@
+:Product: 27-day Space Weather Outlook Table 27DO.txt
+:Issued: 2026 Nov 02 0218 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Product description and SWPC contact on the Web
+# https://www.swpc.noaa.gov/content/subscription-services
+#
+#      27-day Space Weather Outlook Table
+#                Issued 2026-11-02
+#
+#   UTC      Radio Flux   Planetary   Largest
+#  Date       10.7 cm      A Index    Kp Index
+2026 Nov 02      95          10          3
+2026 Nov 03     100           5          2
+2026 Nov 04     100           5          2
+2026 Nov 05     105          10          3
+2026 Nov 06     110          10          3
+2026 Nov 07     115          10          3
+2026 Nov 08     115           5          2
+2026 Nov 09     120          15          4
+2026 Nov 10     115          10          3
+2026 Nov 11     110          10          3
+2026 Nov 12     110          10          3
+2026 Nov 13     105           5          2
+2026 Nov 14     105           5          2
+2026 Nov 15     105           5          2
+2026 Nov 16     100          10          3
+2026 Nov 17      95          20          5
+2026 Nov 18      95          20          5
+2026 Nov 19      90          10          3
+2026 Nov 20      90           5          2
+2026 Nov 21      85           5          2
+2026 Nov 22      85           5          2
+2026 Nov 23      85           5          2
+2026 Nov 24      90           5          2
+2026 Nov 25      95           5          2
+2026 Nov 26      95          10          3
+2026 Nov 27      95          24          5
+2026 Nov 28      95          20          5
+
