@@ -16,12 +16,12 @@ and answers the first question first: is anything happening right now?
 ## What it shows
 
 - **Dashboard.** Storm scales now and three days out, the Kp chart, solar
-  wind, and which HF bands are open where you are.
+  wind, HF bands open where you are.
 - **[Advisories](screenshots/goldens/snapshot-advisories-dark-1280.png).**
   NOAA's weekly outlook and a week of alerts, watches and warnings, in
   NOAA's words.
-- **Map.** Aurora and HF absorption on a globe centred on you, or the flat
-  world; the greyline; click to score a radio path.
+- **Map.** Aurora and HF absorption on a globe centred on you; the
+  greyline; click to score a radio path.
 - **[Diagnostics](screenshots/goldens/storm-diagnostics-dark-1280.png).**
   What the page fetched from NOAA, endpoint by endpoint, against what it
   should have cost.
@@ -37,14 +37,13 @@ the test rig's; the page is the shipping page.*
 
 ## Three ways to run it
 
-- **In a browser.** The links above. The map centres on your position if
-  you allow it, else on a stand-in spot off Alaska.
+- **In a browser.** The map centres on your position if you allow it, else
+  on a stand-in spot off Alaska.
 - **On a boat.**
   [signalk-noaa-space-weather](https://github.com/mark-brannan/signalk-noaa-space-weather)
-  runs it inside Signal K: readings become paths, storms notifications, the
-  grids chart layers.
-- **In your own code.** `npm install space-weather`, the package the plugin
-  is built on: parsers, products, the page. [CLAUDE.md](CLAUDE.md) maps it.
+  runs it inside Signal K.
+- **In your own code.** `npm install space-weather`: parsers, products, the
+  page. [CLAUDE.md](CLAUDE.md) maps it.
 
 ## What it publishes
 
