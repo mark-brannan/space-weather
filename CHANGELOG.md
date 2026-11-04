@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/mark-brannan/space-weather/compare/v0.1.4...v0.1.5) (2026-11-04)
+
+
+### Fixed
+
+* **goldens:** start the CI rig with --mock ([#62](https://github.com/mark-brannan/space-weather/issues/62)) ([5d5981d](https://github.com/mark-brannan/space-weather/commit/5d5981d9a0feccff5e3ed8847c4afefdc788959d))
+* **outlook27:** zone the peak Kp and G scale; the outlook does forecast Kp 7+ ([#43](https://github.com/mark-brannan/space-weather/issues/43)) ([c047252](https://github.com/mark-brannan/space-weather/commit/c04725287bc762005ab3e637bb39476aa2cb86a0))
+
 ## [0.1.4](https://github.com/mark-brannan/space-weather/compare/v0.1.3...v0.1.4) (2026-10-15)
 
 
