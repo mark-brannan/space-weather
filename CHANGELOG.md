@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/mark-brannan/space-weather/compare/v0.1.5...v0.1.6) (2026-11-04)
+
+
+### Fixed
+
+* **alerts:** name the storm path swpc.storm ([#42](https://github.com/mark-brannan/space-weather/issues/42)) ([fe99f76](https://github.com/mark-brannan/space-weather/commit/fe99f76b9c1863b7c76ea34f00a31c39e7453f39))
+
 ## [0.1.5](https://github.com/mark-brannan/space-weather/compare/v0.1.4...v0.1.5) (2026-11-04)
 
 
