@@ -24,7 +24,9 @@ export function fixtureJson(name: string): any {
 export const ALERT_FIXTURES = [
   'alerts.2025_04_11.json',
   'alerts.2025_04_17.json',
-  'alerts.2026_08_01.json'
+  'alerts.2026_08_01.json',
+  // Two days after a G2: the archive is full of warnings, every one expired.
+  'alerts.2026_11_04.json'
 ]
 
 export const SCALES_FIXTURES = [
@@ -36,7 +38,10 @@ export const SCALES_FIXTURES = [
   'noaa-scales.2026_08_01.json',
   // The payload behind issue #120: R2 in the 24-hour maximum, R0 in the
   // instantaneous reading the badges used to draw.
-  'noaa-scales.2026_08_25.json'
+  'noaa-scales.2026_08_25.json',
+  // The real counterpart of the synthetic quiet-with-forecast: nothing
+  // observed, an R1-R2 chance ahead.
+  'noaa-scales.2026_11_04.json'
 ]
 
 export const ADVISORY_FIXTURES = [
@@ -45,7 +50,9 @@ export const ADVISORY_FIXTURES = [
   'advisory-outlook.2025_04_14.txt',
   'advisory-outlook.2025_04_18.txt',
   'advisory-outlook.2026_08_01.txt',
-  'advisory-outlook.2026_08_03.txt'
+  'advisory-outlook.2026_08_03.txt',
+  // Summarises a G2 that has passed and forecasts nothing.
+  'advisory-outlook.2026_11_04.txt'
 ]
 
 /**
@@ -78,7 +85,8 @@ export const FLARE_FIXTURES = [
   'xray-flares-latest.2026_08_25.json',
   // The payload behind issue #122: `current_class` B7.6 -- background flux --
   // on a day whose latest flare actually peaked at C4.7.
-  'xray-flares-latest.2026_08_26.json'
+  'xray-flares-latest.2026_08_26.json',
+  'xray-flares-latest.2026_11_04.json'
 ]
 
 /**
@@ -95,6 +103,11 @@ export const FLARE_WEEK_FIXTURES = [
   {
     file: 'xray-flares-7-day.2026_08_26.json',
     now: '2026-08-26T06:00:00Z'
+  },
+  // A week with nothing above C1.1 in it.
+  {
+    file: 'xray-flares-7-day.2026_11_04.json',
+    now: '2026-11-04T00:08:00Z'
   }
 ]
 
@@ -108,6 +121,10 @@ export const SOLAR_WIND_FIXTURES = [
   {
     speed: 'solar-wind-speed.2026_08_01.json',
     magField: 'solar-wind-mag-field.2026_08_01.json'
+  },
+  {
+    speed: 'solar-wind-speed.2026_11_04.json',
+    magField: 'solar-wind-mag-field.2026_11_04.json'
   }
 ]
 
@@ -136,21 +153,31 @@ export const SYNTHETIC_TEXT_FIXTURES = [
   'drap-global-frequencies.warning-in-force.txt'
 ]
 
-export const AURORA_FIXTURES = ['ovation-aurora.2026_08_01.json']
+export const AURORA_FIXTURES = [
+  'ovation-aurora.2026_08_01.json',
+  'ovation-aurora.2026_11_04.json'
+]
 
 export const F107_FIXTURES = [
   'f107_cm_flux.2026_08_06.json',
   'f107_cm_flux.2026_08_25.json',
-  'f107_cm_flux.2026_08_25_2.json'
+  'f107_cm_flux.2026_08_25_2.json',
+  'f107_cm_flux.2026_11_04.json'
 ]
 
-export const WWV_FIXTURES = ['wwv.2026_08_20.txt', 'wwv.2026_08_25.txt']
+export const WWV_FIXTURES = [
+  'wwv.2026_08_20.txt',
+  'wwv.2026_08_25.txt',
+  // No storms observed, none predicted: the real wwv.no-storms.
+  'wwv.2026_11_04.txt'
+]
 
 export const DAILY_SOLAR_FIXTURES = [
   'daily-solar-indices.2026_08_20.txt',
   'daily-solar-indices.2026_08_25.txt',
   'daily-solar-indices.2026_08_26.txt',
-  'daily-solar-indices.2026_08_27.txt'
+  'daily-solar-indices.2026_08_27.txt',
+  'daily-solar-indices.2026_11_04.txt'
 ]
 
 /**
@@ -162,7 +189,8 @@ export const DAILY_SOLAR_FIXTURES = [
 export const OUTLOOK27_FIXTURES = [
   '27-day-outlook.2026_08_12.txt',
   '27-day-outlook.2026_08_24_0259.txt',
-  '27-day-outlook.2026_08_24_1801.txt'
+  '27-day-outlook.2026_08_24_1801.txt',
+  '27-day-outlook.2026_11_04.txt'
 ]
 
 export const OUTLOOK27_CORRUPT_FIXTURE = '27-day-outlook.2026_08_24_0259.txt'
@@ -173,8 +201,45 @@ export const KP_FORECAST_FIXTURES = [
   'noaa-planetary-k-index-forecast.2025_04_11.json',
   'noaa-planetary-k-index-forecast.2025_04_17.json',
   'noaa-planetary-k-index-forecast.2026_08_01.json',
-  'noaa-planetary-k-index-forecast.2026_08_29.json'
+  'noaa-planetary-k-index-forecast.2026_08_29.json',
+  'noaa-planetary-k-index-forecast.2026_11_04.json'
 ]
+
+/**
+ * One real quiet day, every endpoint captured within the same minute, keyed
+ * by the endpoint it answers so every product can run over it at once. It is
+ * also two days after a G2: the alerts archive and the advisory both still
+ * talk about a storm that has passed, so a product reading the past as the
+ * present raises something here.
+ */
+export const QUIET_DAY = {
+  now: '2026-11-04T00:08:00Z',
+  responses: {
+    '/products/noaa-scales.json': 'noaa-scales.2026_11_04.json',
+    '/json/goes/primary/xray-flares-latest.json':
+      'xray-flares-latest.2026_11_04.json',
+    '/json/goes/primary/xray-flares-7-day.json':
+      'xray-flares-7-day.2026_11_04.json',
+    '/products/noaa-planetary-k-index-forecast.json':
+      'noaa-planetary-k-index-forecast.2026_11_04.json',
+    '/products/summary/solar-wind-speed.json':
+      'solar-wind-speed.2026_11_04.json',
+    '/products/summary/solar-wind-mag-field.json':
+      'solar-wind-mag-field.2026_11_04.json',
+    '/products/alerts.json': 'alerts.2026_11_04.json',
+    '/json/goes/primary/xrays-6-hour.json': 'xrays-6-hour.2026_11_04.json',
+    '/json/goes/primary/integral-protons-6-hour.json':
+      'integral-protons-6-hour.2026_11_04.json',
+    '/json/ovation_aurora_latest.json': 'ovation-aurora.2026_11_04.json',
+    '/text/drap_global_frequencies.txt':
+      'drap-global-frequencies.2026_11_04.txt',
+    '/json/f107_cm_flux.json': 'f107_cm_flux.2026_11_04.json',
+    '/text/wwv.txt': 'wwv.2026_11_04.txt',
+    '/text/daily-solar-indices.txt': 'daily-solar-indices.2026_11_04.txt',
+    '/text/27-day-outlook.txt': '27-day-outlook.2026_11_04.txt',
+    '/text/advisory-outlook.txt': 'advisory-outlook.2026_11_04.txt'
+  }
+}
 
 /**
  * The server's zone matcher, reproduced verbatim from signalk-server

@@ -1,0 +1,22 @@
+:Product: Advisory Outlook advisory-outlook.txt
+:Issued: 2026 Nov 02 0230 UTC
+#
+# Prepared by the Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Please send comments and suggestions to SWPC.Webmaster@noaa.gov
+#-------------------------------------------------------------------------
+Official Space Weather Advisory issued by NOAA Space Weather Prediction Center
+Boulder, Colorado, USA
+
+SPACE WEATHER ADVISORY OUTLOOK #26-42
+2026 November 1 at 7:25 p.m. MST (2026 November 2 0225 UTC)
+
+**** SPACE WEATHER OUTLOOK ****
+
+Summary For October 26-November 1
+
+G2 (Moderate) geomagnetic storming was observed on 31 Oct and G1 (Minor) storm levels were observed on 01 Nov. Both events were associated with the onset of a positive polarity CH HSS.
+
+Outlook For November 2-8
+
+No NOAA scale events are expected during the period.
+
