@@ -19,11 +19,14 @@ there is no `--theme` flag. Once per machine, `npx playwright install
 chromium` fetches the browser `npm ci` doesn't.
 
 `npm run goldens:check` renders a fixed set of states and views off the rig
-with its clock pinned (`--now`) and compares them with the PNGs committed
-under `screenshots/goldens/` (`scripts/goldens.mjs` lists the set and the
-tolerance); `goldens-out/` gets the renders and a diff mask per miss. CI runs
-it as a measurement. A deliberate change to the page re-runs
-`npm run goldens:update` and commits the result.
+with its clock pinned (`--now`), plus the shipping site on its saved capture
+(`?snapshot`, the one source with real grids under the map), and compares
+them with the PNGs committed under `screenshots/goldens/`
+(`scripts/goldens.mjs` lists the set and the tolerance); `goldens-out/` gets
+the renders and a diff mask per miss. CI runs it as a measurement. A
+deliberate change to the page, or a fresh `npm run site:capture`, re-runs
+`npm run goldens:update` and commits the result. README.md's pictures are
+files from that set, so they move with it and never go stale on their own.
 
 ## What a session here can show
 

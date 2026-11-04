@@ -11,8 +11,8 @@ requests are welcome.
 
 Two files, and they do not overlap:
 
-- **[README.md](README.md)** — what the package is and how a consumer uses
-  it.
+- **[README.md](README.md)** — the app: what it shows, where it runs, and
+  the ways to get it.
 - **[CLAUDE.md](CLAUDE.md)** — what the codebase *is* and how to work here:
   the architecture, the non-obvious constraints that will bite you (offline
   tests, NOAA changing payload shapes, notification loudness, the page that
