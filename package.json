@@ -1,6 +1,6 @@
 {
   "name": "space-weather",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "NOAA Space Weather Prediction Center products, fetched, parsed and published: geomagnetic storms, radio blackouts, aurora and HF absorption grids, and the map webapp that draws them.",
   "type": "module",
   "main": "./dist/index.js",
