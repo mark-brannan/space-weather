@@ -59,7 +59,7 @@ export interface CostSettings {
 // point is that the doc and the code cannot disagree; test/endpoints.test.ts
 // renders each declaration back into the doc's own units and requires the
 // cell to match.
-const MEASURED = '2026-09-28'
+const MEASURED = '2026-11-17'
 
 const follows = (interval: Interval): Cadence => ({ follows: interval })
 
@@ -72,7 +72,7 @@ export const MINUTES_PER_DAY = 24 * 60
 
 export const SCALES: Endpoint = {
   subPath: '/products/noaa-scales.json',
-  wireBytes: 195,
+  wireBytes: 207,
   measuredOn: MEASURED,
   cadence: follows('updateInterval')
 }
@@ -88,14 +88,14 @@ export const XRAY_FLARES_7_DAY: Endpoint = {
   subPath: '/json/goes/primary/xray-flares-7-day.json',
   // The one endpoint whose size tracks the weather rather than the format:
   // one record per flare, so an active week costs more than a quiet one.
-  wireBytes: 2675,
+  wireBytes: 4877,
   measuredOn: MEASURED,
   cadence: follows('updateInterval')
 }
 
 export const KP_FORECAST: Endpoint = {
   subPath: '/products/noaa-planetary-k-index-forecast.json',
-  wireBytes: 496,
+  wireBytes: 483,
   measuredOn: MEASURED,
   cadence: follows('updateInterval')
 }
@@ -116,14 +116,14 @@ export const SOLAR_WIND_MAG_FIELD: Endpoint = {
 
 export const ALERTS: Endpoint = {
   subPath: '/products/alerts.json',
-  wireBytes: 3920,
+  wireBytes: 4128,
   measuredOn: MEASURED,
   cadence: follows('updateInterval')
 }
 
 export const GOES_XRAYS_6_HOUR: Endpoint = {
   subPath: '/json/goes/primary/xrays-6-hour.json',
-  wireBytes: 25823,
+  wireBytes: 25753,
   measuredOn: MEASURED,
   cadence: follows('goesFluxInterval'),
   requires: 'goesFluxEnabled'
@@ -131,7 +131,7 @@ export const GOES_XRAYS_6_HOUR: Endpoint = {
 
 export const GOES_PROTONS_6_HOUR: Endpoint = {
   subPath: '/json/goes/primary/integral-protons-6-hour.json',
-  wireBytes: 7933,
+  wireBytes: 7941,
   measuredOn: MEASURED,
   cadence: follows('goesFluxInterval'),
   requires: 'goesFluxEnabled'
@@ -139,7 +139,7 @@ export const GOES_PROTONS_6_HOUR: Endpoint = {
 
 export const AURORA: Endpoint = {
   subPath: '/json/ovation_aurora_latest.json',
-  wireBytes: 144878,
+  wireBytes: 155674,
   measuredOn: MEASURED,
   cadence: follows('auroraInterval'),
   requires: 'auroraEnabled'
@@ -147,7 +147,7 @@ export const AURORA: Endpoint = {
 
 export const DRAP: Endpoint = {
   subPath: '/text/drap_global_frequencies.txt',
-  wireBytes: 1888,
+  wireBytes: 2919,
   measuredOn: MEASURED,
   cadence: follows('drapInterval'),
   requires: 'drapEnabled'
@@ -155,35 +155,35 @@ export const DRAP: Endpoint = {
 
 export const F107: Endpoint = {
   subPath: '/json/f107_cm_flux.json',
-  wireBytes: 1300,
+  wireBytes: 1281,
   measuredOn: MEASURED,
   cadence: every(240)
 }
 
 export const A_INDEX: Endpoint = {
   subPath: '/text/wwv.txt',
-  wireBytes: 302,
+  wireBytes: 346,
   measuredOn: MEASURED,
   cadence: every(180)
 }
 
 export const SUNSPOT: Endpoint = {
   subPath: '/text/daily-solar-indices.txt',
-  wireBytes: 799,
+  wireBytes: 830,
   measuredOn: MEASURED,
   cadence: every(240)
 }
 
 export const OUTLOOK_27_DAY: Endpoint = {
   subPath: '/text/27-day-outlook.txt',
-  wireBytes: 476,
+  wireBytes: 477,
   measuredOn: MEASURED,
   cadence: every(1440)
 }
 
 export const ADVISORY: Endpoint = {
   subPath: '/text/advisory-outlook.txt',
-  wireBytes: 399,
+  wireBytes: 514,
   measuredOn: MEASURED,
   // The one cadence that is not a fixed timer: the product sleeps up to a day
   // and then polls every 15 minutes through a six-hour window before the

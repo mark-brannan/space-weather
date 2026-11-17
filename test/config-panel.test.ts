@@ -558,7 +558,7 @@ describe('dailyKb', () => {
     // at the 120-minute default. That number is now computed, and this pins it
     // to the same place the sentence started from.
     const day = dailyKb({ ...settings, auroraEnabled: true })
-    expect(day.aurora / 1024).toBeCloseTo(1.7, 1)
+    expect(day.aurora / 1024).toBeCloseTo(1.8, 1)
   })
 })
 
