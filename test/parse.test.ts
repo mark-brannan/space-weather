@@ -1057,6 +1057,20 @@ describe('parse27DayOutlook', () => {
 })
 
 describe('parseSolarWind', () => {
+  it.each([
+    [-3, -3e-9],
+    [4, 4e-9],
+    [-2, -2e-9]
+  ])('publishes %d nT as exactly %d T, with no float residue', (nT, tesla) => {
+    const wind = parseSolarWind(
+      [{ proton_speed: 287, time_tag: '2026-11-03T00:00:00Z' }],
+      [{ bt: Math.abs(nT), bz_gsm: nT, time_tag: '2026-11-03T00:00:00Z' }]
+    )
+    expect(wind.bz).toBe(tesla)
+    expect(String(wind.bz)).toBe(String(tesla))
+    expect(wind.bt).toBe(Math.abs(tesla))
+  })
+
   it('reads the current NOAA array payload and converts to SI', () => {
     const wind = parseSolarWind(
       fixtureJson('solar-wind-speed.2026_08_01.json'),
