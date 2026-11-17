@@ -1555,8 +1555,9 @@ export function parseSolarWind(speedJson: any, magJson: any): SolarWind {
 
   return {
     speed: speedKmPerSecond === null ? null : speedKmPerSecond * 1000,
-    bt: bt === null ? null : bt * 1e-9,
-    bz: bz === null ? null : bz * 1e-9,
+    // Divide: 1e-9 is inexact, so multiplying yields -3.0000000000000004e-9
+    bt: bt === null ? null : bt / 1e9,
+    bz: bz === null ? null : bz / 1e9,
     timestamp
   }
 }
