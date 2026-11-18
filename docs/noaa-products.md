@@ -54,7 +54,7 @@ its band.
 
 ## Payload size
 
-Measured 2026-09-28, every endpoint the plugin fetches, in one run of
+Measured 2026-11-17, every endpoint the plugin fetches, in one run of
 `scripts/measure-noaa.mjs`. Wire size is the bytes off the socket with
 `Accept-Encoding: gzip`, which is what the plugin actually costs. The decoded
 size is what a fixture on disk shows, and quoting it overstates the cost by
@@ -68,22 +68,22 @@ that mattered, which is part of how the totals below went stale unnoticed.
 
 | Endpoint | Product | Interval | Wire | Decoded |
 | --- | --- | --- | --- | --- |
-| `/products/noaa-scales.json` | `scales` | `updateInterval` | 195 B | 1.1 KB |
+| `/products/noaa-scales.json` | `scales` | `updateInterval` | 207 B | 1.1 KB |
 | `/json/goes/primary/xray-flares-latest.json` | `scales` | `updateInterval` | 450 B | 450 B |
-| `/json/goes/primary/xray-flares-7-day.json` | `scales` | `updateInterval` | 2.6 KB | 14.1 KB |
-| `/products/noaa-planetary-k-index-forecast.json` | `kp` | `updateInterval` | 496 B | 6.7 KB |
+| `/json/goes/primary/xray-flares-7-day.json` | `scales` | `updateInterval` | 4.8 KB | 27.0 KB |
+| `/products/noaa-planetary-k-index-forecast.json` | `kp` | `updateInterval` | 483 B | 6.7 KB |
 | `/products/summary/solar-wind-speed.json` | `solarWind` | `updateInterval` | 59 B | 59 B |
 | `/products/summary/solar-wind-mag-field.json` | `solarWind` | `updateInterval` | 61 B | 61 B |
-| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `goesFluxInterval` | 25.2 KB | 158.8 KB |
-| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `goesFluxInterval` | 7.7 KB | 57.7 KB |
-| `/products/alerts.json` | `alerts` | `updateInterval` | 3.8 KB | 36.4 KB |
-| `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 141.5 KB | 899.0 KB |
-| `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 1.8 KB | 41.5 KB |
-| `/json/f107_cm_flux.json` | `f107` | 4 h | 1.3 KB | 22.8 KB |
-| `/text/wwv.txt` | `aIndex` | 3 h | 302 B | 487 B |
-| `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 799 B | 2.9 KB |
-| `/text/advisory-outlook.txt` | `advisory` | adaptive | 399 B | 731 B |
-| `/text/27-day-outlook.txt` | `outlook27` | 24 h | 476 B | 1.6 KB |
+| `/json/goes/primary/xrays-6-hour.json` | `goesFlux` | `goesFluxInterval` | 25.1 KB | 159.4 KB |
+| `/json/goes/primary/integral-protons-6-hour.json` | `goesFlux` | `goesFluxInterval` | 7.8 KB | 58.6 KB |
+| `/products/alerts.json` | `alerts` | `updateInterval` | 4.0 KB | 42.1 KB |
+| `/json/ovation_aurora_latest.json` | `aurora` | `auroraInterval` | 152.0 KB | 901.1 KB |
+| `/text/drap_global_frequencies.txt` | `drap` | `drapInterval` | 2.9 KB | 41.5 KB |
+| `/json/f107_cm_flux.json` | `f107` | 4 h | 1.3 KB | 22.1 KB |
+| `/text/wwv.txt` | `aIndex` | 3 h | 346 B | 540 B |
+| `/text/daily-solar-indices.txt` | `sunspot` | 4 h | 830 B | 2.9 KB |
+| `/text/advisory-outlook.txt` | `advisory` | adaptive | 514 B | 948 B |
+| `/text/27-day-outlook.txt` | `outlook27` | 24 h | 477 B | 1.6 KB |
 
 **This table is what `src/endpoints.ts` declares**, at the precision recorded
 here; `test/endpoints.test.ts` renders each declaration back into these units
@@ -91,37 +91,37 @@ and fails if a cell disagrees. So a re-measurement is two edits rather than
 one, and the config form quotes whatever the code declares instead of a
 sentence somebody wrote once.
 
-**The seven rows still marked `updateInterval` come to about 7.7 KB a poll** —
-roughly 184 KB a day at the hourly default. The alerts archive is about half of
-it.
+**The seven rows still marked `updateInterval` come to about 10.0 KB a poll** —
+roughly 241 KB a day at the hourly default. The alerts archive and the 7-day
+flare list are about nine tenths of it.
 
 **`goesFlux` was three quarters of that poll before it was split off.** Its two
-time-series windows are 33.0 KB together, against 7.7 KB for the other seven
+time-series windows are 32.9 KB together, against 10.0 KB for the other seven
 endpoints put together, and it was the only product on the interval with no
 `enabled` toggle
 ([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
 It now has `goesFluxEnabled`, defaulting **off**, and `goesFluxInterval`,
-defaulting to 60 minutes. A fresh install therefore costs about 245 KB a day
+defaulting to 60 minutes. A fresh install therefore costs about 327 KB a day
 rather than the roughly 1.0 MB it did before, and switching the pair on takes
 it back to about 1.0 MB.
 
-The rest of the bill, at the defaults: D-RAP 1.8 KB hourly, about 44 KB a day;
-the fixed-cadence bulletins and indices about 17 KB a day between them. That
-plus the 184 KB poll is the whole of a default install — about 245 KB a day.
-The two opt-in products, if switched on: the GOES flux pair 33 KB hourly,
-about 791 KB a day; aurora 141.5 KB every two hours, about 1.7 MB a day.
+The rest of the bill, at the defaults: D-RAP 2.9 KB hourly, about 68 KB a day;
+the fixed-cadence bulletins and indices about 18 KB a day between them. That
+plus the 241 KB poll is the whole of a default install — about 327 KB a day.
+The two opt-in products, if switched on: the GOES flux pair 32.9 KB hourly,
+about 790 KB a day; aurora 152.0 KB every two hours, about 1.8 MB a day.
 
 **Consequence.** None of the fixed-cadence rows gets a setting. `outlook27` is
-476 B a day, `aIndex` 2.4 KB, `sunspot` 4.7 KB, `f107` 7.6 KB and `advisory`
-about 1.7 KB — 17 KB a day between the five, against 1.0 MB for the poll. A
+477 B a day, `aIndex` 2.7 KB, `sunspot` 4.9 KB, `f107` 7.5 KB and `advisory`
+about 2.2 KB — 18 KB a day between the five, against 1.0 MB for the poll. A
 switch that saves under 2% of the bill is a dial, not a decision.
 
-Earlier figures this run supersedes: the 2026-08-28 payload table and its "9.7
-KB a poll" / "301 KB a day" defaults
-([#112](https://github.com/mark-brannan/signalk-noaa-space-weather/issues/112)).
-Routine drift, not a new endpoint or a shape change: almost every row moved a
-few percent, `alerts` and the 7-day flare list moved furthest (−28% and −18%),
-and the poll total dropped from 9.7 KB to 7.7 KB.
+Earlier figures this run supersedes: the 2026-09-28 payload table and its "7.7
+KB a poll" / "245 KB a day" defaults
+([#51](https://github.com/mark-brannan/space-weather/issues/51)).
+Routine drift, not a new endpoint or a shape change: the 7-day flare list moved
+furthest (+82%, it grows with the week's flares), then D-RAP and `alerts`, and
+the poll total rose from 7.7 KB to 10.0 KB.
 
 ### The sunspot number is much cheaper from DSD.txt than from its own products
 
