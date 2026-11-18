@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/mark-brannan/space-weather/compare/v0.1.6...v0.1.7) (2026-11-18)
+
+
+### Fixed
+
+* **parse:** publish Bz as a clean Tesla number ([#72](https://github.com/mark-brannan/space-weather/issues/72)) ([f9600bd](https://github.com/mark-brannan/space-weather/commit/f9600bd091de176aed0c8abcfba7c48423c9088a))
+
 ## [0.1.6](https://github.com/mark-brannan/space-weather/compare/v0.1.5...v0.1.6) (2026-11-04)
 
 
